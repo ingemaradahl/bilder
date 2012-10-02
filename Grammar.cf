@@ -7,9 +7,9 @@ comment "/*" "*/" ;
 Tree. Tree ::= [Toplevel] ;
 
 Function.    Toplevel  ::= Type CIdent "(" [Param] ")" "{" [Stm] "}" ;
-Struct.      Toplevel  ::= "struct" CIdent "{" [StructVarDecl] "}" ";" ;
-StructDecl.  Toplevel  ::= "struct" CIdent "{" [StructVarDecl] "}" Id ";" ;
-Import.      Toplevel  ::= TImport String ;
+Struct.      Toplevel  ::= TStruct CIdent "{" [StructVarDecl] "}" ";" ;
+StructDecl.  Toplevel  ::= TStruct CIdent "{" [StructVarDecl] "}" Id ";" ;
+Import.      Toplevel  ::= TImport String ";" ;
 terminator Toplevel "" ;
 
 
@@ -23,6 +23,7 @@ position token TFor {"for"} ;
 position token TWhile {"while"} ;
 position token TIf {"if"} ;
 position token TElse {"else"} ;
+position token TStruct {"struct"} ;
 
 -- Parameter --------------------------------------------------------
 --ConstParamDec.       Param  ::= "const" Type Id ;
