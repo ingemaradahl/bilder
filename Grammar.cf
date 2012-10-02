@@ -1,4 +1,3 @@
--- TODO: Fix int a, b = 0;
 -- TODO: Think over arrays.
 
 comment "//" ;
@@ -25,13 +24,14 @@ separator Param "," ;
 
 
 -- Declarations -----------------------------------------------------
-Dec.          Decl  ::= Type Id ;
-DecAss.       Decl  ::= Type Id "=" Exp2 ;
-ConstDec.     Decl  ::= "const" Type Id ;
-ConstDecAss.  Decl  ::= "const" Type Id "=" Exp2 ;
-DecStruct.    Decl  ::= Id Id ;
-DecStructAss. Decl  ::= Id Id "=" Exp2 ;
+Dec.             Decl  ::= Type DeclPost ;
+ConstDec.        Decl  ::= "const" Type DeclPost ;
+DecStruct.       Decl  ::= Id DeclPost ;
+ConstDecStruct.  Decl  ::= "const" Id DeclPost ;
 separator  Decl "," ;
+
+OnlyVars.    DeclPost  ::= [Id] ;
+DefaultVars. DeclPost  ::= [Id] "=" Exp2 ;
 
 
 -- Ident ------------------------------------------------------------
