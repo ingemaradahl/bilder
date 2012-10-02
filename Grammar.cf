@@ -1,0 +1,155 @@
+-- TODO: Arrays
+
+comment "//" ;
+comment "/*" "*/" ;
+
+
+Prog. Program  ::= [Globals] ;
+
+GlobalFun.     Globals  ::= Function ;
+GlobalStruct.  Globals  ::= Struct ";" ;
+
+terminator Globals "" ;
+
+Fun.  Function ::= Type CIdent "(" [Param] ")" "{" [Stm] "}" ;
+
+terminator Function "" ;
+
+
+-- Parameter --------------------------------------------------------
+PNorm.    Param  ::= Type [CIdent] ;
+PDefault. Param  ::= Type CIdent "=" Exp2 ;
+
+separator Param "," ;
+
+
+-- Declarations -----------------------------------------------------
+Dec.          Decl  ::= Type [CIdent] ;
+DecAss.       Decl  ::= Type CIdent "=" Exp2 ;
+DecStruct.    Decl  ::= CIdent [CIdent] ;
+DecStructAss. Decl  ::= CIdent CIdent "=" Exp2 ;
+
+separator  Decl "," ;
+
+
+-- CIdent -----------------------------------------------------------
+position token CIdent ((letter | '_') (letter | digit | '_')*) ;
+
+separator nonempty CIdent "," ;
+
+
+-- Structs ----------------------------------------------------------
+Struct.      Struct ::= "struct" CIdent "{" [StructVarDecl] "}" ;
+StructWVar.  Struct ::= "struct" CIdent "{" [StructVarDecl] "}" CIdent ;
+
+StructVarDecl.  StructVarDecl  ::= Decl ";" ;
+
+separator StructVarDecl "" ;
+
+
+-- Statements -------------------------------------------------------
+SDecl.   Stm ::= Decl ";" ;
+SExp.    Stm ::= Exp ";" ;
+SBlock.  Stm ::= "{" [Stm] "}" ;
+SWhile.  Stm ::= "while" "(" Exp ")" Stm ;
+SFor. 	Stm ::= "for" "(" [FDecl] ";" [Exp] ";" [Exp] ")" Stm ;
+SReturn. Stm ::= "return" Exp ";" ;
+
+terminator Stm "" ;
+--coercions Stm 2 ;
+
+--position token TOpenCBracket '{' ;
+--position token TCloseCBracket '}' ;
+--position token TOpenBracket '[' ;
+--position token TCloseBracket ']' ;
+--position token TOpenParentheses '(' ;
+--position token TCloseParantheses ')' ;
+--position token TFor {"for"} ;
+--position token TWhile {"while"} ;
+--position token TReturn {"return"} ;
+
+
+-- For-specific initiation declarations -----------------------------
+-- TODO: What is allowed in first section of a for-loop?
+FDecl.   FDecl ::= Decl ;
+FExp.    FDecl ::= Exp ;
+
+separator FDecl "," ;
+
+
+-- Expressions ------------------------------------------------------
+-- TODO: Fix the precedences.
+ECond.    Exp  ::= Exp "?" Exp1 ":" Exp1 ;
+
+EAss.     Exp1  ::= Exp1 "="  Exp2 ;
+EAssAdd.  Exp1  ::= Exp1 "+=" Exp2 ;
+EAssSub.  Exp1  ::= Exp1 "-=" Exp2 ;
+
+EDisj.    Exp3  ::= Exp3 "||" Exp4 ;
+EConj.    Exp4  ::= Exp4 "&&" Exp5 ;
+
+EEqual.   Exp5  ::= Exp5 "==" Exp6 ;
+ENEqual.  Exp5  ::= Exp5 "!=" Exp6 ;
+
+ELt.      Exp6  ::= Exp6 "<"  Exp7 ;
+EGt.      Exp6  ::= Exp6 ">"  Exp7 ;
+ELEt.     Exp6  ::= Exp6 "<=" Exp7 ;
+EGEt.     Exp6  ::= Exp6 ">=" Exp7 ;
+
+EAdd.     Exp8 ::= Exp8 "+" Exp9 ;
+ESub.     Exp8 ::= Exp8 "-" Exp9 ;
+
+EMul.     Exp9 ::= Exp9 "*" Exp10 ;
+EDiv.     Exp9 ::= Exp9 "/" Exp10 ;
+EMod.     Exp9 ::= Exp9 "%" Exp10 ;
+
+ENeg.     Exp8 ::= "-" Exp9 ;
+EPos.     Exp8 ::= "+" Exp9 ;
+EPreInc.  Exp8 ::= "++" Exp9 ;
+EPreDec.  Exp8 ::= "--" Exp9 ;
+
+EPostInc. Exp10 ::= Exp11 "++" ;
+EPostDec. Exp10 ::= Exp11 "--" ;
+EObject.  Exp10 ::= Exp10 "." Exp11 ;
+
+ECall.     Exp11 ::= CIdent "(" [Exp] ")" ;
+ETypeCall. Exp12 ::= Type "(" [Exp] ")" ;
+
+-- EAnnonFun needed for:
+-- return Color(int x, int y) { ...; return color; }
+-- reduce/reduce between ETypeCall and EAnnonFun.
+--EAnnonFun.   Exp12 ::= Type "(" [Param] ")" "{" [Stm] "}" ;
+
+EAnnonLFun.  Exp12 ::= "lambda" "(" [Param] ")" "{" [Stm] "}" ;
+
+EVar.    Exp13 ::= CIdent ;
+EStr.    Exp13 ::= String ;
+EInt.    Exp13 ::= Integer ;
+Double.  Exp13 ::= Double ;
+
+coercions Exp 13 ;
+separator Exp "," ;
+
+
+-- Types ------------------------------------------------------------
+TInt.      Type ::= "int" ;
+TUInt.     Type ::= "uint" ;
+TFloat.    Type ::= "float" ;
+TBool.     Type ::= "bool" ;
+TBVec2.    Type ::= "BVec2" ;
+TBVec3.    Type ::= "BVec3" ;
+TBVec4.    Type ::= "BVec4" ;
+TIVec2.    Type ::= "IVec2" ;
+TIVec3.    Type ::= "IVec3" ;
+TIVec4.    Type ::= "IVec4" ;
+TUVec2.    Type ::= "UVec2" ;
+TUVec3.    Type ::= "UVec3" ;
+TUVec4.    Type ::= "UVec4" ;
+TVec2.     Type ::= "Vec2" ;
+TVec3.     Type ::= "Vec3" ;
+TVec4.     Type ::= "Vec4" ;
+TMat2.     Type ::= "Mat2" ;
+TMat3.     Type ::= "Mat3" ;
+TMat4.     Type ::= "Mat4" ;
+TColor.    Type ::= "Color" ;
+TImage.    Type ::= "Image" ;
