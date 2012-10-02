@@ -1,4 +1,5 @@
--- TODO: Arrays
+-- TODO: Fix int a, b = 0;
+-- TODO: Think over arrays.
 
 comment "//" ;
 comment "/*" "*/" ;
@@ -6,45 +7,40 @@ comment "/*" "*/" ;
 
 Prog. Program  ::= [Globals] ;
 
-GlobalFun.     Globals  ::= Function ;
-GlobalStruct.  Globals  ::= Struct ";" ;
-
+GFunction.    Globals   ::= Type Id "(" [Param] ")" "{" [Stm] "}" ;
+GStruct.      Globals   ::= "struct" CIdent "{" [StructVarDecl] "}" ";" ;
+GStructWVar.  Globals   ::= "struct" CIdent "{" [StructVarDecl] "}" Id ";" ;
 terminator Globals "" ;
 
-Fun.  Function ::= Type CIdent "(" [Param] ")" "{" [Stm] "}" ;
-
-terminator Function "" ;
+SVDecl. StructVarDecl  ::= Decl ";" ;
+separator StructVarDecl "" ;
 
 
 -- Parameter --------------------------------------------------------
-PNorm.    Param  ::= Type [CIdent] ;
-PDefault. Param  ::= Type CIdent "=" Exp2 ;
-
+ConstParamDec.       Param  ::= "const" Type Id ;
+ConstParamDefault.   Param  ::= "const" Type Id "=" Exp2 ;
+ParamDec.            Param  ::= Type Id ;
+ParamDefault.        Param  ::= Type Id "=" Exp2 ;
 separator Param "," ;
 
 
 -- Declarations -----------------------------------------------------
-Dec.          Decl  ::= Type [CIdent] ;
-DecAss.       Decl  ::= Type CIdent "=" Exp2 ;
-DecStruct.    Decl  ::= CIdent [CIdent] ;
-DecStructAss. Decl  ::= CIdent CIdent "=" Exp2 ;
-
+Dec.          Decl  ::= Type Id ;
+DecAss.       Decl  ::= Type Id "=" Exp2 ;
+ConstDec.     Decl  ::= "const" Type Id ;
+ConstDecAss.  Decl  ::= "const" Type Id "=" Exp2 ;
+DecStruct.    Decl  ::= Id Id ;
+DecStructAss. Decl  ::= Id Id "=" Exp2 ;
 separator  Decl "," ;
 
 
--- CIdent -----------------------------------------------------------
+-- Ident ------------------------------------------------------------
 position token CIdent ((letter | '_') (letter | digit | '_')*) ;
 
-separator nonempty CIdent "," ;
-
-
--- Structs ----------------------------------------------------------
-Struct.      Struct ::= "struct" CIdent "{" [StructVarDecl] "}" ;
-StructWVar.  Struct ::= "struct" CIdent "{" [StructVarDecl] "}" CIdent ;
-
-StructVarDecl.  StructVarDecl  ::= Decl ";" ;
-
-separator StructVarDecl "" ;
+IdEmptyArray. Id  ::= CIdent "[" "]" ;
+IdArray.      Id  ::= CIdent "[" Exp "]" ;
+Ident.        Id  ::= CIdent ;
+separator nonempty Id "," ;
 
 
 -- Statements -------------------------------------------------------
@@ -52,18 +48,19 @@ SDecl.   Stm ::= Decl ";" ;
 SExp.    Stm ::= Exp ";" ;
 SBlock.  Stm ::= "{" [Stm] "}" ;
 SWhile.  Stm ::= "while" "(" Exp ")" Stm ;
-SFor. 	Stm ::= "for" "(" [FDecl] ";" [Exp] ";" [Exp] ")" Stm ;
+SFor. 	Stm ::= "for" "(" [ForDecl] ";" [Exp] ";" [Exp] ")" Stm ;
 SReturn. Stm ::= "return" Exp ";" ;
+-- TODO: shift/reduce here... avoidable?
+SIf.     Stm ::= "if" "(" Exp ")" Stm ;
+SIfElse. Stm ::= "if" "(" Exp ")" Stm "else" Stm ;
 
 terminator Stm "" ;
 --coercions Stm 2 ;
 
---position token TOpenCBracket '{' ;
---position token TCloseCBracket '}' ;
---position token TOpenBracket '[' ;
---position token TCloseBracket ']' ;
---position token TOpenParentheses '(' ;
---position token TCloseParantheses ')' ;
+-- TODO: Add position to everything.
+-- These however does not work properly - the parser does not seem to
+-- parse them as tokens for some reason. They all get parsed as
+-- CIdent.
 --position token TFor {"for"} ;
 --position token TWhile {"while"} ;
 --position token TReturn {"return"} ;
@@ -71,85 +68,112 @@ terminator Stm "" ;
 
 -- For-specific initiation declarations -----------------------------
 -- TODO: What is allowed in first section of a for-loop?
-FDecl.   FDecl ::= Decl ;
-FExp.    FDecl ::= Exp ;
+FDecl.   ForDecl ::= Decl ;
+FExp.    ForDecl ::= Exp ;
 
-separator FDecl "," ;
+separator ForDecl "," ;
 
 
 -- Expressions ------------------------------------------------------
--- TODO: Fix the precedences.
-ECond.    Exp  ::= Exp "?" Exp1 ":" Exp1 ;
+EAss.          Exp1  ::= Exp1 "="  Exp2 ;
+EAssAdd.       Exp1  ::= Exp1 "+=" Exp2 ;
+EAssSub.       Exp1  ::= Exp1 "-=" Exp2 ;
+EAssMul.       Exp1  ::= Exp1 "*=" Exp2 ;
+EAssDiv.       Exp1  ::= Exp1 "/=" Exp2 ;
+EAssMod.       Exp1  ::= Exp1 "%=" Exp2 ;
+EAssBWSL.      Exp1  ::= Exp1 "<<=" Exp2 ;
+EAssBWSR.      Exp1  ::= Exp1 ">>=" Exp2 ;
+EAssBWAnd.     Exp1  ::= Exp1 "&=" Exp2 ;
+EAssBWXOR.     Exp1  ::= Exp1 "^=" Exp2 ;
+EAssBWOR.      Exp1  ::= Exp1 "|=" Exp2 ;
 
-EAss.     Exp1  ::= Exp1 "="  Exp2 ;
-EAssAdd.  Exp1  ::= Exp1 "+=" Exp2 ;
-EAssSub.  Exp1  ::= Exp1 "-=" Exp2 ;
+ECond.         Exp2  ::= Exp2 "?" Exp3 ":" Exp3 ;
 
-EDisj.    Exp3  ::= Exp3 "||" Exp4 ;
-EConj.    Exp4  ::= Exp4 "&&" Exp5 ;
+EOR.           Exp3  ::= Exp3 "||" Exp4 ;
 
-EEqual.   Exp5  ::= Exp5 "==" Exp6 ;
-ENEqual.  Exp5  ::= Exp5 "!=" Exp6 ;
+EXOR.          Exp4  ::= Exp4 "^^" Exp5 ;
 
-ELt.      Exp6  ::= Exp6 "<"  Exp7 ;
-EGt.      Exp6  ::= Exp6 ">"  Exp7 ;
-ELEt.     Exp6  ::= Exp6 "<=" Exp7 ;
-EGEt.     Exp6  ::= Exp6 ">=" Exp7 ;
+EAnd.          Exp5  ::= Exp5 "&&" Exp6 ;
 
-EAdd.     Exp8 ::= Exp8 "+" Exp9 ;
-ESub.     Exp8 ::= Exp8 "-" Exp9 ;
+EBWOR.         Exp6  ::= Exp6 "|" Exp7 ;
 
-EMul.     Exp9 ::= Exp9 "*" Exp10 ;
-EDiv.     Exp9 ::= Exp9 "/" Exp10 ;
-EMod.     Exp9 ::= Exp9 "%" Exp10 ;
+EBWXOR.        Exp7  ::= Exp7 "^" Exp8 ;
 
-ENeg.     Exp8 ::= "-" Exp9 ;
-EPos.     Exp8 ::= "+" Exp9 ;
-EPreInc.  Exp8 ::= "++" Exp9 ;
-EPreDec.  Exp8 ::= "--" Exp9 ;
+EBWAnd.        Exp8  ::= Exp8 "&" Exp9 ;
 
-EPostInc. Exp10 ::= Exp11 "++" ;
-EPostDec. Exp10 ::= Exp11 "--" ;
-EObject.  Exp10 ::= Exp10 "." Exp11 ;
+EEqual.        Exp9  ::= Exp9 "==" Exp10 ;
+ENEqual.       Exp9  ::= Exp9 "!=" Exp10 ;
 
-ECall.     Exp11 ::= CIdent "(" [Exp] ")" ;
-ETypeCall. Exp12 ::= Type "(" [Exp] ")" ;
+ELt.           Exp10 ::= Exp10 "<"  Exp11 ;
+EGt.           Exp10 ::= Exp10 ">"  Exp11 ;
+ELEt.          Exp10 ::= Exp10 "<=" Exp11 ;
+EGEt.          Exp10 ::= Exp10 ">=" Exp11 ;
+
+EBWShiftLeft.  Exp11 ::= Exp11 "<<" Exp12 ;
+EBWShiftRight. Exp11 ::= Exp11 ">>" Exp12 ;
+
+EAdd.          Exp12 ::= Exp12 "+" Exp13 ;
+ESub.          Exp12 ::= Exp12 "-" Exp13 ;
+
+EMul.          Exp13 ::= Exp13 "*" Exp14 ;
+EDiv.          Exp13 ::= Exp13 "/" Exp14 ;
+EMod.          Exp13 ::= Exp13 "%" Exp14 ;
+
+ENeg.          Exp14 ::= "-"  Exp15 ;
+ENegSign.      Exp14 ::= "!"  Exp15 ;
+EComplement.   Exp14 ::= "~"  Exp15 ;
+EPos.          Exp14 ::= "+"  Exp15 ;
+EPreInc.       Exp14 ::= "++" Exp15 ;
+EPreDec.       Exp14 ::= "--" Exp15 ;
+
+EPostInc.      Exp15 ::= Exp15 "++" ;
+EPostDec.      Exp15 ::= Exp15 "--" ;
+EMember.       Exp15 ::= Exp15 "." Exp16 ;
+
+ECall.         Exp16 ::= CIdent "(" [Exp] ")" ;
+
+ETypeCall.     Exp17 ::= Type "(" [Exp] ")" ;
 
 -- EAnnonFun needed for:
 -- return Color(int x, int y) { ...; return color; }
 -- reduce/reduce between ETypeCall and EAnnonFun.
---EAnnonFun.   Exp12 ::= Type "(" [Param] ")" "{" [Stm] "}" ;
+--EAnnonFun.   Exp17 ::= Type "(" [Param] ")" "{" [Stm] "}" ;
 
-EAnnonLFun.  Exp12 ::= "lambda" "(" [Param] ")" "{" [Stm] "}" ;
+EAnnonLFun.    Exp18 ::= "lambda" "(" [Param] ")" "{" [Stm] "}" ;
 
-EVar.    Exp13 ::= CIdent ;
-EStr.    Exp13 ::= String ;
-EInt.    Exp13 ::= Integer ;
-Double.  Exp13 ::= Double ;
+EVar.          Exp19 ::= Id ;
+EStr.          Exp19 ::= String ;
+EInt.          Exp19 ::= Integer ;
+Double.        Exp19 ::= Double ;
+ETrue.         Exp19 ::= "true" ;
+EFalse.        Exp19 ::= "false" ;
+EType.         Exp19 ::= Type;
 
-coercions Exp 13 ;
+coercions Exp 19 ;
 separator Exp "," ;
 
 
 -- Types ------------------------------------------------------------
-TInt.      Type ::= "int" ;
-TUInt.     Type ::= "uint" ;
-TFloat.    Type ::= "float" ;
-TBool.     Type ::= "bool" ;
-TBVec2.    Type ::= "BVec2" ;
-TBVec3.    Type ::= "BVec3" ;
-TBVec4.    Type ::= "BVec4" ;
-TIVec2.    Type ::= "IVec2" ;
-TIVec3.    Type ::= "IVec3" ;
-TIVec4.    Type ::= "IVec4" ;
-TUVec2.    Type ::= "UVec2" ;
-TUVec3.    Type ::= "UVec3" ;
-TUVec4.    Type ::= "UVec4" ;
-TVec2.     Type ::= "Vec2" ;
-TVec3.     Type ::= "Vec3" ;
-TVec4.     Type ::= "Vec4" ;
-TMat2.     Type ::= "Mat2" ;
-TMat3.     Type ::= "Mat3" ;
-TMat4.     Type ::= "Mat4" ;
-TColor.    Type ::= "Color" ;
-TImage.    Type ::= "Image" ;
+TInt.        Type ::= "int" ;
+TUInt.       Type ::= "uint" ;
+TFloat.      Type ::= "float" ;
+TBool.       Type ::= "bool" ;
+TBVec2.      Type ::= "BVec2" ;
+TBVec3.      Type ::= "BVec3" ;
+TBVec4.      Type ::= "BVec4" ;
+TIVec2.      Type ::= "IVec2" ;
+TIVec3.      Type ::= "IVec3" ;
+TIVec4.      Type ::= "IVec4" ;
+TUVec2.      Type ::= "UVec2" ;
+TUVec3.      Type ::= "UVec3" ;
+TUVec4.      Type ::= "UVec4" ;
+TVec2.       Type ::= "Vec2" ;
+TVec3.       Type ::= "Vec3" ;
+TVec4.       Type ::= "Vec4" ;
+TMat2.       Type ::= "Mat2" ;
+TMat3.       Type ::= "Mat3" ;
+TMat4.       Type ::= "Mat4" ;
+TColor.      Type ::= "Color" ;
+TImage.      Type ::= "Image" ;
+TEmptyArray. Type ::= Type "[" "]";
+TArray.      Type ::= Type "[" Exp "]";
