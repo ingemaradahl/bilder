@@ -65,6 +65,8 @@ terminator Stm "" ;
 --position token TWhile {"while"} ;
 --position token TReturn {"return"} ;
 
+-- Enable annotation of types on statements
+internal SType. Stm ::= Type Stm ;
 
 -- For-specific initiation declarations -----------------------------
 -- TODO: What is allowed in first section of a for-loop?
@@ -81,8 +83,6 @@ EAssSub.       Exp1  ::= Exp1 "-=" Exp2 ;
 EAssMul.       Exp1  ::= Exp1 "*=" Exp2 ;
 EAssDiv.       Exp1  ::= Exp1 "/=" Exp2 ;
 EAssMod.       Exp1  ::= Exp1 "%=" Exp2 ;
-EAssBWSL.      Exp1  ::= Exp1 "<<=" Exp2 ;
-EAssBWSR.      Exp1  ::= Exp1 ">>=" Exp2 ;
 EAssBWAnd.     Exp1  ::= Exp1 "&=" Exp2 ;
 EAssBWXOR.     Exp1  ::= Exp1 "^=" Exp2 ;
 EAssBWOR.      Exp1  ::= Exp1 "|=" Exp2 ;
@@ -134,12 +134,12 @@ ECall.         Exp16 ::= CIdent "(" [Exp] ")" ;
 
 ETypeCall.     Exp17 ::= Type "(" [Exp] ")" ;
 
--- EAnnonFun needed for:
+-- EAnonFun needed for:
 -- return Color(int x, int y) { ...; return color; }
--- reduce/reduce between ETypeCall and EAnnonFun.
---EAnnonFun.   Exp17 ::= Type "(" [Param] ")" "{" [Stm] "}" ;
+-- reduce/reduce between ETypeCall and EAnonFun.
+--EAnonFun.   Exp17 ::= Type "(" [Param] ")" "{" [Stm] "}" ;
 
-EAnnonLFun.    Exp18 ::= "lambda" "(" [Param] ")" "{" [Stm] "}" ;
+EAnonLFun.    Exp18 ::= "lambda" "(" [Param] ")" "{" [Stm] "}" ;
 
 EVar.          Exp19 ::= Id ;
 EStr.          Exp19 ::= String ;
