@@ -12,7 +12,7 @@ import Data.List (intersperse)
 
 import CompilerError
 import FrontEnd
-import Compiler
+import Compiler hiding (compile)
 
 -- Compilation chain
 compile ∷ String → Options → CErr [String]
