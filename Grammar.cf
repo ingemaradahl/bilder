@@ -1,24 +1,35 @@
 -- TODO: Think over arrays.
+-- TODO: Precedence on Expressions
 
 comment "//" ;
 comment "/*" "*/" ;
 
+Tree. Tree ::= [Toplevel] ;
 
-Prog. Program  ::= [Globals] ;
+Function.    Toplevel  ::= Type CIdent "(" [Param] ")" "{" [Stm] "}" ;
+Struct.      Toplevel  ::= TStruct CIdent "{" [StructVarDecl] "}" ";" ;
+StructDecl.  Toplevel  ::= TStruct CIdent "{" [StructVarDecl] "}" Id ";" ;
+Import.      Toplevel  ::= TImport String ";" ;
+terminator Toplevel "" ;
 
-GFunction.    Globals   ::= Type CIdent "(" [Param] ")" "{" [Stm] "}" ;
-GStruct.      Globals   ::= "struct" CIdent "{" [StructVarDecl] "}" ";" ;
-GStructWVar.  Globals   ::= "struct" CIdent "{" [StructVarDecl] "}" Id ";" ;
-terminator Globals "" ;
 
 SVDecl. StructVarDecl  ::= Decl ";" ;
 separator StructVarDecl "" ;
 
+-- Tokens ----------------------------------------------------------------------
+position token TImport {"import"} ;
+position token TReturn {"return"} ;
+position token TFor {"for"} ;
+position token TWhile {"while"} ;
+position token TIf {"if"} ;
+position token TElse {"else"} ;
+position token TStruct {"struct"} ;
 
 -- Parameter --------------------------------------------------------
 ConstParamDec.       Param  ::= "const" Type Id ;
 ConstParamDefault.   Param  ::= "const" Type Id "=" Exp2 ;
 ParamDec.            Param  ::= Type Id ;
+-- TODO only allow explicit expressions (currently Exp19)
 ParamDefault.        Param  ::= Type Id "=" Exp2 ;
 separator Param "," ;
 
@@ -47,23 +58,15 @@ separator nonempty Id "," ;
 SDecl.   Stm ::= Decl ";" ;
 SExp.    Stm ::= Exp ";" ;
 SBlock.  Stm ::= "{" [Stm] "}" ;
-SWhile.  Stm ::= "while" "(" Exp ")" Stm ;
-SFor. 	Stm ::= "for" "(" [ForDecl] ";" [Exp] ";" [Exp] ")" Stm ;
-SReturn. Stm ::= "return" Exp ";" ;
+SWhile.  Stm ::= TWhile "(" Exp ")" Stm ;
+SFor.    Stm ::= TFor "(" [ForDecl] ";" [Exp] ";" [Exp] ")" Stm ;
+SReturn. Stm ::= TReturn Exp ";" ;
 -- TODO: shift/reduce here... avoidable?
-SIf.     Stm ::= "if" "(" Exp ")" Stm ;
-SIfElse. Stm ::= "if" "(" Exp ")" Stm "else" Stm ;
+SIf.     Stm ::= TIf "(" Exp ")" Stm ;
+SIfElse. Stm ::= TIf "(" Exp ")" Stm TElse Stm ;
 
 terminator Stm "" ;
 --coercions Stm 2 ;
-
--- TODO: Add position to everything.
--- These however does not work properly - the parser does not seem to
--- parse them as tokens for some reason. They all get parsed as
--- CIdent.
---position token TFor {"for"} ;
---position token TWhile {"while"} ;
---position token TReturn {"return"} ;
 
 -- Enable annotation of types on statements
 internal SType. Stm ::= Type Stm ;
