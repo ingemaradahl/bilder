@@ -26,8 +26,8 @@ position token TElse {"else"} ;
 position token TStruct {"struct"} ;
 
 -- Parameter --------------------------------------------------------
---ConstParamDec.       Param  ::= "const" Type Id ;
---ConstParamDefault.   Param  ::= "const" Type Id "=" Exp2 ;
+ConstParamDec.       Param  ::= "const" Type Id ;
+ConstParamDefault.   Param  ::= "const" Type Id "=" Exp2 ;
 ParamDec.            Param  ::= Type Id ;
 -- TODO only allow explicit expressions (currently Exp19)
 ParamDefault.        Param  ::= Type Id "=" Exp2 ;
