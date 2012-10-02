@@ -7,7 +7,7 @@ comment "/*" "*/" ;
 
 Prog. Program  ::= [Globals] ;
 
-GFunction.    Globals   ::= Type Id "(" [Param] ")" "{" [Stm] "}" ;
+GFunction.    Globals   ::= Type CIdent "(" [Param] ")" "{" [Stm] "}" ;
 GStruct.      Globals   ::= "struct" CIdent "{" [StructVarDecl] "}" ";" ;
 GStructWVar.  Globals   ::= "struct" CIdent "{" [StructVarDecl] "}" Id ";" ;
 terminator Globals "" ;
