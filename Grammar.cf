@@ -4,7 +4,7 @@
 comment "//" ;
 comment "/*" "*/" ;
 
-Tree. Tree ::= [Toplevel] ;
+AbsTree. AbsTree ::= [Toplevel] ;
 
 Function.    Toplevel  ::= Type CIdent "(" [Param] ")" "{" [Stm] "}" ;
 Struct.      Toplevel  ::= TStruct CIdent "{" [StructVarDecl] "}" ";" ;
