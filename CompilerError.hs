@@ -1,4 +1,4 @@
-{-# LANGUAGE UnicodeSyntax, MultiParamTypeClasses  #-}
+{-# LANGUAGE UnicodeSyntax, MultiParamTypeClasses, UndecidableInstances  #-}
 
 module CompilerError where
 
@@ -6,6 +6,7 @@ import Control.Applicative
 import Control.Monad
 import Control.Monad.Trans
 import Control.Monad.Identity
+import Control.Monad.IO.Class(MonadIO(..))
 
 import Control.Monad.Error
 
@@ -32,8 +33,11 @@ instance Monad m ⇒ Monad (CErrorT m) where
   CErrorT v >>= f = CErrorT $ do
     result ← v
     case result of
-      Pass a → runCErrorT $ f a
-      Fail e → return $ Fail e
+      Pass a → runCErrorT $ f a -- TODO verify
+      Fail e → return $ Fail e  -- TODO   "
+
+instance MonadIO m ⇒ MonadIO (CErrorT m) where
+  liftIO = lift . liftIO
 
 instance MonadTrans CErrorT where
   lift m = CErrorT $ do
