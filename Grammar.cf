@@ -6,12 +6,13 @@ comment "/*" "*/" ;
 
 AbsTree. AbsTree ::= [Toplevel] ;
 
-Function.    Toplevel  ::= Type CIdent "(" [Param] ")" "{" [Stm] "}" ;
-Struct.      Toplevel  ::= TStruct CIdent "{" [StructVarDecl] "}" ";" ;
-StructDecl.  Toplevel  ::= TStruct CIdent "{" [StructVarDecl] "}" Id ";" ;
-Import.      Toplevel  ::= TImport String ";" ;
+Function.     Toplevel  ::= Type CIdent "(" [Param] ")" "{" [Stm] "}" ;
+EmptyFunction. Toplevel ::= Type CIdent "(" ")" "{" [Stm] "}" ;
+VoidFunction. Toplevel  ::= Type CIdent "(" "void" ")" "{" [Stm] "}" ;
+Struct.       Toplevel  ::= TStruct CIdent "{" [StructVarDecl] "}" ";" ;
+StructDecl.   Toplevel  ::= TStruct CIdent "{" [StructVarDecl] "}" Id ";" ;
+Import.       Toplevel  ::= TImport String ";" ;
 terminator Toplevel "" ;
-
 
 SVDecl. StructVarDecl  ::= Decl ";" ;
 separator StructVarDecl "" ;
@@ -21,17 +22,22 @@ position token TImport {"import"} ;
 position token TReturn {"return"} ;
 position token TFor {"for"} ;
 position token TWhile {"while"} ;
+position token TDo {"do"} ;
 position token TIf {"if"} ;
 position token TElse {"else"} ;
 position token TStruct {"struct"} ;
+position token TBreak {"break"} ;
+position token TContinue {"contiune"} ;
+position token TDiscard {"discard"} ;
+position token TConst {"const"} ;
 
 
 token CFloat (((digit+ '.' digit+)|(digit+ '.')|('.' digit+)) (('e'|'E')('-')? digit+)?
                ('f'|'F')?)|((digit+ ('e'|'E')('-')? digit+)('f'|'F')?);
 
 -- Parameter --------------------------------------------------------
-ConstParamDec.       Param  ::= "const" Type Id ;
-ConstParamDefault.   Param  ::= "const" Type Id "=" Exp2 ;
+ConstParamDec.       Param  ::= TConst Type Id ;
+ConstParamDefault.   Param  ::= TConst Type Id "=" Exp2 ;
 ParamDec.            Param  ::= Type Id ;
 -- TODO only allow explicit expressions (currently Exp19)
 ParamDefault.        Param  ::= Type Id "=" Exp2 ;
@@ -40,9 +46,9 @@ separator Param "," ;
 
 -- Declarations -----------------------------------------------------
 Dec.             Decl  ::= Type DeclPost ;
-ConstDec.        Decl  ::= "const" Type DeclPost ;
+ConstDec.        Decl  ::= TConst Type DeclPost ;
 DecStruct.       Decl  ::= Id DeclPost ;
-ConstDecStruct.  Decl  ::= "const" Id DeclPost ;
+ConstDecStruct.  Decl  ::= TConst Id DeclPost ;
 separator  Decl "," ;
 
 OnlyVars.    DeclPost  ::= [Id] ;
@@ -59,18 +65,20 @@ separator nonempty Id "," ;
 
 
 -- Statements -------------------------------------------------------
-SDecl.   Stm ::= Decl ";" ;
-SExp.    Stm ::= Exp ";" ;
-SBlock.  Stm ::= "{" [Stm] "}" ;
-SWhile.  Stm ::= TWhile "(" Exp ")" Stm ;
-SFor.    Stm ::= TFor "(" [ForDecl] ";" [Exp] ";" [Exp] ")" Stm ;
-SReturn. Stm ::= TReturn Exp ";" ;
--- TODO: shift/reduce here... avoidable?
-SIf.     Stm ::= TIf "(" Exp ")" Stm ;
-SIfElse. Stm ::= TIf "(" Exp ")" Stm TElse Stm ;
-
+SDecl.     Stm ::= Decl ";" ;
+SExp.      Stm ::= Exp ";" ;
+SBlock.    Stm ::= "{" [Stm] "}" ;
+SWhile.    Stm ::= TWhile "(" Exp ")" Stm ;
+SDoWhile.  Stm ::= "do" Stm TWhile "(" Exp ")" ";" ;
+SFor.      Stm ::= TFor "(" [ForDecl] ";" [Exp] ";" [Exp] ")" Stm ;
+SReturn.   Stm ::= TReturn Exp ";" ;
+SVoidReturn.   Stm ::= TReturn ";" ;
+SIf.       Stm ::= TIf "(" Exp ")" Stm ;
+SIfElse.   Stm ::= TIf "(" Exp ")" Stm TElse Stm ;
+SBreak.    Stm ::= TBreak ";" ;
+SContinue. Stm ::= TContinue ";" ;
+SDiscard.  Stm ::= TDiscard ";" ;
 terminator Stm "" ;
---coercions Stm 2 ;
 
 -- Enable annotation of types on statements
 internal SType. Stm ::= Type Stm ;
@@ -137,7 +145,7 @@ EPostInc.      Exp15 ::= Exp15 "++" ;
 EPostDec.      Exp15 ::= Exp15 "--" ;
 EMember.       Exp15 ::= Exp15 "." Exp16 ;
 
-ECall.         Exp16 ::= CIdent "(" [Exp] ")" ;
+ECall.         Exp16 ::= Id "(" [Exp] ")" ;
 
 ETypeCall.     Exp17 ::= Type "(" [Exp] ")" ;
 
@@ -164,6 +172,7 @@ separator Exp "," ;
 TInt.        Type ::= "int" ;
 TUInt.       Type ::= "uint" ;
 TFloat.      Type ::= "float" ;
+TVoid.       Type ::= "void" ;
 TBool.       Type ::= "bool" ;
 TBVec2.      Type ::= "BVec2" ;
 TBVec3.      Type ::= "BVec3" ;
