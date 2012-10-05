@@ -4,6 +4,8 @@ module Compiler where
 
 import Control.Monad.State
 
+import Data.Tree
+
 import CompilerError
 import FrontEnd.AbsGrammar
 import FrontEnd.PrintGrammar
@@ -26,11 +28,12 @@ buildEnv opts = Env {
 }
 
 -- CPM - CompilerMonad: Alias for both Error and State monad
-type CPM a = StateT Environment CErr a
+type CPM a = StateT Environment CError a
 
-compileTree ∷ Options → Program → CErr [String]
+compileTree ∷ Options → Tree (FilePath,AbsTree) → CError [String]
 compileTree opts tree = evalStateT (compile tree) (buildEnv opts)
 
-compile ∷ Program → CPM [String]
-compile p@(Prog functions) = do
-  return [printTree p]
+compile ∷ Tree (FilePath,AbsTree) → CPM [String]
+compile _ = return ["tree"]
+--compile t@(Tree toplevels) = do
+  --return [printTree t]

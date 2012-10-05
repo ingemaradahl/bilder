@@ -2,9 +2,17 @@
 
 module TypeChecker where
 
-import Compiler
+import Data.Map (Map)
+import Data.Tree
+
+import Compiler hiding (Environment)
 import FrontEnd.AbsGrammar
 import CompilerError
 
-typeCheck ∷ Options → Program → CErr Program
-typeCheck o p = Pass p
+data Environment = Env {
+  functions ∷ [CIdent]
+}
+
+-- | Typechecks the given abstract source and annotates the syntax tree
+typeCheck ∷ Options → Tree (FilePath, AbsTree) → CError (Tree (FilePath, AbsTree))
+typeCheck _ = Pass
