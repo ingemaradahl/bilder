@@ -25,17 +25,19 @@ import FrontEnd.ErrM
 
 import CompilerError
 
--- PM - ParserMonad
+-- | PM - A ParserMonad, keeps a state of which file has been imported
 type PM a = StateT [FilePath] (CErrorT IO) a
 
 liftCError :: CError a -> PM a
 liftCError m = StateT (\s -> case m of { Fail f → CErrorT $ return $ Fail f; Pass a → return (a,s) })
 
-fun ∷ FilePath → IO (CError (Tree (FilePath, AbsTree)))
-fun f = runCErrorT $ evalStateT (parseTree f) []
-
+-- | Add a file to the state, and return the entire state
 addFile ∷ FilePath → PM [FilePath]
 addFile f = (modify . (:)) f >> get
+
+-- | Parse the tree of files
+parseHead ∷ FilePath → IO (CError (Tree (FilePath, AbsTree)))
+parseHead f = runCErrorT $ evalStateT (parseTree f) []
 
 -- | Recursively parse the files to be imported
 parseTree ∷ FilePath → PM (Tree (FilePath, AbsTree))
@@ -48,14 +50,7 @@ parseTree f = do
   dir = takeDirectory f
   file = concat [dir, "/", f]
 
---readSource ∷ FilePath → IO String
---readSource file = do
---  inp ← try (readFile file) ∷ IO (Either IOError String)
---  case inp of
---    -- TODO: actually check which error occurs
---    Left e → putStrLn (show e) >> exitFailure
---    Right v → return v
-
+-- | Filter out the import statements from the syntax tree
 filterImports ∷ AbsTree → [FilePath]
 filterImports (AbsTree ts) = [ f | Import _ f ← filter isImport ts ]
  where
@@ -63,6 +58,7 @@ filterImports (AbsTree ts) = [ f | Import _ f ← filter isImport ts ]
   isImport (Import _ t) = True
   isImport _ = False
 
+-- | Parse the given source code
 parse ∷ String → CError AbsTree
 parse src =
   case (pAbsTree . myLexer) src of
