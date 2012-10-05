@@ -25,9 +25,6 @@ import FrontEnd.ErrM
 
 import CompilerError
 
-example = AbsTree [Import (TImport ((1,1),"import")) "bepa.cepa",Import (TImport ((2,1),"import")) "more-filters.fl",Import (TImport ((3,1),"import")) "even-more.fl",Function TColor (CIdent ((5,7),"main")) [] [SDecl (Dec TInt (DefaultVars [Ident (CIdent ((7,7),"b"))] (EInt 0))),SFor (TFor ((8,3),"for")) [FDecl (Dec TInt (DefaultVars [Ident (CIdent ((8,12),"a"))] (EInt 0)))] [ELt (EVar (Ident (CIdent ((8,17),"i")))) (EInt 10)] [EPostInc (EVar (Ident (CIdent ((8,23),"i"))))] (SBlock [SExp (EPostInc (EVar (Ident (CIdent ((11,5),"b")))))]),SReturn (TReturn ((13,3),"return")) (EVar (Ident (CIdent ((13,10),"b"))))]]
-
-
 -- PM - ParserMonad
 type PM a = StateT [FilePath] (CErrorT IO) a
 
@@ -35,17 +32,21 @@ liftCError :: CError a -> PM a
 liftCError m = StateT (\s -> case m of { Fail f → CErrorT $ return $ Fail f; Pass a → return (a,s) })
 
 fun ∷ FilePath → IO (CError (Tree (FilePath, AbsTree)))
-fun f = runCErrorT $ evalStateT (parseTree "./" f) []
+fun f = runCErrorT $ evalStateT (parseTree f) []
 
 addFile ∷ FilePath → PM [FilePath]
 addFile f = (modify . (:)) f >> get
 
-parseTree ∷ FilePath → FilePath → PM (Tree (FilePath, AbsTree))
-parseTree d f = do
+-- | Recursively parse the files to be imported
+parseTree ∷ FilePath → PM (Tree (FilePath, AbsTree))
+parseTree f = do
   liftIO . putStrLn $ "reading " ++ f
-  imported ← addFile f
+  imported ← addFile file
   t ← return f >>= liftIO . readFile >>= liftCError . parse
-  mapM (parseTree d) ((filterImports t) \\ imported) >>= (return . Node (f,t))
+  mapM parseTree ((map ((++) $ dir ++ "/") (filterImports t)) \\ imported) >>= (return . Node (f,t))
+ where
+  dir = takeDirectory f
+  file = concat [dir, "/", f]
 
 --readSource ∷ FilePath → IO String
 --readSource file = do
