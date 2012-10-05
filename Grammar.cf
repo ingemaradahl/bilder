@@ -25,6 +25,10 @@ position token TIf {"if"} ;
 position token TElse {"else"} ;
 position token TStruct {"struct"} ;
 
+
+token CFloat (((digit+ '.' digit+)|(digit+ '.')|('.' digit+)) (('e'|'E')('-')? digit+)?
+               ('f'|'F')?)|((digit+ ('e'|'E')('-')? digit+)('f'|'F')?);
+
 -- Parameter --------------------------------------------------------
 ConstParamDec.       Param  ::= "const" Type Id ;
 ConstParamDefault.   Param  ::= "const" Type Id "=" Exp2 ;
@@ -147,7 +151,7 @@ EAnonLFun.    Exp18 ::= "lambda" "(" [Param] ")" "{" [Stm] "}" ;
 EVar.          Exp19 ::= Id ;
 EStr.          Exp19 ::= String ;
 EInt.          Exp19 ::= Integer ;
-Double.        Exp19 ::= Double ;
+EFloat.        Exp19 ::= CFloat ;
 ETrue.         Exp19 ::= "true" ;
 EFalse.        Exp19 ::= "false" ;
 EType.         Exp19 ::= Type;
