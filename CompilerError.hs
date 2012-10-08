@@ -3,10 +3,7 @@
 module CompilerError where
 
 import Control.Applicative
-import Control.Monad
 import Control.Monad.Trans
-import Control.Monad.Identity
-import Control.Monad.IO.Class(MonadIO(..))
 
 import Control.Monad.Error
 
@@ -20,8 +17,8 @@ data CompilerError =
   deriving (Read, Show, Eq, Ord)
 
 instance Error CompilerError where
-  noMsg    = UnknownError "Unknown error"
-  strMsg s = UnknownError s
+  noMsg  = UnknownError "Unknown error"
+  strMsg = UnknownError
 
 data CError a = Pass a | Fail CompilerError
   deriving (Read, Show, Eq, Ord)
@@ -29,7 +26,7 @@ data CError a = Pass a | Fail CompilerError
 newtype CErrorT m a = CErrorT { runCErrorT ∷ m (CError a) }
 
 instance Monad m ⇒ Monad (CErrorT m) where
-  return = (CErrorT . return . Pass)
+  return = CErrorT . return . Pass
   CErrorT v >>= f = CErrorT $ do
     result ← v
     case result of
@@ -57,7 +54,7 @@ instance Monad CError where
   return       = Pass
   fail s       = Fail $ UnknownError s
   Pass a >>= f = f a
-  Fail e >>= f = Fail e
+  Fail e >>= _ = Fail e
 
 instance MonadError CompilerError CError where
     throwError             = Fail

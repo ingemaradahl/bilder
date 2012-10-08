@@ -2,16 +2,10 @@
 
 module FrontEnd where
 
-import System.IO
 import System.FilePath
-import System.Exit (exitFailure)
 
-import Control.Exception (try)
-import Control.Monad
 import Control.Monad.Trans
-import Control.Monad.Trans.Maybe
 import Control.Monad.Trans.State
-import Control.Monad.Error
 
 import Text.Regex.Posix
 import Data.Tree
@@ -19,7 +13,6 @@ import Data.List ((\\))
 
 import FrontEnd.AbsGrammar
 import FrontEnd.ParGrammar
-import FrontEnd.LexGrammar
 
 import FrontEnd.ErrM
 
@@ -28,8 +21,8 @@ import CompilerError
 -- | PM - A ParserMonad, keeps a state of which file has been imported
 type PM a = StateT [FilePath] (CErrorT IO) a
 
-liftCError :: CError a -> PM a
-liftCError m = StateT (\s -> case m of { Fail f → CErrorT $ return $ Fail f; Pass a → return (a,s) })
+liftCError ∷ CError a → PM a
+liftCError m = StateT (\s → case m of { Fail f → CErrorT $ return $ Fail f; Pass a → return (a,s) })
 
 -- | Add a file to the state, and return the entire state
 addFile ∷ FilePath → PM [FilePath]
@@ -43,19 +36,18 @@ parseHead f = runCErrorT $ evalStateT (parseTree f) []
 parseTree ∷ FilePath → PM (Tree (FilePath, AbsTree))
 parseTree f = do
   liftIO . putStrLn $ "reading " ++ f
-  imported ← addFile file
-  t ← return f >>= liftIO . readFile >>= liftCError . parse
-  mapM parseTree ((map ((++) $ dir ++ "/") (filterImports t)) \\ imported) >>= (return . Node (f,t))
+  imported ← addFile f
+  t ← liftIO (readFile f) >>= liftCError . parse
+  mapM parseTree (map (dir </>) (filterImports t) \\ imported) >>= (return . Node (f,t))
  where
   dir = takeDirectory f
-  file = concat [dir, "/", f]
 
 -- | Filter out the import statements from the syntax tree
 filterImports ∷ AbsTree → [FilePath]
 filterImports (AbsTree ts) = [ f | Import _ f ← filter isImport ts ]
  where
   isImport ∷ Toplevel → Bool
-  isImport (Import _ t) = True
+  isImport (Import _ _) = True
   isImport _ = False
 
 -- | Parse the given source code

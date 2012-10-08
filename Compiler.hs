@@ -8,7 +8,6 @@ import Data.Tree
 
 import CompilerError
 import FrontEnd.AbsGrammar
-import FrontEnd.PrintGrammar
 
 data Options = Options {
   inputFile ∷ FilePath

@@ -2,7 +2,6 @@
 
 module TypeChecker where
 
-import Data.Map (Map)
 import Data.Tree
 
 import Compiler hiding (Environment)
