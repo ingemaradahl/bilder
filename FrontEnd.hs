@@ -44,11 +44,7 @@ parseTree f = do
 
 -- | Filter out the import statements from the syntax tree
 filterImports ∷ AbsTree → [FilePath]
-filterImports (AbsTree ts) = [ f | Import _ f ← filter isImport ts ]
- where
-  isImport ∷ Toplevel → Bool
-  isImport (Import _ _) = True
-  isImport _ = False
+filterImports (AbsTree ts) = [ f | Import _ f ← ts ]
 
 -- | Parse the given source code
 parse ∷ String → CError AbsTree
