@@ -4,6 +4,7 @@ module FrontEnd where
 
 import System.FilePath
 
+import Control.Monad
 import Control.Monad.Trans
 import Control.Monad.Trans.State
 
@@ -38,7 +39,7 @@ parseTree f = do
   liftIO . putStrLn $ "reading " ++ f
   imported ← addFile f
   t ← liftIO (readFile f) >>= liftCError . parse
-  mapM parseTree (map (dir </>) (filterImports t) \\ imported) >>= (return . Node (f,t))
+  liftM (Node (f, t)) (mapM parseTree (map (dir </>) (filterImports t) \\ imported))
  where
   dir = takeDirectory f
 
