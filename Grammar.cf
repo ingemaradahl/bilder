@@ -1,5 +1,4 @@
 -- TODO: Think over arrays.
--- TODO: Precedence on Expressions
 
 comment "//" ;
 comment "/*" "*/" ;
@@ -31,16 +30,15 @@ position token TContinue {"contiune"} ;
 position token TDiscard {"discard"} ;
 position token TConst {"const"} ;
 
-
 token CFloat (((digit+ '.' digit+)|(digit+ '.')|('.' digit+)) (('e'|'E')('-')? digit+)?
                ('f'|'F')?)|((digit+ ('e'|'E')('-')? digit+)('f'|'F')?);
 
+
 -- Parameter --------------------------------------------------------
 ConstParamDec.       Param  ::= TConst Type Id ;
-ConstParamDefault.   Param  ::= TConst Type Id "=" Exp2 ;
+ConstParamDefault.   Param  ::= TConst Type Id "=" Exp19 ;
 ParamDec.            Param  ::= Type Id ;
--- TODO only allow explicit expressions (currently Exp19)
-ParamDefault.        Param  ::= Type Id "=" Exp2 ;
+ParamDefault.        Param  ::= Type Id "=" Exp19 ;
 separator Param "," ;
 
 
@@ -69,7 +67,7 @@ SDecl.     Stm ::= Decl ";" ;
 SExp.      Stm ::= Exp ";" ;
 SBlock.    Stm ::= "{" [Stm] "}" ;
 SWhile.    Stm ::= TWhile "(" Exp ")" Stm ;
-SDoWhile.  Stm ::= "do" Stm TWhile "(" Exp ")" ";" ;
+SDoWhile.  Stm ::= TDo Stm TWhile "(" Exp ")" ";" ;
 SFor.      Stm ::= TFor "(" [ForDecl] ";" [Exp] ";" [Exp] ")" Stm ;
 SReturn.   Stm ::= TReturn Exp ";" ;
 SVoidReturn.   Stm ::= TReturn ";" ;
