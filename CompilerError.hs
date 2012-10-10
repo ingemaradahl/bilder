@@ -12,7 +12,7 @@ type Position = (Int, Int)
 data CompilerError =
     SyntaxError Position String
   | TypeError Position FilePath String
-  | CompileError Position String
+  | CompileError Position FilePath String
   | UnknownError String
   deriving (Read, Show, Eq, Ord)
 
