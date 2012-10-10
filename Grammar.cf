@@ -7,35 +7,35 @@ AbsTree. AbsTree ::= [Toplevel] ;
 Function.     Toplevel  ::= Type CIdent "(" [Param] ")" "{" [Stm] "}" ;
 EmptyFunction. Toplevel ::= Type CIdent "(" ")" "{" [Stm] "}" ;
 VoidFunction. Toplevel  ::= Type CIdent "(" "void" ")" "{" [Stm] "}" ;
-Struct.       Toplevel  ::= TStruct CIdent "{" [StructVarDecl] "}" ";" ;
-StructDecl.   Toplevel  ::= TStruct CIdent "{" [StructVarDecl] "}" Id ";" ;
-Import.       Toplevel  ::= TImport String ";" ;
+Struct.       Toplevel  ::= TkStruct CIdent "{" [StructVarDecl] "}" ";" ;
+StructDecl.   Toplevel  ::= TkStruct CIdent "{" [StructVarDecl] "}" Id ";" ;
+Import.       Toplevel  ::= TkImport String ";" ;
 terminator Toplevel "" ;
 
 SVDecl. StructVarDecl  ::= Decl ";" ;
 separator StructVarDecl "" ;
 
 -- Tokens ----------------------------------------------------------------------
-position token TImport {"import"} ;
-position token TReturn {"return"} ;
-position token TFor {"for"} ;
-position token TWhile {"while"} ;
-position token TDo {"do"} ;
-position token TIf {"if"} ;
-position token TElse {"else"} ;
-position token TStruct {"struct"} ;
-position token TBreak {"break"} ;
-position token TContinue {"contiune"} ;
-position token TDiscard {"discard"} ;
-position token TConst {"const"} ;
+position token TkImport {"import"} ;
+position token TkReturn {"return"} ;
+position token TkFor {"for"} ;
+position token TkWhile {"while"} ;
+position token TkDo {"do"} ;
+position token TkIf {"if"} ;
+position token TkElse {"else"} ;
+position token TkStruct {"struct"} ;
+position token TkBreak {"break"} ;
+position token TkContinue {"contiune"} ;
+position token TkDiscard {"discard"} ;
+position token TkConst {"const"} ;
 
 token CFloat (((digit+ '.' digit+)|(digit+ '.')|('.' digit+)) (('e'|'E')('-')? digit+)?
                ('f'|'F')?)|((digit+ ('e'|'E')('-')? digit+)('f'|'F')?);
 
 
 -- Parameter --------------------------------------------------------
-ConstParamDec.       Param  ::= TConst Type Id ;
-ConstParamDefault.   Param  ::= TConst Type Id "=" Exp19 ;
+ConstParamDec.       Param  ::= TkConst Type Id ;
+ConstParamDefault.   Param  ::= TkConst Type Id "=" Exp19 ;
 ParamDec.            Param  ::= Type Id ;
 ParamDefault.        Param  ::= Type Id "=" Exp19 ;
 separator Param "," ;
@@ -43,9 +43,9 @@ separator Param "," ;
 
 -- Declarations -----------------------------------------------------
 Dec.             Decl  ::= Type DeclPost ;
-ConstDec.        Decl  ::= TConst Type DeclPost ;
+ConstDec.        Decl  ::= TkConst Type DeclPost ;
 DecStruct.       Decl  ::= Id DeclPost ;
-ConstDecStruct.  Decl  ::= TConst Id DeclPost ;
+ConstDecStruct.  Decl  ::= TkConst Id DeclPost ;
 separator  Decl "," ;
 
 OnlyVars.    DeclPost  ::= [Id] ;
@@ -66,17 +66,17 @@ separator nonempty Id "," ;
 SDecl.     Stm ::= Decl ";" ;
 SExp.      Stm ::= Exp ";" ;
 SBlock.    Stm ::= "{" [Stm] "}" ;
-SWhile.    Stm ::= TWhile "(" Exp ")" Stm ;
-SDoWhile.  Stm ::= TDo Stm TWhile "(" Exp ")" ";" ;
-SFor.      Stm ::= TFor "(" [ForDecl] ";" [Exp] ";" [Exp] ")" Stm ;
-SReturn.   Stm ::= TReturn Exp ";" ;
-SVoidReturn.   Stm ::= TReturn ";" ;
--- Shift/reduce at TElse in SIf and SIfElse.
-SIf.       Stm ::= TIf "(" Exp ")" Stm ;
-SIfElse.   Stm ::= TIf "(" Exp ")" Stm TElse Stm ;
-SBreak.    Stm ::= TBreak ";" ;
-SContinue. Stm ::= TContinue ";" ;
-SDiscard.  Stm ::= TDiscard ";" ;
+SWhile.    Stm ::= TkWhile "(" Exp ")" Stm ;
+SDoWhile.  Stm ::= TkDo Stm TkWhile "(" Exp ")" ";" ;
+SFor.      Stm ::= TkFor "(" [ForDecl] ";" [Exp] ";" [Exp] ")" Stm ;
+SReturn.   Stm ::= TkReturn Exp ";" ;
+SVoidReturn.   Stm ::= TkReturn ";" ;
+-- Shift/reduce at TkElse in SIf and SIfElse.
+SIf.       Stm ::= TkIf "(" Exp ")" Stm ;
+SIfElse.   Stm ::= TkIf "(" Exp ")" Stm TkElse Stm ;
+SBreak.    Stm ::= TkBreak ";" ;
+SContinue. Stm ::= TkContinue ";" ;
+SDiscard.  Stm ::= TkDiscard ";" ;
 terminator Stm "" ;
 
 -- Enable annotation of types on statements
@@ -186,9 +186,9 @@ TMat3.       Type ::= "Mat3" ;
 TMat4.       Type ::= "Mat4" ;
 TColor.      Type ::= "Color" ;
 TImage.      Type ::= "Image" ;
-TEmptyArray. Type ::= Type "[" "]";
-TArray.      Type ::= Type "[" Exp "]";
 
 -- Allow for type of functions
-internal TFun. Type ::= Type [Type] ;
+internal TFun.    Type ::= Type [Type] ;
+internal TArray.  Type ::= Type ;
+internal TConst.  Type ::= Type ;
 separator Type "" ;
