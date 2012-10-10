@@ -12,6 +12,8 @@ import Data.Tree
 import Data.Map hiding (map)
 import Data.List (intercalate)
 
+import Text.Printf
+
 import Compiler hiding (Environment, Env, options, buildEnv)
 import FrontEnd.AbsGrammar
 import CompilerError
@@ -58,7 +60,7 @@ addFunction (CIdent (pos, name)) types = do
   case funs of
     Just fs →
       if types `elem` fs
-        then typeError pos file $ "function '" ++ name ++ "' with type " ++ showFunction types ++ " already defined"
+        then typeError pos file $ printf "function '%s' with type %s already defined" name (showFunction types)
         else modify (\st → st { functions = adjust (types:) name (functions st) })
     Nothing → modify (\st → st { functions = insert name [types] (functions st)})
 
