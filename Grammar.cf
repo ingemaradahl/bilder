@@ -191,3 +191,7 @@ TColor.      Type ::= "Color" ;
 TImage.      Type ::= "Image" ;
 TEmptyArray. Type ::= Type "[" "]";
 TArray.      Type ::= Type "[" Exp "]";
+
+-- Allow for type of functions
+internal TFun. Type ::= Type [Type] ;
+separator Type "" ;
