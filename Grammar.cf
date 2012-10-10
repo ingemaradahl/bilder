@@ -1,10 +1,9 @@
--- TODO: Think over arrays.
-
 comment "//" ;
 comment "/*" "*/" ;
 
 AbsTree. AbsTree ::= [Toplevel] ;
 
+-- Shift/reduce before ) in Function, EmptyFunction and VoidFunction.
 Function.     Toplevel  ::= Type CIdent "(" [Param] ")" "{" [Stm] "}" ;
 EmptyFunction. Toplevel ::= Type CIdent "(" ")" "{" [Stm] "}" ;
 VoidFunction. Toplevel  ::= Type CIdent "(" "void" ")" "{" [Stm] "}" ;
@@ -56,6 +55,7 @@ DefaultVars. DeclPost  ::= [Id] "=" Exp2 ;
 -- Ident ------------------------------------------------------------
 position token CIdent ((letter | '_') (letter | digit | '_')*) ;
 
+-- Shift/reduce at , in IdEmptyArray, IdArray and Ident (when used as [Id]).
 IdEmptyArray. Id  ::= CIdent "[" "]" ;
 IdArray.      Id  ::= CIdent "[" Exp "]" ;
 Ident.        Id  ::= CIdent ;
@@ -71,6 +71,7 @@ SDoWhile.  Stm ::= TDo Stm TWhile "(" Exp ")" ";" ;
 SFor.      Stm ::= TFor "(" [ForDecl] ";" [Exp] ";" [Exp] ")" Stm ;
 SReturn.   Stm ::= TReturn Exp ";" ;
 SVoidReturn.   Stm ::= TReturn ";" ;
+-- Shift/reduce at TElse in SIf and SIfElse.
 SIf.       Stm ::= TIf "(" Exp ")" Stm ;
 SIfElse.   Stm ::= TIf "(" Exp ")" Stm TElse Stm ;
 SBreak.    Stm ::= TBreak ";" ;
@@ -81,8 +82,8 @@ terminator Stm "" ;
 -- Enable annotation of types on statements
 internal SType. Stm ::= Type Stm ;
 
+
 -- For-specific initiation declarations -----------------------------
--- TODO: What is allowed in first section of a for-loop?
 FDecl.   ForDecl ::= Decl ;
 FExp.    ForDecl ::= Exp ;
 
@@ -145,14 +146,10 @@ EMember.       Exp15 ::= Exp15 "." Exp16 ;
 
 ECall.         Exp16 ::= Id "(" [Exp] ")" ;
 
-ETypeCall.     Exp17 ::= Type "(" [Exp] ")" ;
-
--- EAnonFun needed for:
--- return Color(int x, int y) { ...; return color; }
--- reduce/reduce between ETypeCall and EAnonFun.
---EAnonFun.   Exp17 ::= Type "(" [Param] ")" "{" [Stm] "}" ;
-
-EAnonLFun.    Exp18 ::= "lambda" "(" [Param] ")" "{" [Stm] "}" ;
+-- Enables anonymous declaration on the form Image(int x, int y) { stms };
+ETypeCall.     Exp17 ::= Type "(" [Exp] ")" AnonDecl ;
+AnonStms.      AnonDecl  ::= "{" [Stm] "}" ;
+OnlyCall.      AnonDecl  ::= ;
 
 EVar.          Exp19 ::= Id ;
 EStr.          Exp19 ::= String ;
