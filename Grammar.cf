@@ -3,6 +3,7 @@ comment "/*" "*/" ;
 
 AbsTree. AbsTree ::= [Toplevel] ;
 
+-- Shift/reduce before ) in Function, EmptyFunction and VoidFunction.
 Function.     Toplevel  ::= Type CIdent "(" [Param] ")" "{" [Stm] "}" ;
 EmptyFunction. Toplevel ::= Type CIdent "(" ")" "{" [Stm] "}" ;
 VoidFunction. Toplevel  ::= Type CIdent "(" "void" ")" "{" [Stm] "}" ;
@@ -54,6 +55,7 @@ DefaultVars. DeclPost  ::= [Id] "=" Exp2 ;
 -- Ident ------------------------------------------------------------
 position token CIdent ((letter | '_') (letter | digit | '_')*) ;
 
+-- Shift/reduce at , in IdEmptyArray, IdArray and Ident (when used as [Id]).
 IdEmptyArray. Id  ::= CIdent "[" "]" ;
 IdArray.      Id  ::= CIdent "[" Exp "]" ;
 Ident.        Id  ::= CIdent ;
@@ -69,6 +71,7 @@ SDoWhile.  Stm ::= TDo Stm TWhile "(" Exp ")" ";" ;
 SFor.      Stm ::= TFor "(" [ForDecl] ";" [Exp] ";" [Exp] ")" Stm ;
 SReturn.   Stm ::= TReturn Exp ";" ;
 SVoidReturn.   Stm ::= TReturn ";" ;
+-- Shift/reduce at TElse in SIf and SIfElse.
 SIf.       Stm ::= TIf "(" Exp ")" Stm ;
 SIfElse.   Stm ::= TIf "(" Exp ")" Stm TElse Stm ;
 SBreak.    Stm ::= TBreak ";" ;
