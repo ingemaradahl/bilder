@@ -12,6 +12,7 @@ import FrontEnd.AbsGrammar
 data Options = Options {
   inputFile ∷ FilePath
 }
+  deriving (Show)
 
 data Environment = Env {
   source ∷ String,
