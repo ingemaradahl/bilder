@@ -151,13 +151,13 @@ ETypeCall.     Exp17 ::= Type "(" [Exp] ")" AnonDecl ;
 AnonStms.      AnonDecl  ::= "{" [Stm] "}" ;
 OnlyCall.      AnonDecl  ::= ;
 
-EVar.          Exp19 ::= Id ;
-EStr.          Exp19 ::= String ;
+EVar.          Exp18 ::= Id ;
+--EType.         Exp18 ::= Type;
+
 EInt.          Exp19 ::= Integer ;
 EFloat.        Exp19 ::= CFloat ;
 ETrue.         Exp19 ::= "true" ;
 EFalse.        Exp19 ::= "false" ;
-EType.         Exp19 ::= Type;
 
 coercions Exp 19 ;
 separator Exp "," ;

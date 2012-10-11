@@ -10,6 +10,8 @@ import Data.Traversable as Traverse
 import Data.Tree
 
 import TypeChecker.TCM
+import TypeChecker.TCM.Errors
+import TypeChecker.TCM.Utils
 
 import TypeChecker.Environment hiding (pushScope, popScope)
 import TypeChecker.Utils
@@ -51,6 +53,28 @@ checkFunction' (Function t i ps sts) = checkFunction i t ps sts
 checkFunction ∷ CIdent → Type → [Param] → [Stm] → TCM ()
 checkFunction (CIdent (pos, name)) ret args stms = do
   pushScope
+  updateFunction name
   mapM_ (\p → addVariable' (paramToString p) (paramToPos p) (paramType p)) args
-  popScope
+
+  -- Check that eventual parameter assignments are correct
+  mapM_ checkParam args
+  --popScope
   return ()
+
+checkParam ∷ Param → TCM ()
+checkParam p = assert (checkParam' p) error
+ where
+  checkParam' ∷ Param → Bool
+  checkParam' (ConstParamDefault _ t _ e) = t == inferExp e
+  checkParam' (ParamDefault t _ e) = t == inferExp e
+  checkParam' _ = True
+  error = paramExp p >>= paramExpectedTypeError p . inferExp
+
+
+
+
+inferExp ∷ Exp → Type
+inferExp (EInt _) = TInt
+inferExp (EFloat _) = TFloat
+inferExp ETrue = TBool
+inferExp EFalse = TBool
