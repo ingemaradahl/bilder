@@ -2,7 +2,12 @@
 
 module TypeChecker.Environment where
 
-import TypeChecker
+import TypeChecker.Types
+import Compiler (Options)
+
+import Text.Printf
+import Data.List (intercalate)
+import Data.Map hiding (map)
 
 -- | Environment during type checking
 data Environment = Env {
@@ -15,6 +20,12 @@ instance Show Environment where
  show env = printf "Functions: %s\nVariables:%s"
    (showFuns (scopes env))
    (showVars (scopes env))
+
+data Scope = Scope {
+  functions ∷ Map String [Function],
+  variables ∷ Map String Variable
+}
+ deriving (Show)
 
 showFunctionType ∷ Function → String
 showFunctionType (_, _, ret, args) = intercalate " -> " $ map show (args ++ [ret])
@@ -50,8 +61,3 @@ showFunsLevel funMap l = foldrWithKey reducer "" funMap
   reducer n fs p = p ++ newline ++ intercalate newline (map (showFunction n) fs)
   newline = '\n':replicate l ' '
 
-data Scope = Scope {
-  functions ∷ Map String [Function],
-  variables ∷ Map String Variable
-}
- deriving (Show)

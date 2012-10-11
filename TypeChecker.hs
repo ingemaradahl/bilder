@@ -5,19 +5,31 @@ module TypeChecker where
 import Prelude hiding (lookup)
 
 import Control.Monad.Trans.State
-import Control.Monad.Error
+import Control.Monad.Error hiding (mapM)
 
 import Data.Traversable as Traverse
 import Data.Tree
 import Data.Map hiding (map, null)
-import Data.List (intercalate)
 
 import Text.Printf
 
 import TypeChecker.Environment
+import TypeChecker.Types
+import TypeChecker.Utils
+
 import Compiler hiding (Environment, Env, options, buildEnv)
 import FrontEnd.AbsGrammar
 import CompilerError
+
+-- | TypeCheckerMonad - Wrapping up a state around CError
+type TCM a = StateT Environment CError a
+
+-- | Only used during interpretation runs
+instance (Show a) => Show (TCM a) where
+  show res = case runStateT res $ buildEnv Options { inputFile = "DEBUG" } of
+    Pass (v,s) → printf "%s\n%s" (show v) (show s)
+    Fail e → show e
+
 
 -- | Throw a type error
 typeError ∷ Position → String → TCM ()
@@ -31,10 +43,6 @@ absError e p s = do
   f ← gets currentFile
   throwError $ e p f s
 
-
--- | Type of functions, where first value is return type, second is arguments
-type Function = (FilePath, Position, Type, [Type])
-type Variable = (FilePath, Position, Type)
 
 exists ∷ Function → [Function] → Bool
 (_,_,t,ts) `exists` fs = any (\(_,_,t',ts') → (t,ts) == (t',ts')) fs
@@ -81,6 +89,11 @@ addVariable name v@(_,pos,_) = do
     Just _ → typeError pos $ printf "variable '%s' already defined" name
     Nothing → modify (\st → st { scopes = saddVariable name v s : ss } )
 
+addVariable' ∷ String → Position → Type → TCM ()
+addVariable' n p t = do
+  file ← gets currentFile
+  addVariable n (file, p, t)
+
 lookupVar ∷ String → TCM Variable
 lookupVar name = gets scopes >>= lookupVar'
  where
@@ -95,15 +108,6 @@ lookupVar name = gets scopes >>= lookupVar'
 updateFile ∷ FilePath → TCM ()
 updateFile f = modify (\st → st { currentFile = f })
 
--- | TypeCheckerMonad - Wrapping up a state around CError
-type TCM a = StateT Environment CError a
-
--- | Only used during interpretation runs
-instance (Show a) => Show (TCM a) where
-  show res = case runStateT res $ buildEnv Options { inputFile = "DEBUG" } of
-    Pass (v,s) → printf "%s\n%s" (show v) (show s)
-    Fail e → show e
-
 -- | Typechecks the given abstract source and annotates the syntax tree
 typeCheck ∷ Options → Tree (FilePath, AbsTree) → CError (Tree (FilePath, AbsTree))
 typeCheck opts tree = evalStateT (checkTree tree) (buildEnv opts)
@@ -115,17 +119,6 @@ checkTree tree = do
   Traverse.mapM checkFunctions tree
 
   return tree
-
--- | TODO: Move this to some other module
-paramType ∷ Param → Type
-paramType (ConstParamDec _ t i) = idToType i t
-paramType (ParamDec t i) = idToType i t
-paramType (ParamDefault t i _) = idToType i t
-
-idToType ∷ Id → Type → Type
-idToType (IdEmptyArray _) t = TArray t
-idToType (IdArray _ _) t = TArray t
-idToType _ t = t
 
 -- | Adds function type definitions to the state
 addFunctions ∷ (FilePath, AbsTree) → TCM ()
@@ -140,8 +133,12 @@ checkFunctions (filename, AbsTree tree) = do
   return ()
 
 example ∷ AbsTree
-example = AbsTree [Import (TkImport ((1,1),"import")) "struct.fl", Function TColor (CIdent ((3,7),"main")) [] [SDecl (Dec TInt (DefaultVars [Ident (CIdent ((5,7),"b"))] (EInt 0))),SFor (TkFor ((6,3),"for")) [FDecl (Dec TInt (DefaultVars [Ident (CIdent ((6,12),"a"))] (EInt 0)))] [ELt (EVar (Ident (CIdent ((6,17),"i")))) (EInt 10)] [EPostInc (EVar (Ident (CIdent ((6,23),"i"))))] (SBlock [SExp (EPostInc (EVar (Ident (CIdent ((9,5),"b")))))]),SReturn (TkReturn ((11,3),"return")) (EVar (Ident (CIdent ((11,10),"b"))))]]
+example = AbsTree [Import (TkImport ((1,1),"import")) "bools.fl",Import (TkImport ((2,1),"import")) "inner/const.fl",Struct (TkStruct ((4,1),"struct")) (CIdent ((4,8),"First")) [SVDecl (Dec TColor (OnlyVars [Ident (CIdent ((5,15),"color"))])),SVDecl (Dec TVec2 (OnlyVars [Ident (CIdent ((6,14),"coordinates"))]))],StructDecl (TkStruct ((9,1),"struct")) (CIdent ((9,8),"Second")) [SVDecl (Dec TVec2 (OnlyVars [Ident (CIdent ((10,14),"coordinates"))]))] (Ident (CIdent ((11,3),"second"))),StructDecl (TkStruct ((13,1),"struct")) (CIdent ((13,8),"Third")) [SVDecl (Dec TVec2 (OnlyVars [Ident (CIdent ((14,14),"coordinates"))]))] (IdArray (CIdent ((15,3),"third")) (EInt 5)),Function TColor (CIdent ((17,7),"main")) [ParamDec TInt (Ident (CIdent ((17,16),"x"))),ParamDec TInt (Ident (CIdent ((17,23),"y")))] [SDecl (DecStruct (Ident (CIdent ((19,9),"First"))) (OnlyVars [Ident (CIdent ((19,15),"a"))])),SDecl (DecStruct (Ident (CIdent ((20,9),"First"))) (DefaultVars [Ident (CIdent ((20,15),"b"))] (ECall (Ident (CIdent ((20,19),"First"))) [ETypeCall TColor [EFloat (CFloat "1.0")] OnlyCall,ETypeCall TVec2 [EFloat (CFloat "1.0"),EFloat (CFloat "2.0")] OnlyCall]))),SExp (EAss (EMember (EVar (Ident (CIdent ((22,9),"second")))) (EVar (Ident (CIdent ((22,16),"coordinates"))))) (ETypeCall TVec2 [EFloat (CFloat "1.0"),EFloat (CFloat "2.0")] OnlyCall)),SReturn (TkReturn ((24,9),"return")) (EMember (EVar (Ident (CIdent ((24,16),"b")))) (EVar (Ident (CIdent ((24,18),"color")))))]]
+
+checkFunction' ∷ Toplevel → TCM ()
+checkFunction' (Function t i ps sts) = checkFunction i t ps sts
 
 checkFunction ∷ CIdent → Type → [Param] → [Stm] → TCM ()
 checkFunction (CIdent (pos, name)) ret args stms = do
+  mapM_ (\p → addVariable' (paramToString p) (paramToPos p) (paramType p)) args
   return ()
