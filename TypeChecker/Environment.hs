@@ -14,7 +14,8 @@ import Data.Map hiding (map)
 data Environment = Env {
   scopes  ∷ [Scope],
   options   ∷ Options,
-  currentFile ∷ FilePath
+  currentFile ∷ FilePath,
+  currentFunction ∷ String
 }
 
 -- | Creates an empty environment based on a set of options
@@ -22,7 +23,8 @@ buildEnv ∷ Options → Environment
 buildEnv opts = Env {
   scopes = [Scope empty empty],
   options = opts,
-  currentFile = ""
+  currentFile = "",
+  currentFunction = ""
 }
 
 -- | Pushes a new, empty scope to the environment

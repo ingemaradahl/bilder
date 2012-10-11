@@ -23,7 +23,7 @@ printHelp = putStrLn "HELP"
 printResult ∷ CError [String] → IO ()
 printResult r = case r of
   Pass s → putStrLn $ intercalate "\n" s
-  Fail e → putStrLn $ "FAIL: " ++ show e
+  Fail e → putStrLn $ "FAIL:\n" ++ show e
 
 main ∷ IO ()
 main = fmap parseArgs getArgs >>= maybe printHelp compile

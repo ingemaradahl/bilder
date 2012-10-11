@@ -9,3 +9,6 @@ import FrontEnd.AbsGrammar
 type Function = (FilePath, Position, Type, [Type])
 type Variable = (FilePath, Position, Type)
 
+varType ∷ Variable → Type
+varType (_,_,t) = t
+

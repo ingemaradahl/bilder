@@ -7,6 +7,8 @@ import Control.Monad.Trans
 
 import Control.Monad.Error
 
+import Text.Printf
+
 type Position = (Int, Int)
 
 data CompilerError =
@@ -14,7 +16,10 @@ data CompilerError =
   | TypeError Position FilePath String
   | CompileError Position FilePath String
   | UnknownError String
-  deriving (Read, Show, Eq, Ord)
+  deriving (Read, Eq, Ord)
+
+instance Show CompilerError where
+  show (TypeError (l,c) f e) = printf "Type error in %s:%d, column %d\n%s" f l c e
 
 instance Error CompilerError where
   noMsg  = UnknownError "Unknown error"

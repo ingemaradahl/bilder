@@ -26,6 +26,9 @@ idToCIdent (IdEmptyArray c) = c
 idToCIdent (IdArray c _) = c
 idToCIdent (Ident c) = c
 
+idToPos ∷ Id → Position
+idToPos = cIdentToPos . idToCIdent
+
 cIdentToString ∷ CIdent → String
 cIdentToString (CIdent (_,s)) = s
 
