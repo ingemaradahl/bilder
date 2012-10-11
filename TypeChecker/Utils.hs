@@ -1,9 +1,14 @@
-{-# LANGUAGE UnicodeSyntax, FlexibleInstances #-}
+{-# LANGUAGE UnicodeSyntax #-}
 
 module TypeChecker.Utils where
 
+import TypeChecker.Types
+
 import FrontEnd.AbsGrammar
 import CompilerError (Position)
+
+exists ∷ Function → [Function] → Bool
+(_,_,t,ts) `exists` fs = any (\(_,_,t',ts') → (t,ts) == (t',ts')) fs
 
 paramType ∷ Param → Type
 paramType (ConstParamDec _ t i) = idToType i t

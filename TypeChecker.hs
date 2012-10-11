@@ -1,112 +1,22 @@
-{-# LANGUAGE UnicodeSyntax, FlexibleInstances #-}
+{-# LANGUAGE UnicodeSyntax  #-}
 
 module TypeChecker where
 
 import Prelude hiding (lookup)
 
 import Control.Monad.Trans.State
-import Control.Monad.Error hiding (mapM)
 
 import Data.Traversable as Traverse
 import Data.Tree
-import Data.Map hiding (map, null)
 
-import Text.Printf
+import TypeChecker.TCM
 
-import TypeChecker.Environment
-import TypeChecker.Types
+import TypeChecker.Environment hiding (pushScope, popScope)
 import TypeChecker.Utils
 
 import Compiler hiding (Environment, Env, options, buildEnv)
 import FrontEnd.AbsGrammar
 import CompilerError
-
--- | TypeCheckerMonad - Wrapping up a state around CError
-type TCM a = StateT Environment CError a
-
--- | Only used during interpretation runs
-instance (Show a) => Show (TCM a) where
-  show res = case runStateT res $ buildEnv Options { inputFile = "DEBUG" } of
-    Pass (v,s) → printf "%s\n%s" (show v) (show s)
-    Fail e → show e
-
-
--- | Throw a type error
-typeError ∷ Position → String → TCM ()
-typeError = absError TypeError
-
-compileError ∷ Position → String → TCM ()
-compileError = absError CompileError
-
-absError ∷ (Position → FilePath → String → CompilerError) → Position → String → TCM ()
-absError e p s = do
-  f ← gets currentFile
-  throwError $ e p f s
-
-
-exists ∷ Function → [Function] → Bool
-(_,_,t,ts) `exists` fs = any (\(_,_,t',ts') → (t,ts) == (t',ts')) fs
-
-emptyScope ∷ Scope
-emptyScope = Scope { functions = empty, variables = empty }
-
--- | Add a function to a scope
-saddFunction ∷ String → Function → Scope → Scope
-saddFunction n t s = s { functions = fs' }
- where
-  fs = functions s
-  fs' = if member n fs
-          then adjust (t:) n fs
-          else insert n [t] fs
-
-saddVariable ∷ String → Variable → Scope → Scope
-saddVariable n v s = s { variables = vs }
- where
-  vs = insert n v $ variables s
-
--- | Creates an empty environment based on a set of options
-buildEnv ∷ Options → Environment
-buildEnv opts = Env {
-  scopes = [Scope empty empty],
-  options = opts,
-  currentFile = ""
-}
-
--- | Adds a function to the environment, and makes sure there are no duplicates
-addFunction ∷ String → Function → TCM ()
-addFunction name fun@(_,pos,_,_) = do
-  (s:ss) ← gets scopes
-  let a = lookup name (functions s) >>= (\fs → if fun `exists` fs then Just fs; else Nothing)
-  case a of
-    Just _ → typeError pos $ printf "function '%s' with type %s already defined" name (showFunctionType fun)
-    Nothing → modify (\st → st { scopes = saddFunction name fun s : ss })
-
--- | Adds a variable to the current scope, making sure there are no duplicates
-addVariable ∷ String → Variable → TCM ()
-addVariable name v@(_,pos,_) = do
-  (s:ss) ← gets scopes
-  case lookup name (variables s) of
-    Just _ → typeError pos $ printf "variable '%s' already defined" name
-    Nothing → modify (\st → st { scopes = saddVariable name v s : ss } )
-
-addVariable' ∷ String → Position → Type → TCM ()
-addVariable' n p t = do
-  file ← gets currentFile
-  addVariable n (file, p, t)
-
-lookupVar ∷ String → TCM Variable
-lookupVar name = gets scopes >>= lookupVar'
- where
-  lookupVar' ∷ [Scope] → TCM Variable
-  lookupVar'     [] = fail "apa" -- TODO
-  lookupVar' (s:ss) = case lookup name (variables s) of
-    Just v  → return v
-    Nothing → lookupVar' ss
-
-
--- | Sets which file is currently checked
-updateFile ∷ FilePath → TCM ()
-updateFile f = modify (\st → st { currentFile = f })
 
 -- | Typechecks the given abstract source and annotates the syntax tree
 typeCheck ∷ Options → Tree (FilePath, AbsTree) → CError (Tree (FilePath, AbsTree))
@@ -140,5 +50,7 @@ checkFunction' (Function t i ps sts) = checkFunction i t ps sts
 
 checkFunction ∷ CIdent → Type → [Param] → [Stm] → TCM ()
 checkFunction (CIdent (pos, name)) ret args stms = do
+  pushScope
   mapM_ (\p → addVariable' (paramToString p) (paramToPos p) (paramType p)) args
+  popScope
   return ()
