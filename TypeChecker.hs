@@ -14,6 +14,7 @@ import Data.List (intercalate)
 
 import Text.Printf
 
+import TypeChecker.Environment
 import Compiler hiding (Environment, Env, options, buildEnv)
 import FrontEnd.AbsGrammar
 import CompilerError
@@ -30,70 +31,13 @@ absError e p s = do
   f ← gets currentFile
   throwError $ e p f s
 
+
 -- | Type of functions, where first value is return type, second is arguments
 type Function = (FilePath, Position, Type, [Type])
 type Variable = (FilePath, Position, Type)
 
-showFunction ∷ Function → String
-showFunction (_, _, ret, args) = intercalate " -> " $ map show (args ++ [ret])
-
 exists ∷ Function → [Function] → Bool
 (_,_,t,ts) `exists` fs = any (\(_,_,t',ts') → (t,ts) == (t',ts')) fs
-
--- | Environment during type checking
-data Environment = Env {
-  scopes  ∷ [Scope],
-  options   ∷ Options,
-  currentFile ∷ FilePath
-}
-
-instance Show Environment where
- show env = printf "Functions: %s\nVariables:%s" (showFuns (scopes env)) (showVars (scopes env))
-
-showVars ∷ [Scope] → String
-showVars scope = showVars' scope 2
- where
-  showVars' ∷ [Scope] → Int → String
-  showVars' (s:sc) l = showVarsLevel (toList (variables s)) l ++ showVars' sc (l+2)
-  showVars' [] _ = ""
-
-showVarsLevel ∷ [(String,Variable)] → Int → String
-showVarsLevel vars l = newline ++ (intercalate newline $ map (uncurry showVar) vars)
- where
-  newline = '\n':replicate l ' '
-
-showVar ∷ String → Variable → String
-showVar n (_,_,t) = printf "%s: %s" n $ show t
-
-showFuns ∷ [Scope] → String
-showFuns scope = showFuns' scope 2
- where
-  showFuns' ∷ [Scope] → Int → String
-  showFuns' (s:sc) l = showFunsLevel (functions s) l ++ showFuns' sc (l+2)
-  showFuns' [] _ = ""
-
-showFunsLevel ∷ Map String [Function] → Int → String
-showFunsLevel funMap l = foldrWithKey reducer "" funMap
- where
-  reducer n fs p = p ++ newline ++ intercalate newline (map (showFun n) fs)
-  newline = '\n':replicate l ' '
-
---apa = (\n fs p → p ++ "\n" ++ intercalate "\n" (map (showFun n) fs))
-
-showFun ∷ String → Function → String
-showFun n f = printf "%s :: %s "n (showFunction f)
-
---showScopes ∷ [Scope] → Int → String
---showScopes (s:sc) l = showFuns (toList $ functions s) ++ showScopes sc (l+2)
--- where
---  --showFun n f = printf "%s%s: %s" (replicate l ' ') n (showFunction f)
---showScopes [] _ = ""
-
-data Scope = Scope {
-  functions ∷ Map String [Function],
-  variables ∷ Map String Variable
-}
- deriving (Show)
 
 emptyScope ∷ Scope
 emptyScope = Scope { functions = empty, variables = empty }
@@ -126,7 +70,7 @@ addFunction name fun@(_,pos,_,_) = do
   (s:ss) ← gets scopes
   let a = lookup name (functions s) >>= (\fs → if fun `exists` fs then Just fs; else Nothing)
   case a of
-    Just _ → typeError pos $ printf "function '%s' with type %s already defined" name (showFunction fun)
+    Just _ → typeError pos $ printf "function '%s' with type %s already defined" name (showFunctionType fun)
     Nothing → modify (\st → st { scopes = saddFunction name fun s : ss })
 
 -- | Adds a variable to the current scope, making sure there are no duplicates
