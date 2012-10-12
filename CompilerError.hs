@@ -1,4 +1,4 @@
-{-# LANGUAGE UnicodeSyntax, MultiParamTypeClasses, UndecidableInstances  #-}
+{-# LANGUAGE UnicodeSyntax, MultiParamTypeClasses, UndecidableInstances #-}
 
 module CompilerError where
 
@@ -12,15 +12,15 @@ import Control.Monad.Error
 import Text.Printf
 
 data CompilerError =
-    SyntaxError Position String
+    SyntaxError Position FilePath String
   | TypeError Position FilePath String
   | CompileError Position FilePath String
   | UnknownError String
   deriving (Read, Eq, Ord)
 
 instance Show CompilerError where
-  show (SyntaxError _ s) = printf "SYNTAX ERROR: %s" s -- TODO
-  show (CompileError _ _ s) = printf "COMPILE ERROR: %s" s -- TODO
+  show (SyntaxError (l,c) f s) = printf "SYNTAX ERROR in %s:%d, column %d\n%s" f l c s
+  show (CompileError (l,c) f s) = printf "COMPILE ERROR in %s:%d, column: %d\n%s" f l c s
   show (TypeError (l,c) f e) = printf "Type error in %s:%d, column %d\n%s" f l c e
   show (UnknownError s) = s
 
@@ -48,6 +48,14 @@ instance MonadTrans CErrorT where
   lift m = CErrorT $ do
     a ← m
     return $ Pass a
+
+instance (Monad a) ⇒ MonadError CompilerError (CErrorT a) where
+  throwError e     = CErrorT $ return (Fail e)
+  m `catchError` h = CErrorT $ do
+    a ← runCErrorT m
+    case a of
+      Fail e → runCErrorT (h e)
+      Pass f → return (Pass f)
 
 instance Functor CError where
   fmap f (Pass a) = Pass (f a)
