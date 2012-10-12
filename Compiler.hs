@@ -7,6 +7,7 @@ import Control.Monad.State
 import Data.Tree
 
 import CompilerError
+import CompilerTypes
 import FrontEnd.AbsGrammar
 
 data Options = Options {

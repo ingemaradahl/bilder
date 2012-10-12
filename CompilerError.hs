@@ -2,14 +2,14 @@
 
 module CompilerError where
 
+import CompilerTypes
+
 import Control.Applicative
 import Control.Monad.Trans
 
 import Control.Monad.Error
 
 import Text.Printf
-
-type Position = (Int, Int)
 
 data CompilerError =
     SyntaxError Position String
@@ -19,7 +19,10 @@ data CompilerError =
   deriving (Read, Eq, Ord)
 
 instance Show CompilerError where
+  show (SyntaxError _ s) = printf "SYNTAX ERROR: %s" s -- TODO
+  show (CompileError _ _ s) = printf "COMPILE ERROR: %s" s -- TODO
   show (TypeError (l,c) f e) = printf "Type error in %s:%d, column %d\n%s" f l c e
+  show (UnknownError s) = s
 
 instance Error CompilerError where
   noMsg  = UnknownError "Unknown error"

@@ -3,10 +3,7 @@ comment "/*" "*/" ;
 
 AbsTree. AbsTree ::= [Toplevel] ;
 
--- Shift/reduce before ) in Function, EmptyFunction and VoidFunction.
 Function.     Toplevel  ::= Type CIdent "(" [Param] ")" "{" [Stm] "}" ;
-EmptyFunction. Toplevel ::= Type CIdent "(" ")" "{" [Stm] "}" ;
-VoidFunction. Toplevel  ::= Type CIdent "(" "void" ")" "{" [Stm] "}" ;
 Struct.       Toplevel  ::= TkStruct CIdent "{" [StructVarDecl] "}" ";" ;
 StructDecl.   Toplevel  ::= TkStruct CIdent "{" [StructVarDecl] "}" Id ";" ;
 Import.       Toplevel  ::= TkImport String ";" ;
