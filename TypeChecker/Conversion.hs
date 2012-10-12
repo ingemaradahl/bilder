@@ -15,3 +15,6 @@ tcFun file (Abs.Function t cident params stms) =
     parameters = params,
     statements = stms
   }
+
+paramToVar ∷ FilePath → Abs.Param → Variable
+paramToVar f p = Variable (paramToString p) (f,paramToPos p) (paramType p)
