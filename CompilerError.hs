@@ -49,6 +49,14 @@ instance MonadTrans CErrorT where
     a ← m
     return $ Pass a
 
+instance (Monad a) ⇒ MonadError CompilerError (CErrorT a) where
+  throwError e     = CErrorT $ return (Fail e)
+  m `catchError` h = CErrorT $ do
+    a ← runCErrorT m
+    case a of
+      Fail e → runCErrorT (h e)
+      Pass f → return (Pass f)
+
 instance Functor CError where
   fmap f (Pass a) = Pass (f a)
   fmap _ (Fail e) = Fail e
