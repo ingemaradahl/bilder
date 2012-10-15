@@ -6,15 +6,19 @@ import Prelude hiding (lookup)
 
 import Control.Monad
 import Control.Monad.Trans.State
+import Control.Arrow (second)
 
 import qualified Data.Traversable as Traverse
 import Data.Tree
 import Data.Map (Map, elems, insertWith, empty)
+import Data.Maybe (isJust, fromJust)
+import GHC.Exts (sortWith)
 
 import TypeChecker.TCM
 import TypeChecker.TCM.Errors
 import TypeChecker.TCM.Utils
 
+import TypeChecker.Utils
 import TypeChecker.Environment hiding (pushScope, popScope)
 import TypeChecker.Scope as Scope hiding (addFunction, addVariable)
 import TypeChecker.Types
@@ -88,12 +92,32 @@ checkParam (p,v) = checkParam' p >>= flip unless error'
   error' = paramExp p >>= inferExp >>= paramExpectedTypeError p
 
 checkStatement ∷ Stm → TCM Stm
-checkStatement s@(SReturn _ e) = inferExp e >>= (\t → return $ SType t s)
-checkStatement s@(SDecl {}) = undefined
+checkStatement s@(SReturn (TkReturn (pos,_)) e) = do
+  fun ← gets currentFunction
+  t ← inferExp e
+  if retType fun == t
+    then return $ SType t s
+    else returnMismatch pos t
+checkStatement s = debugError $ show s ++ " NOT DEFINED"
 
 inferExp ∷ Exp → TCM Type
 inferExp (EInt _) = return TInt
 inferExp (EFloat _) = return TFloat
 inferExp ETrue = return TBool
 inferExp EFalse = return TBool
-inferExp e = fail $ show e ++ " not inferrablelollolo"
+inferExp (ECall i es) = do
+  args ← mapM inferExp es
+  funs ← lookupFunction (idToString i)
+  let matches = map (second fromJust) $
+                  filter (isJust . snd) $ zip funs (map (`partialApp` args) funs)
+  if null matches
+    then noFunctionFound i args
+    else do
+      -- Apply as many arguments as possible (shortest list left after application)
+      let (fun, args') = head $ sortWith snd matches
+      if null args'
+        then return (retType fun) -- Function swallowed all arguments
+        else return $ TFun (retType fun) args' -- Function partially applied
+
+inferExp e = debugError $ show e ++ " not inferrablelollolo"
+

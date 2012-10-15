@@ -50,6 +50,25 @@ functionDefinedError defined adding =
     (showFunctionType defined)
     (show (location defined))
 
+noFunctionFound ∷ Id → [Type] → TCM a
+noFunctionFound f args =
+  typeError (idToPos f) $
+    printf ("No function \"%s\" found matching argument list\n" ++
+            "              %s")
+    (idToString f)
+    (show args)
+
+returnMismatch ∷ Position → Type → TCM a
+returnMismatch pos inferred = do
+  expected ← gets currentFunction
+  typeError pos $
+    printf ("Couldn't match expected type %s\n" ++
+            "            with actual type %s\n" ++
+            "in return expression in function \"%s\"\n")
+    (show (retType expected))
+    (show inferred)
+    (ident expected)
+
 
 
 -- | Throw a type error
@@ -58,6 +77,9 @@ typeError = absError TypeError
 
 compileError ∷ Position → String → TCM a
 compileError = absError CompileError
+
+debugError ∷ String → TCM a
+debugError = absError CompileError (-1,-1)
 
 absError ∷ (Position → FilePath → String → CompilerError) → Position → String → TCM a
 absError e p s = do

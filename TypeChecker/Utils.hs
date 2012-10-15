@@ -4,6 +4,7 @@ module TypeChecker.Utils where
 
 import CompilerTypes
 import FrontEnd.AbsGrammar
+import TypeChecker.Types
 
 paramQualifiers ∷ Param → [Qualifier]
 paramQualifiers (ParamDec qs _) = qs
@@ -21,6 +22,9 @@ idToCIdent (Ident c) = c
 
 idToPos ∷ Id → Position
 idToPos = cIdentToPos . idToCIdent
+
+idToString ∷ Id → String
+idToString = cIdentToString . idToCIdent
 
 cIdentToString ∷ CIdent → String
 cIdentToString (CIdent (_,s)) = s
@@ -44,3 +48,14 @@ qualType qs | length types == 1 = Just $ head types
   types = [ t | QType t ← qs ]
 qualType _ = Nothing
 
+
+
+-- Match function against argument types
+partialApp ∷ Function → [Type] → Maybe [Type]
+partialApp f args = partial args $ map varType $ paramVars f
+ where
+  partial ∷ [Type] → [Type] → Maybe [Type]
+  partial (a:as) (b:bs) | a == b = partial as bs
+                        | otherwise = Nothing
+  partial [] bs = Just bs
+  partial _  [] = Nothing

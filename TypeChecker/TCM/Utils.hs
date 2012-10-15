@@ -21,12 +21,6 @@ import Data.Map
 
 import Text.Printf
 
--- | Assert that the condition is true
-assert ∷ Bool → TCM () → TCM ()
-assert = unless
---assert True _  = return ()
---assert False e = e
-
 -- | Adds a function to the environment, and makes sure there are no duplicates
 addFunction ∷ Function → TCM ()
 addFunction fun = do
@@ -37,6 +31,18 @@ addFunction fun = do
     Nothing → modify (\st → st { scopes = Scope.addFunction fun s : ss })
  where
   name = ident fun ∷ String
+
+lookupFunction ∷ String → TCM [Function]
+lookupFunction f = do
+  scs ← gets scopes
+  maybe (return []) return $ lookupFun f scs
+ where
+  lookupFun ∷ String → [Scope.Scope] → Maybe [Function]
+  lookupFun fun (s:ss) =
+    case lookup fun (Scope.functions s) of
+      Just fs → Just fs
+      Nothing → lookupFun f ss
+  lookupFun _ [] = Nothing
 
 -- | Adds a variable to the current scope, making sure there are no duplicates
 addVariable ∷ Variable → TCM ()
