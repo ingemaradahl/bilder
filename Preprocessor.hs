@@ -1,4 +1,7 @@
 {-# LANGUAGE UnicodeSyntax #-}
+{- Limitation: defines in imported files will be defined first after
+    the preprocessing is done. So defines in imported files will not
+    work as intended. -}
 
 module Preprocessor where
 
@@ -9,14 +12,17 @@ import Control.Monad.Error
 
 import Text.Regex
 import Data.Maybe (catMaybes)
+import Data.List (sortBy)
 
-import Data.Map (foldrWithKey, member, insert, delete)
+import Data.Map (member, insert, delete, assocs)
 
 import Text.Printf (printf)
 
 import CompilerError
 
 import Parser
+
+import Data.Function (on)
 
 -- | Reads and processes file.
 readAndProcessFile ∷ FilePath → PM String
@@ -65,12 +71,11 @@ processLine (n, line) = do
 -- | Substitutes all macros in given string
 subMacros ∷ String → PM String
 subMacros s = do
-  -- TODO: Sort macros by length.
   ms ← gets defines
-  return $ foldrWithKey sub s ms
+  return $ foldr sub s $ sortBy (compare `on` (length . fst)) (assocs ms)
   where
-    sub ∷ String → String → String → String
-    sub k v t = subRegex (mkRegex k) t v
+    sub ∷ (String, String) → String → String
+    sub (k, v) t = subRegex (mkRegex k) t v
 
 -- | Checks if a variable is declared.
 isDefined ∷ String → PM Bool
