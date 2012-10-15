@@ -10,6 +10,7 @@ import Control.Monad.Trans.State
 import Control.Monad.Error
 
 import Text.Regex.Posix
+import Text.Regex
 import Data.Tree
 import Data.List ((\\))
 import Data.Maybe (catMaybes)
@@ -22,8 +23,10 @@ import FrontEnd.ParGrammar
 import FrontEnd.ErrM
 import Text.Printf (printf)
 
+import Compiler hiding (options, buildEnv)
 import CompilerError
 import CompilerTypes
+-- TODO: Use Location instead of Position.
 
 -- | PM - A ParserMonad, keeps a state of which file has been imported
 type PM a = StateT PPEnv (CErrorT IO) a
@@ -40,8 +43,8 @@ addFile f = do
   return $ f : fs
 
 -- | Parse the tree of files
-parseHead ∷ FilePath → IO (CError (Tree (FilePath, AbsTree)))
-parseHead f = runCErrorT $ evalStateT (parseTree f) buildEnv
+parseHead ∷ Options → IO (CError (Tree (FilePath, AbsTree)))
+parseHead os = runCErrorT $ evalStateT (parseTree (inputFile os)) (buildEnv os)
 
 -- | Recursively parse the files to be imported
 parseTree ∷ FilePath → PM (Tree (FilePath, AbsTree))
@@ -74,24 +77,28 @@ parse src =
     lineErr s = read (s =~ "[1-9]+" ∷ String) ∷ Int
 
 
+-- | Preprocessor stuff
 data PPEnv = PPEnv {
 	defines ∷ Map.Map String String,
 	ifStack ∷ [Bool],
   warnings ∷ [(Position, String)],
   filepaths ∷ [FilePath],
   currentFile ∷ FilePath,
-  currentLine ∷ Int
+  currentLine ∷ Int,
+  options ∷ Options
 }
  deriving (Show)
 
-buildEnv ∷ PPEnv
-buildEnv = PPEnv {
+-- TODO: Take Options.
+buildEnv ∷ Options → PPEnv
+buildEnv os = PPEnv {
   ifStack = [],
   defines = Map.empty,
   warnings = [],
   filepaths = [],
   currentFile = "",
-  currentLine = 0
+  currentLine = 0,
+  options = os
 }
 
 -- | Reads and processes file.
@@ -105,7 +112,7 @@ preprocess ∷ String → PM String
 preprocess src = do
   ls ← mapM processLine (zip [1..] $ lines src)
   ifs ← gets ifStack
-  unless (ifs == []) $ syntaxError "Unmatched if-statement."
+  unless (ifs == []) $ syntaxError "unmatched if-statement."
   return $ (concat . catMaybes) ls
 
 -- | Preprocesses given a line of source code
@@ -120,12 +127,12 @@ processLine (n, line) = do
       ("ifndef", name) → isDefined name >>= (pushAction . not)
       ("else", _)      → popAction >>= (pushAction . not)
       ("endif", _)     → popAction >> return ()
-      _ -> return ()
+      (decl, _) → warning (printf "unknown declarative: %s." decl) >> return ()
       >> return Nothing
     else do
       k ← keep
       if k
-        then return (Just $ line ++ "\n")
+        then liftM (Just . (++ "\n")) (subMacros line)
         else return Nothing
   where
     isDirective ∷ String → Bool
@@ -133,12 +140,19 @@ processLine (n, line) = do
     extractDeclarative ∷ String → (String, String)
     extractDeclarative = stripTuple . break (==' ') . drop 1 . strip
     stripTuple (a, b) = (strip a, strip b)
+    keep ∷ PM Bool
+    keep = do
+      ifs ← gets ifStack
+      return $ all (==True) ifs
 
--- | Are we in a state where a line should be kept?
-keep ∷ PM Bool
-keep = do
-  ifs ← gets ifStack
-  return $ all (==True) ifs
+-- | Substitutes all macros in given string
+subMacros ∷ String → PM String
+subMacros s = do
+  ms ← gets defines
+  return $ Map.foldrWithKey sub s ms
+  where
+    sub ∷ String → String → String → String
+    sub k v t = subRegex (mkRegex k) t v
 
 -- | Checks if a variable is declared.
 isDefined ∷ String → PM Bool
@@ -149,8 +163,8 @@ isDefined name = do
 -- | Adds a definiton writing over existing ones with the same name
 define ∷ String → PM ()
 define line = do
-  liftIO $ putStrLn $ printf "defining macro %s" name
-  isDefined name >>= (flip when $ warning (0, 0) $ printf "%s already defined." name)
+--  liftIO $ putStrLn $ printf "defining macro %s" name
+  isDefined name >>= flip when (warning $ printf "%s already defined." name)
   defs ← gets defines
   modify (\s → s { defines = Map.insert name (strip value) defs })
   where
@@ -159,7 +173,8 @@ define line = do
 -- | Deletes a definition
 undefine ∷ String → PM ()
 undefine name = do
-  liftIO $ putStrLn $ printf "undefining macro %s" name
+--  liftIO $ putStrLn $ printf "undefining macro %s" name
+  isDefined name >>= flip unless (warning $ printf "%s not defined." name)
   defs ← gets defines
   modify (\st → st { defines = Map.delete (strip name) defs })
 
@@ -176,16 +191,18 @@ popAction ∷ PM Bool
 popAction = do
   ifs ← gets ifStack
   modify (\st → st { ifStack = drop 1 ifs })
-  when (ifs == []) $ syntaxError "Unmatched if-statements."
+  when (ifs == []) $ syntaxError "unmatched if-statement."
   return $ head ifs
 
 -- | Errors and warnings
 syntaxError ∷ String → PM a
 syntaxError msg = do
   line ← gets currentLine
-  throwError $ SyntaxError (line, 0) "file" msg
+  f ← gets currentFile
+  throwError $ SyntaxError (line, 0) f msg
 
-warning ∷ Position → String → PM ()
-warning p w = do
+warning ∷ String → PM ()
+warning w = do
   ws ← gets warnings
-  modify (\st → st { warnings = ws ++ [(p, w)] })
+  l ← gets currentLine
+  modify (\st → st { warnings = ws ++ [((l, 0), w)] })

@@ -11,7 +11,7 @@ import TypeChecker
 
 -- Compilation chain
 compile ∷ Options → IO ()
-compile o = parseHead (inputFile o) >>= printResult . (compileTree o =<<) . (typeCheck o =<<)
+compile o = parseHead o >>= printResult . (compileTree o =<<) . (typeCheck o =<<)
 
 parseArgs ∷ [String] → Maybe Options
 parseArgs [] = Nothing
