@@ -8,8 +8,6 @@ Import.       Toplevel  ::= TkImport String ";" ;
 TopDecl.      Toplevel  ::= Decl ";" ;
 terminator Toplevel "" ;
 
-SVDecl. StructVarDecl  ::= Decl ";" ;
-separator StructVarDecl "" ;
 
 -- Tokens ----------------------------------------------------------------------
 position token TkImport {"import"} ;
@@ -37,17 +35,19 @@ separator Param "," ;
 
 -- Declarations -----------------------------------------------------
 Dec.             Decl  ::= [Qualifier] DeclPost ;
-DecStruct.       Decl  ::= TkStruct CIdent DeclPost ;
 Struct.          Decl  ::= TkStruct CIdent "{" [StructVarDecl] "}" ;
 StructDecl.      Decl  ::= TkStruct CIdent "{" [StructVarDecl] "}" Id ;
 separator  Decl "," ;
+
+SVDecl. StructVarDecl  ::= Decl ";" ;
+separator StructVarDecl "" ;
 
 QExternal.    Qualifier ::= "external" ;
 QConst.       Qualifier ::= TkConst ;
 QType.        Qualifier ::= Type ;
 separator nonempty Qualifier "" ;
 
-Vars.    DeclPost  ::= [Id] ;
+Vars.   DeclPost  ::= [Id] ;
 DecAss. DeclPost  ::= [Id] "=" Exp2 ;
 
 
@@ -185,6 +185,7 @@ TMat3.       Type ::= "Mat3" ;
 TMat4.       Type ::= "Mat4" ;
 TColor.      Type ::= "Color" ;
 TImage.      Type ::= "Image" ;
+TStruct.     Type ::= TkStruct CIdent ;
 
 -- Allow for type of functions
 internal TFun.    Type ::= Type [Type] ;
