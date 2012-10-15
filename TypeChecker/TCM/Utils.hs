@@ -6,12 +6,12 @@ import TypeChecker.TCM
 import TypeChecker.TCM.Errors
 import TypeChecker.Environment as Env
 import qualified TypeChecker.Scope as Scope
-import TypeChecker.Types
+import TypeChecker.Types as TC
 import TypeChecker.Utils
 
 import CompilerTypes
 
-import FrontEnd.AbsGrammar
+import FrontEnd.AbsGrammar as Abs
 
 import Control.Monad.Trans.State
 import Control.Monad.Error
@@ -33,10 +33,9 @@ addFunction fun = do
   (s:ss) ← gets scopes
   let a = lookup name (Scope.functions s) >>= (\fs → if fun `elem` fs then Just fs; else Nothing)
   case a of
-    Just _ → typeError pos $ printf "function '%s' with type %s already defined" name (showFunctionType fun)
+    Just (f:_) → functionDefinedError f fun
     Nothing → modify (\st → st { scopes = Scope.addFunction fun s : ss })
  where
-  pos = position fun ∷ Position
   name = ident fun ∷ String
 
 -- | Adds a variable to the current scope, making sure there are no duplicates
@@ -71,7 +70,7 @@ updateFile ∷ FilePath → TCM ()
 updateFile f = modify (\st → st { currentFile = f })
 
 -- | Sets which function is currently checked
-updateFunction ∷ String → TCM ()
+updateFunction ∷ Function → TCM ()
 updateFunction f = modify (\st → st { currentFunction = f })
 
 -- | Pushes a new scope to the environment
@@ -83,9 +82,33 @@ popScope ∷ TCM ()
 popScope = modify Env.popScope
 
 
+tcFun ∷ Toplevel → TCM Function
+tcFun (Abs.Function t cident params stms) = do
+  updateFile $ cIdentToString cident
+  params' ← mapM paramToVar params
+  file ← gets currentFile
+  return TC.Function {
+    functionName = cIdentToString cident,
+    functionLocation = (file, cIdentToPos cident),
+    retType = t,
+    paramVars = params',
+    parameters = params,
+    statements = stms
+  }
+tcFun _ = compileError (-1,-1) "Non-function given as argument to tcFun"
+
 paramExp ∷ Param → TCM Exp
-paramExp (ConstParamDefault _ _ _ e) = return e
 paramExp (ParamDefault _ _ e) = return e
 paramExp p = compileError (paramToPos p)
   "Trying to find expression on non-expression parameter declaration"
+
+paramType ∷ Param → TCM Type
+paramType p@(ParamDec qs _) = maybe (paramNoTypeGiven p) return (qualType qs)
+paramType p@(ParamDefault qs _ _) = maybe (paramNoTypeGiven p) return (qualType qs)
+
+paramToVar ∷ Param → TCM Variable
+paramToVar p = do
+  varTyp ← paramType p
+  file ← gets currentFile
+  return $ Variable (paramToString p) (file, paramToPos p) varTyp
 

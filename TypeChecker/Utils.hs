@@ -5,11 +5,9 @@ module TypeChecker.Utils where
 import CompilerTypes
 import FrontEnd.AbsGrammar
 
-paramType ∷ Param → Type
-paramType (ConstParamDec _ t i) = idToType i t
-paramType (ConstParamDefault _ t i _) = idToType i t
-paramType (ParamDec t i) = idToType i t
-paramType (ParamDefault t i _) = idToType i t
+paramQualifiers ∷ Param → [Qualifier]
+paramQualifiers (ParamDec qs _) = qs
+paramQualifiers (ParamDefault qs _ _) = qs
 
 idToType ∷ Id → Type → Type
 idToType (IdEmptyArray _) t = TArray t
@@ -31,8 +29,6 @@ cIdentToPos ∷ CIdent → Position
 cIdentToPos (CIdent (pos,_)) = pos
 
 paramToId ∷ Param → Id
-paramToId (ConstParamDec _ _ i) = i
-paramToId (ConstParamDefault _ _ i _) = i
 paramToId (ParamDec _ i) = i
 paramToId (ParamDefault _ i _) = i
 
@@ -41,4 +37,10 @@ paramToString = cIdentToString . idToCIdent . paramToId
 
 paramToPos ∷ Param → Position
 paramToPos = cIdentToPos . idToCIdent . paramToId
+
+qualType ∷ [Qualifier] → Maybe Type
+qualType qs | length types == 1 = Just $ head types
+ where
+  types = [ t | QType t ← qs ]
+qualType _ = Nothing
 

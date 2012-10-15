@@ -4,6 +4,7 @@ module TypeChecker.TCM.Errors where
 
 import TypeChecker.TCM
 import TypeChecker.Utils
+import TypeChecker.Types
 import TypeChecker.Environment
 
 import Control.Monad.Trans.State hiding (state)
@@ -24,10 +25,32 @@ paramExpectedTypeError p t = do
             "            with actual type %s\n" ++
             "in assignment of parameter \"%s\"\n" ++
             "in declaration of function \"%s\"")
-    (show (paramType p))
+    (showParamType p)
     (show t)
     (paramToString p)
-    func
+    (ident func)
+
+paramNoTypeGiven ∷ Param → TCM a
+paramNoTypeGiven p = do
+  func ← gets currentFunction
+  typeError (paramToPos p) $
+    printf ("No type given for         \"%s\"\n" ++
+            "in delaration of function \"%s\"\n" ++
+            "          Qualifiers given: %s")
+    (paramToString p)
+    (ident func)
+    (show (paramQualifiers p))
+
+functionDefinedError ∷ Function → Function → TCM a
+functionDefinedError defined adding =
+  typeError (snd (location adding)) $ -- TODO use location in CompilerError
+    printf ("Function \"%s\"\n" ++
+            " with type %s already defined in %s")
+    (ident defined)
+    (showFunctionType defined)
+    (show (location defined))
+
+
 
 -- | Throw a type error
 typeError ∷ Position → String → TCM a
@@ -41,3 +64,13 @@ absError e p s = do
   state ← get
   let f = currentFile state
   throwError $ e p f (printf "%s\n\n%s" s (show state))
+
+showParamType ∷ Param → String
+showParamType p = case paramType p of
+                    Just a → show a
+                    Nothing → "{TYPE ERROR}"
+ where
+  paramType ∷ Param → Maybe Type
+  paramType (ParamDec qs _) = qualType qs
+  paramType (ParamDefault qs _ _) = qualType qs
+

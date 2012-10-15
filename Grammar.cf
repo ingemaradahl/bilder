@@ -4,9 +4,8 @@ comment "/*" "*/" ;
 AbsTree. AbsTree ::= [Toplevel] ;
 
 Function.     Toplevel  ::= Type CIdent "(" [Param] ")" "{" [Stm] "}" ;
-Struct.       Toplevel  ::= TkStruct CIdent "{" [StructVarDecl] "}" ";" ;
-StructDecl.   Toplevel  ::= TkStruct CIdent "{" [StructVarDecl] "}" Id ";" ;
 Import.       Toplevel  ::= TkImport String ";" ;
+TopDecl.      Toplevel  ::= Decl ";" ;
 terminator Toplevel "" ;
 
 SVDecl. StructVarDecl  ::= Decl ";" ;
@@ -31,22 +30,25 @@ token CFloat (((digit+ '.' digit+)|(digit+ '.')|('.' digit+)) (('e'|'E')('-')? d
 
 
 -- Parameter --------------------------------------------------------
-ConstParamDec.       Param  ::= TkConst Type Id ;
-ConstParamDefault.   Param  ::= TkConst Type Id "=" Exp19 ;
-ParamDec.            Param  ::= Type Id ;
-ParamDefault.        Param  ::= Type Id "=" Exp19 ;
+ParamDec.            Param  ::= [Qualifier] Id ;
+ParamDefault.        Param  ::= [Qualifier] Id "=" Exp19 ;
 separator Param "," ;
 
 
 -- Declarations -----------------------------------------------------
-Dec.             Decl  ::= Type DeclPost ;
-ConstDec.        Decl  ::= TkConst Type DeclPost ;
-DecStruct.       Decl  ::= Id DeclPost ;
-ConstDecStruct.  Decl  ::= TkConst Id DeclPost ;
+Dec.             Decl  ::= [Qualifier] DeclPost ;
+DecStruct.       Decl  ::= TkStruct CIdent DeclPost ;
+Struct.          Decl  ::= TkStruct CIdent "{" [StructVarDecl] "}" ;
+StructDecl.      Decl  ::= TkStruct CIdent "{" [StructVarDecl] "}" Id ;
 separator  Decl "," ;
 
-OnlyVars.    DeclPost  ::= [Id] ;
-DefaultVars. DeclPost  ::= [Id] "=" Exp2 ;
+QExternal.    Qualifier ::= "external" ;
+QConst.       Qualifier ::= TkConst ;
+QType.        Qualifier ::= Type ;
+separator nonempty Qualifier "" ;
+
+Vars.    DeclPost  ::= [Id] ;
+DecAss. DeclPost  ::= [Id] "=" Exp2 ;
 
 
 -- Ident ------------------------------------------------------------

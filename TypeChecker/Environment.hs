@@ -3,7 +3,6 @@
 module TypeChecker.Environment where
 
 import TypeChecker.Types
-import TypeChecker.Utils
 import qualified TypeChecker.Scope as Scope
 import Compiler (Options)
 
@@ -16,7 +15,7 @@ data Environment = Env {
   scopes  ∷ [Scope.Scope],
   options   ∷ Options,
   currentFile ∷ FilePath,
-  currentFunction ∷ String
+  currentFunction ∷ Function
 }
 
 -- | Creates an empty environment based on a set of options
@@ -25,7 +24,7 @@ buildEnv opts = Env {
   scopes = [Scope.Scope empty empty],
   options = opts,
   currentFile = "",
-  currentFunction = ""
+  currentFunction = Null
 }
 
 -- | Pushes a new, empty scope to the environment
@@ -61,7 +60,7 @@ showFunctionType ∷ Function → String
 showFunctionType fun = intercalate " -> " $ map show (args ++ ret)
  where
   ret  = [retType fun]
-  args = map paramType (parameters fun)
+  args = map varType $ paramVars fun
 
 showFunction ∷ Function → String
 showFunction f = printf "%s :: %s " (ident f) (showFunctionType f)

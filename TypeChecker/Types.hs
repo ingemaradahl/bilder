@@ -3,7 +3,6 @@
 module TypeChecker.Types where
 
 import CompilerTypes
-import TypeChecker.Utils (paramType)
 import FrontEnd.AbsGrammar
 
 import Data.Map (Map)
@@ -18,9 +17,10 @@ data Function = Function {
     functionName ∷ String
   , functionLocation ∷ Location
   , retType ∷ Type
+  , paramVars ∷ [Variable]
   , parameters ∷ [Param]
   , statements ∷ [Stm]
-}
+} | Null
 
 instance Global Function where
   ident = functionName
@@ -29,7 +29,7 @@ instance Global Function where
 instance Eq Function where
   fa == fb = ident fa == ident fb &&
              retType fa == retType fb &&
-             map paramType (parameters fa) == map paramType (parameters fb)
+             map varType (paramVars fa) == map varType (paramVars fb)
 
 data Struct = Struct {
     structName ∷ String
