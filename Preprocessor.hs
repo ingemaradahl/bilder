@@ -1,155 +1,131 @@
 {-# LANGUAGE UnicodeSyntax #-}
--- TODO: All defines should be upper case?
+{- Limitation: defines in imported files will be defined first after
+    the preprocessing is done. So defines in imported files will not
+    work as intended. -}
 
 module Preprocessor where
 
-import Control.Monad.State
+import Control.Monad
+import Control.Monad.Trans
+import Control.Monad.Trans.State
+import Control.Monad.Error
 
-import qualified Data.Map as Map
+import Text.Regex
+import Data.Maybe (catMaybes)
+import Data.List (sortBy)
+
+import Data.Map (member, insert, delete, assocs)
+
+import Text.Printf (printf)
 
 import CompilerError
 
-import Control.Monad.Error
+import Parser
 
-{-
-#define
-#undef
+import Data.Function (on)
 
-#ifdef
-#ifndef
-#else
-#endif
+-- | Reads and processes file.
+readAndProcessFile ∷ FilePath → PM String
+readAndProcessFile f = do
+  modify (\s → s {currentFile = f})
+  liftIO (readFile f) >>= preprocess
 
-#pragmas
--}
-
-data If = Keep | Throw
- deriving (Show)
-
-data PPEnv = PPEnv {
-	defines ∷ Map.Map String String,
-	ifStack ∷ [If],
-  warnings ∷ [(Position, String)]
-}
- deriving (Show)
-
-
-emptyEnv ∷ PPEnv
-emptyEnv = PPEnv {
-  ifStack = [],
-  defines = Map.empty,
-  warnings = []
-}
-
-type PPM a = StateT PPEnv CError a
-
--- | Adds a directive to the environment
---addDirective ∷ String → PPM ()
---addDirective dir = do
---	dirs <- gets directives
---	modify (\st → st { directives = dirs ++ [dir] })
---
-
--- | Toggles the top item on ifStack (used when processing #else)
---toggleTop ∷ PPM ()
---toggleTop = do
---  action ← popStack
---  modify (\st → st { ifStack = case action of { Keep → Throw; Throw → Keep } })
-
-pushStack ∷ If → PPM ()
-pushStack action = do
+-- | Preprocess the given source code.
+preprocess ∷ String → PM String
+preprocess src = do
+  ls ← mapM processLine (zip [1..] $ lines src)
   ifs ← gets ifStack
-  modify (\st → st { ifStack = action : ifs })
-
--- TODO: Return If instead. Need CError for that.
-popStack ∷ PPM ()
-popStack = do
-  ifs ← gets ifStack
-  modify (\st → st { ifStack = drop 1 ifs })
-
+  unless (ifs == []) $ syntaxError "unmatched if-statement."
+  return $ (concat . catMaybes) ls
 
 -- | Preprocesses given a line of source code
-processLine ∷ String → PPM String
-processLine line = do
-  case isDirective line of
-    -- TODO: Replace all defines.
-    -- TODO: Only return if current If-state is keep.
-    False → return line
-    True → case (extractDeclarative line) of
-      ("define", val) → addDefine val >> return ""
-      ("undef", name) → delDefine name >> return ("DELETING \"" ++ name ++ "\"")
---      ("ifdef", name) → processIfDef name >> return ""
-      _ -> return ""
+processLine ∷ (Int, String) → PM (Maybe String)
+processLine (n, line) = do
+  modify (\s → s { currentLine = n })
+  if isDirective line
+    then case extractDeclarative line of
+      ("define", val)  → define val
+      ("undef", name)  → undefine name
+      ("ifdef", name)  → isDefined name >>= pushAction
+      ("ifndef", name) → isDefined name >>= (pushAction . not)
+      ("else", _)      → popAction >>= (pushAction . not)
+      ("endif", _)     → void popAction
+      (decl, _) → void $ warning (printf "unknown declarative: %s." decl)
+      >> return Nothing
+    else do
+      k ← keep
+      if k
+        then liftM (Just . (++ "\n")) (subMacros line)
+        else return Nothing
   where
     isDirective ∷ String → Bool
     isDirective = (=="#") . take 1 . dropWhile (==' ')
     extractDeclarative ∷ String → (String, String)
-    -- TODO: Strip both strings in the tuple here.
-    extractDeclarative = break (==' ') . drop 1 . strip
+    extractDeclarative = stripTuple . break (==' ') . drop 1 . strip
+    stripTuple (a, b) = (strip a, strip b)
+    keep ∷ PM Bool
+    keep = do
+      ifs ← gets ifStack
+      return $ all (==True) ifs
+
+-- | Substitutes all macros in given string
+subMacros ∷ String → PM String
+subMacros s = do
+  ms ← gets defines
+  return $ foldr sub s $ sortBy (compare `on` (length . fst)) (assocs ms)
+  where
+    sub ∷ (String, String) → String → String
+    sub (k, v) t = subRegex (mkRegex k) t v
 
 -- | Checks if a variable is declared.
-isDefined ∷ String → PPM Bool
+isDefined ∷ String → PM Bool
 isDefined name = do
   defs ← gets defines
-  return $ Map.member name defs
-
-processIfDef ∷ String -> PPM ()
-processIfDef name = do
-  isdef ← isDefined name
-  if isdef
-    then undefined
-    else undefined
+  return $ member name defs
 
 -- | Adds a definiton writing over existing ones with the same name
--- TODO: Rename to define.
--- TODO: Warning when already declared.
-addDefine ∷ String → PPM ()
-addDefine line = do
-  isDefined name >>= (flip when $ warning (0, 0) "Defining an already defined macro.")
+define ∷ String → PM ()
+define line = do
+--  liftIO $ putStrLn $ printf "defining macro %s" name
+  isDefined name >>= flip when (warning $ printf "%s already defined." name)
   defs ← gets defines
-  modify (\st → st { defines = Map.insert name (strip value) defs })
+  modify (\s → s { defines = insert name (strip value) defs })
   where
     (name, value) = (break (==' ') . strip) line
 
 -- | Deletes a definition
-delDefine ∷ String → PPM ()
-delDefine name = do
+undefine ∷ String → PM ()
+undefine name = do
+--  liftIO $ putStrLn $ printf "undefining macro %s" name
+  isDefined name >>= flip unless (warning $ printf "%s not defined." name)
   defs ← gets defines
-  modify (\st → st { defines = Map.delete (strip name) defs })
+  modify (\st → st { defines = delete (strip name) defs })
 
 strip ∷ String → String
 strip = dropWhile (==' ')
 
--- | Adds a pragma
---addPragma ∷ String → String → PPM ()
---addPragma name pragma = undefined
+-- | pushAction / popAction keeps actions to take (keep source line or not)
+pushAction ∷ Bool → PM ()
+pushAction action = do
+  ifs ← gets ifStack
+  modify (\st → st { ifStack = action : ifs })
 
--- | Preprocess the given source code.
-preprocess ∷ String → PPM String
-preprocess src = do
-	ls ← mapM processLine (lines src)
-	return $ concat ls
-
+popAction ∷ PM Bool
+popAction = do
+  ifs ← gets ifStack
+  modify (\st → st { ifStack = drop 1 ifs })
+  when (ifs == []) $ syntaxError "unmatched if-statement."
+  return $ head ifs
 
 -- | Errors and warnings
-syntaxError ∷ Position → String → PPM a
-syntaxError pos msg = throwError $ SyntaxError pos msg
+syntaxError ∷ String → PM a
+syntaxError msg = do
+  line ← gets currentLine
+  f ← gets currentFile
+  throwError $ SyntaxError (line, 0) f msg
 
-warning ∷ Position → String → PPM ()
-warning p w = do
+warning ∷ String → PM ()
+warning w = do
   ws ← gets warnings
-  modify (\st → st { warnings = ws ++ [(p, w)] })
-
-
--- | Testing of stuff with stuff.
---testPreprocess ∷ FilePath → IO String
---testPreprocess f = do
---	src ← readFile f
---	return src
-
-main ∷ IO ()
-----main = testPreprocess "../testcases/preprocessor.fl" >>= putStrLn
-main = do
-	src ← readFile "../testcases/preprocessor.fl"
-	let ret = runStateT (preprocess src) emptyEnv
-	print $ show ret
+  l ← gets currentLine
+  modify (\st → st { warnings = ws ++ [((l, 0), w)] })

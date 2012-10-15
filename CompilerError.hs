@@ -57,6 +57,9 @@ instance (Monad a) ⇒ MonadError CompilerError (CErrorT a) where
       Fail e → runCErrorT (h e)
       Pass f → return (Pass f)
 
+instance Functor a ⇒ Functor (CErrorT a) where
+  fmap f (CErrorT m) = CErrorT $ fmap (fmap f) m
+
 instance Functor CError where
   fmap f (Pass a) = Pass (f a)
   fmap _ (Fail e) = Fail e
