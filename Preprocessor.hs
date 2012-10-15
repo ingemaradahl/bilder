@@ -43,8 +43,8 @@ processLine (n, line) = do
       ("ifdef", name)  → isDefined name >>= pushAction
       ("ifndef", name) → isDefined name >>= (pushAction . not)
       ("else", _)      → popAction >>= (pushAction . not)
-      ("endif", _)     → popAction >> return ()
-      (decl, _) → warning (printf "unknown declarative: %s." decl) >> return ()
+      ("endif", _)     → void popAction
+      (decl, _) → void $ warning (printf "unknown declarative: %s." decl)
       >> return Nothing
     else do
       k ← keep
