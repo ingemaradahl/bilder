@@ -3,6 +3,7 @@
 module Parser where
 
 import Control.Monad.Trans.State
+import Control.Monad.Error
 
 import qualified Data.Map as Map
 
@@ -43,14 +44,16 @@ buildEnv os = PPEnv {
 }
 
 -- | Parse the given source code
-parse ∷ String → CError AbsTree
+parse ∷ String → PM AbsTree
 parse src =
   case (pAbsTree . myLexer) src of
-    Bad e → Fail $ parseErrM e
+    Bad e → do
+      cf ← gets currentFile
+      throwError $ parseErrM cf e
     Ok tree → return tree
   where
-    parseErrM ∷ String → CompilerError
-    parseErrM s | s =~ "line" ∷ Bool = SyntaxError (lineErr s,0) "file" s
-                | otherwise = UnknownError s
+    parseErrM ∷ String → String → CompilerError
+    parseErrM f s | s =~ "line" ∷ Bool = SyntaxError (lineErr s,0) f s
+                  | otherwise = UnknownError s
     lineErr ∷ String → Int
     lineErr s = read (s =~ "[1-9]+" ∷ String) ∷ Int

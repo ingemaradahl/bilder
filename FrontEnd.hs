@@ -22,9 +22,8 @@ import Preprocessor
 liftCError ∷ CError a → PM a
 liftCError m = StateT (\s → case m of { Fail f → CErrorT $ return $ Fail f; Pass a → return (a,s) })
 
--- | Add a file to the state, and return the entire state
+-- | Add a file to the state, and return the list of imported files
 addFile ∷ FilePath → PM [FilePath]
---addFile f = (modify . (:)) f >> get
 addFile f = do
   fs ← gets filepaths
   modify (\s → s { filepaths = f : fs })
@@ -43,7 +42,7 @@ parseTree ∷ FilePath → PM (Tree (FilePath, AbsTree))
 parseTree f = do
   liftIO . putStrLn $ "reading " ++ f
   imported ← addFile f
-  t ← readAndProcessFile f >>= liftCError . parse
+  t ← readAndProcessFile f >>= parse
   liftM (Node (f, t)) (mapM parseTree (map (dir </>) (filterImports t) \\ imported))
  where
   dir = takeDirectory f
