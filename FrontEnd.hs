@@ -25,11 +25,9 @@ import Text.Printf (printf)
 
 import Compiler hiding (options, buildEnv)
 import CompilerError
-import CompilerTypes
 -- TODO: Use Location instead of Position.
 
--- | PM - A ParserMonad, keeps a state of which file has been imported
-type PM a = StateT PPEnv (CErrorT IO) a
+import Parser
 
 liftCError ∷ CError a → PM a
 liftCError m = StateT (\s → case m of { Fail f → CErrorT $ return $ Fail f; Pass a → return (a,s) })
@@ -77,29 +75,6 @@ parse src =
     lineErr s = read (s =~ "[1-9]+" ∷ String) ∷ Int
 
 
--- | Preprocessor stuff
-data PPEnv = PPEnv {
-	defines ∷ Map.Map String String,
-	ifStack ∷ [Bool],
-  warnings ∷ [(Position, String)],
-  filepaths ∷ [FilePath],
-  currentFile ∷ FilePath,
-  currentLine ∷ Int,
-  options ∷ Options
-}
- deriving (Show)
-
--- TODO: Take Options.
-buildEnv ∷ Options → PPEnv
-buildEnv os = PPEnv {
-  ifStack = [],
-  defines = Map.empty,
-  warnings = [],
-  filepaths = [],
-  currentFile = "",
-  currentLine = 0,
-  options = os
-}
 
 -- | Reads and processes file.
 readAndProcessFile ∷ FilePath → PM String
