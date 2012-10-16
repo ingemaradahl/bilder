@@ -34,7 +34,6 @@ checkFile ∷ (FilePath, AbsTree) → [Tree Blob] → TCM Blob
 checkFile (file, tree) children = do
   newFile file
 
-  --addChildStuff children
   initScope children
   pushScope
 
