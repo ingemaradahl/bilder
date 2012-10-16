@@ -6,7 +6,7 @@ AbsTree. AbsTree ::= [Toplevel] ;
 Function.     Toplevel  ::= Type CIdent "(" [Param] ")" "{" [Stm] "}" ;
 Import.       Toplevel  ::= TkImport String ";" ;
 TopDecl.      Toplevel  ::= Decl ";" ;
-TypeDef.      Toplevel  ::= TkTypeDef CIdent "=" Type ";" ;
+TypeDef.      Toplevel  ::= TkTypeDef TypeIdent "=" Type ";" ;
 terminator Toplevel "" ;
 
 
@@ -24,22 +24,22 @@ position token TkContinue {"contiune"} ;
 position token TkDiscard {"discard"} ;
 position token TkConst {"const"} ;
 position token TkTypeDef {"typedef"} ;
-position token TkArr {"->"} ;
+position token TkArrow {"->"} ;
 
 token CFloat (((digit+ '.' digit+)|(digit+ '.')|('.' digit+)) (('e'|'E')('-')? digit+)?
                ('f'|'F')?)|((digit+ ('e'|'E')('-')? digit+)('f'|'F')?);
 
 
 -- Parameter --------------------------------------------------------
-ParamDec.            Param  ::= [Qualifier] Id ;
-ParamDefault.        Param  ::= [Qualifier] Id "=" Exp19 ;
+ParamDec.            Param  ::= [Qualifier] CIdent ;
+ParamDefault.        Param  ::= [Qualifier] CIdent "=" Exp19 ;
 separator Param "," ;
 
 
 -- Declarations -----------------------------------------------------
 Dec.             Decl  ::= [Qualifier] DeclPost ;
 Struct.          Decl  ::= TkStruct CIdent "{" [StructVarDecl] "}" ;
-StructDecl.      Decl  ::= TkStruct CIdent "{" [StructVarDecl] "}" Id ;
+StructDecl.      Decl  ::= TkStruct CIdent "{" [StructVarDecl] "}" CIdent ;
 separator  Decl "," ;
 
 SVDecl. StructVarDecl  ::= Decl ";" ;
@@ -50,19 +50,21 @@ QConst.       Qualifier ::= TkConst ;
 QType.        Qualifier ::= Type ;
 separator nonempty Qualifier "" ;
 
-Vars.   DeclPost  ::= [Id] ;
-DecAss. DeclPost  ::= [Id] "=" Exp2 ;
+Vars.   DeclPost  ::= [CIdent] ;
+DecAss. DeclPost  ::= [CIdent] "=" Exp2 ;
 
 
 -- Ident ------------------------------------------------------------
-position token CIdent ((letter | '_') (letter | digit | '_')*) ;
+position token CIdent ((lower | '_') (letter | digit | '_')*) ;
+position token TypeIdent ( upper ( letter | digit | '_')*);
 
 -- Shift/reduce at , in IdEmptyArray, IdArray and Ident (when used as [Id]).
-IdEmptyArray. Id  ::= CIdent "[" "]" ;
-IdArray.      Id  ::= CIdent "[" Exp "]" ;
-Ident.        Id  ::= CIdent ;
-separator nonempty Id "," ;
+--IdEmptyArray. Id  ::= CIdent "[" "]" ;
+--IdArray.      Id  ::= CIdent "[" Exp "]" ;
+--Ident.        Id  ::= CIdent ;
+--separator nonempty Id "," ;
 
+separator nonempty CIdent "," ;
 
 -- Statements -------------------------------------------------------
 SDecl.     Stm ::= Decl ";" ;
@@ -146,14 +148,15 @@ EPostInc.      Exp15 ::= Exp15 "++" ;
 EPostDec.      Exp15 ::= Exp15 "--" ;
 EMember.       Exp15 ::= Exp15 "." Exp16 ;
 
-ECall.         Exp16 ::= Id "(" [Exp] ")" ;
+ECall.         Exp16 ::= CIdent "(" [Exp] ")" ;
 
 -- Enables anonymous declaration on the form Image(int x, int y) { stms };
 ETypeCall.     Exp17 ::= Type "(" [Exp] ")" AnonDecl ;
 AnonStms.      AnonDecl  ::= "{" [Stm] "}" ;
 OnlyCall.      AnonDecl  ::= ;
 
-EVar.          Exp18 ::= Id ;
+EVar.          Exp18 ::= CIdent ;
+EIndex.        Exp18 ::= CIdent "[" Exp "]" ;
 
 EFloat.        Exp19 ::= CFloat ;
 ETrue.         Exp19 ::= "true" ;
@@ -164,26 +167,30 @@ separator Exp "," ;
 
 
 -- Types ------------------------------------------------------------
-TFloat.      Type ::= "float" ;
-TVoid.       Type ::= "void" ;
-TBool.       Type ::= "bool" ;
-TBVec2.      Type ::= "BVec2" ;
-TBVec3.      Type ::= "BVec3" ;
-TBVec4.      Type ::= "BVec4" ;
-TIVec2.      Type ::= "IVec2" ;
-TIVec3.      Type ::= "IVec3" ;
-TIVec4.      Type ::= "IVec4" ;
-TUVec2.      Type ::= "UVec2" ;
-TUVec3.      Type ::= "UVec3" ;
-TUVec4.      Type ::= "UVec4" ;
-TVec2.       Type ::= "Vec2" ;
-TVec3.       Type ::= "Vec3" ;
-TVec4.       Type ::= "Vec4" ;
-TMat2.       Type ::= "Mat2" ;
-TMat3.       Type ::= "Mat3" ;
-TMat4.       Type ::= "Mat4" ;
-TFunc.       Type ::= Type TkArr Type ;
-TStruct.     Type ::= TkStruct CIdent ;
+TVoid.       Type1 ::= "Void" ;
+TFloat.      Type1 ::= "Float" ;
+TBool.       Type1 ::= "Bool" ;
+TBVec2.      Type1 ::= "BVec2" ;
+TBVec3.      Type1 ::= "BVec3" ;
+TBVec4.      Type1 ::= "BVec4" ;
+TIVec2.      Type1 ::= "IVec2" ;
+TIVec3.      Type1 ::= "IVec3" ;
+TIVec4.      Type1 ::= "IVec4" ;
+TUVec2.      Type1 ::= "UVec2" ;
+TUVec3.      Type1 ::= "UVec3" ;
+TUVec4.      Type1 ::= "UVec4" ;
+TVec2.       Type1 ::= "Vec2" ;
+TVec3.       Type1 ::= "Vec3" ;
+TVec4.       Type1 ::= "Vec4" ;
+TMat2.       Type1 ::= "Mat2" ;
+TMat3.       Type1 ::= "Mat3" ;
+TMat4.       Type1 ::= "Mat4" ;
+TStruct.     Type1 ::= TkStruct CIdent ;
+TArray.      Type2 ::= Type1 "[" "]" ;
+TFunc.       Type2 ::= Type TkArrow Type ;
+TDefined.    Type3 ::= TypeIdent ;
+
+coercions Type 3 ;
 
 -- Allow for type of functions
 internal TFun.    Type ::= Type [Type] ;
