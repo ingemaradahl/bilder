@@ -25,7 +25,6 @@ import TypeChecker.Types
 
 import Compiler hiding (Environment, Env, options, buildEnv)
 import FrontEnd.AbsGrammar as Abs
---import qualified FrontEnd.AbsGrammar as Abs (Toplevel (Function), Toplevel (Struct))
 import CompilerError
 
 -- | Typechecks the given abstract source and annotates the syntax tree
@@ -98,7 +97,11 @@ checkStatement s@(SReturn (TkReturn (pos,_)) e) = do
   if retType fun == t
     then return $ SType t s
     else returnMismatch pos t
+checkStatement s@(SDecl decl) = checkDecl decl >>= (\t → return (SType t s))
 checkStatement s = debugError $ show s ++ " NOT DEFINED"
+
+checkDecl ∷ Decl → TCM Type
+checkDecl = undefined
 
 inferExp ∷ Exp → TCM Type
 inferExp (EInt _) = return TInt

@@ -48,8 +48,6 @@ qualType qs | length types == 1 = Just $ head types
   types = [ t | QType t ← qs ]
 qualType _ = Nothing
 
-
-
 -- Match function against argument types
 partialApp ∷ Function → [Type] → Maybe [Type]
 partialApp f args = partial args $ map varType $ paramVars f
