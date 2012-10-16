@@ -31,11 +31,19 @@ addFile f = do
 
 -- | Parse the tree of files
 parseHead ∷ Options → IO (CError (Tree (FilePath, AbsTree)))
-parseHead os = runCErrorT $ evalStateT (parseTree (inputFile os)) (buildEnv os)
+parseHead os = runCErrorT $ evalStateT (parseWithPrelude (inputFile os)) (buildEnv os)
 
 -- | Filter out the import statements from the syntax tree
 filterImports ∷ AbsTree → [FilePath]
 filterImports (AbsTree ts) = [ f | Import _ f ← ts ]
+
+-- | Parses tree and adds prelude at the top level
+parseWithPrelude ∷ FilePath → PM (Tree (FilePath, AbsTree))
+parseWithPrelude f = do
+  -- TODO: Add PATH-like stuff for include/.
+  p ← parseTree "include/Prelude.fl"
+  t ← parseTree f
+  return $ Node (rootLabel t) $ subForest p ++ subForest t
 
 -- | Recursively parse the files to be imported
 parseTree ∷ FilePath → PM (Tree (FilePath, AbsTree))
