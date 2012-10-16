@@ -50,12 +50,12 @@ functionDefinedError defined adding =
     (showFunctionType defined)
     (show (location defined))
 
-noFunctionFound ∷ Id → [Type] → TCM a
+noFunctionFound ∷ CIdent → [Type] → TCM a
 noFunctionFound f args =
-  typeError (idToPos f) $
+  typeError (cIdentToPos f) $
     printf ("No function \"%s\" found matching argument list\n" ++
             "              %s")
-    (idToString f)
+    (cIdentToString f)
     (show args)
 
 returnMismatch ∷ Position → Type → TCM a
@@ -69,7 +69,7 @@ returnMismatch pos inferred = do
     (show inferred)
     (ident expected)
 
-typedefError ∷ CIdent → Type → Type → TCM a
+typedefError ∷ TypeIdent → Type → Type → TCM a
 typedefError cid defined proposed =
   typeError pos $
     printf ("Trying to define a new type alias \"%s\"\n" ++
@@ -80,8 +80,8 @@ typedefError cid defined proposed =
     name
     (show defined)
  where
-  pos = cIdentToPos cid
-  name = cIdentToString cid
+  pos = typeIdentToPos cid
+  name = typeIdentToString cid
 
 
 

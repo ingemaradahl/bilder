@@ -39,7 +39,6 @@ checkTree tree = do
   --Traverse.mapM addVariables tree
 
   checkFunctions
-  --Traverse.mapM checkFunctions tree
 
   return tree
 
@@ -118,13 +117,13 @@ inferExp ∷ Exp → TCM Type
 inferExp (EFloat _) = return TFloat
 inferExp ETrue = return TBool
 inferExp EFalse = return TBool
-inferExp (ECall i es) = do
+inferExp (ECall cid es) = do
   args ← mapM inferExp es
-  funs ← lookupFunction (idToString i)
+  funs ← lookupFunction (cIdentToString cid)
   let matches = map (second fromJust) $
                   filter (isJust . snd) $ zip funs (map (`partialApp` args) funs)
   if null matches
-    then noFunctionFound i args
+    then noFunctionFound cid args
     else do
       -- Apply as many arguments as possible (shortest list left after application)
       let (fun, args') = head $ sortWith snd matches

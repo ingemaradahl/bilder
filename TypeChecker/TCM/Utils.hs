@@ -45,14 +45,15 @@ lookupFunction f = do
   lookupFun _ [] = Nothing
 
 -- | Adds a type definition to the environment
-addTypedef ∷ CIdent → Type → TCM ()
-addTypedef cid t = do
+addTypedef ∷ TypeIdent → Type → TCM ()
+addTypedef tid typeFunc = do
   ts ← gets typedefs
   case lookup name ts of
-    Just t' → unless (t == t') (typedefError cid t' t)
+    Just t' → unless (t == t') (typedefError tid t' t)
     Nothing → modify (\st → st { typedefs = insert name t ts })
  where
-  name = cIdentToString cid
+  t = uncurryType typeFunc
+  name = typeIdentToString tid
 
 -- | Adds a variable to the current scope, making sure there are no duplicates
 addVariable ∷ Variable → TCM ()

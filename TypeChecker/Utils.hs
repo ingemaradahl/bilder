@@ -10,37 +10,27 @@ paramQualifiers ∷ Param → [Qualifier]
 paramQualifiers (ParamDec qs _) = qs
 paramQualifiers (ParamDefault qs _ _) = qs
 
-idToType ∷ Id → Type → Type
-idToType (IdEmptyArray _) t = TArray t
-idToType (IdArray _ _) t = TArray t
-idToType _ t = t
-
-idToCIdent ∷ Id → CIdent
-idToCIdent (IdEmptyArray c) = c
-idToCIdent (IdArray c _) = c
-idToCIdent (Ident c) = c
-
-idToPos ∷ Id → Position
-idToPos = cIdentToPos . idToCIdent
-
-idToString ∷ Id → String
-idToString = cIdentToString . idToCIdent
-
 cIdentToString ∷ CIdent → String
 cIdentToString (CIdent (_,s)) = s
 
 cIdentToPos ∷ CIdent → Position
 cIdentToPos (CIdent (pos,_)) = pos
 
-paramToId ∷ Param → Id
-paramToId (ParamDec _ i) = i
-paramToId (ParamDefault _ i _) = i
+typeIdentToString ∷ TypeIdent → String
+typeIdentToString (TypeIdent (_,s)) = s
+
+typeIdentToPos ∷ TypeIdent → Position
+typeIdentToPos (TypeIdent (pos,_)) = pos
+
+paramToCIdent ∷ Param → CIdent
+paramToCIdent (ParamDec _ i) = i
+paramToCIdent (ParamDefault _ i _) = i
 
 paramToString ∷ Param → String
-paramToString = cIdentToString . idToCIdent . paramToId
+paramToString = cIdentToString . paramToCIdent
 
 paramToPos ∷ Param → Position
-paramToPos = cIdentToPos . idToCIdent . paramToId
+paramToPos = cIdentToPos .  paramToCIdent
 
 qualType ∷ [Qualifier] → Maybe Type
 qualType qs | length types == 1 = Just $ head types
@@ -57,3 +47,13 @@ partialApp f args = partial args $ map varType $ paramVars f
                         | otherwise = Nothing
   partial [] bs = Just bs
   partial _  [] = Nothing
+
+uncurryType ∷ Type → Type
+uncurryType t@(TFunc {}) = TFun (head ret) args
+ where
+  unc = uncurryType' t
+  (args, ret) = splitAt (length unc -1) unc
+  uncurryType' ∷ Type → [Type]
+  uncurryType' (TFunc t1 _ t2@(TFunc {})) = t1:uncurryType' t2
+  uncurryType' (TFunc t1 _ t2) = t1:[t2]
+uncurryType t = t

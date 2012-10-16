@@ -53,7 +53,8 @@ showTypes defMap = intercalate "\n" $ map showDef defs
   defs = toList defMap
 
 showDef ∷ (String,Type) → String
-showDef (name,typ) = name ++ " = " ++ show typ
+showDef (name,TFun ret args) = name ++ " = " ++ showTFun ret args
+showDef (name,t) = name ++ " = " ++ show t
 
 showFuns ∷ [Scope.Scope] → String
 showFuns scope = showFuns' scope 0
@@ -69,6 +70,8 @@ showFunsLevel funMap l = fold reducer "" funMap
   reducer funs p = p ++ newline ++ intercalate newline (map showFunction funs)
   newline = '\n':concat (replicate l "> ")
 
+showTFun :: Type → [Type] → String
+showTFun ret args = intercalate " -> " $ map show (args ++ [ret])
 
 showFunctionType ∷ Function → String
 showFunctionType fun = intercalate " -> " $ map show (args ++ ret)
