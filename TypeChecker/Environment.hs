@@ -3,6 +3,7 @@
 module TypeChecker.Environment where
 
 import TypeChecker.Types
+import FrontEnd.AbsGrammar
 import qualified TypeChecker.Scope as Scope
 import Compiler (Options)
 
@@ -13,6 +14,8 @@ import Data.Map hiding (map)
 -- | Environment during type checking
 data Environment = Env {
   scopes  ∷ [Scope.Scope],
+
+  typedefs ∷ Map String Type,
   options   ∷ Options,
   currentFile ∷ FilePath,
   currentFunction ∷ Function
@@ -22,6 +25,7 @@ data Environment = Env {
 buildEnv ∷ Options → Environment
 buildEnv opts = Env {
   scopes = [Scope.Scope empty empty],
+  typedefs = empty,
   options = opts,
   currentFile = "",
   currentFunction = Null
@@ -35,11 +39,21 @@ pushScope env = env { scopes = Scope.emptyScope:scopes env }
 popScope ∷ Environment → Environment
 popScope env = env { scopes = tail $ scopes env }
 
+-- Show environment {{{
 -- Below is various show functions, used for displaying the state
 instance Show Environment where
- show env = printf "Functions: %s\nVariables:%s"
+ show env = printf "Type definitions: \n%s\nFunctions: %s\nVariables:%s"
+   (showTypes $ typedefs env)
    (showFuns $ reverse (scopes env))
    (showVars $ reverse (scopes env))
+
+showTypes ∷ Map String Type → String
+showTypes defMap = intercalate "\n" $ map showDef defs
+ where
+  defs = toList defMap
+
+showDef ∷ (String,Type) → String
+showDef (name,typ) = name ++ " = " ++ show typ
 
 showFuns ∷ [Scope.Scope] → String
 showFuns scope = showFuns' scope 0
@@ -80,4 +94,4 @@ showVarsLevel vars l = newline ++ intercalate newline (map showVar vars)
 
 showVar ∷ Variable → String
 showVar var = printf "%s: %s" (ident var) (show $ varType var)
-
+-- }}}

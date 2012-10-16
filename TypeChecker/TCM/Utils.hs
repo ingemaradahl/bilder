@@ -44,6 +44,16 @@ lookupFunction f = do
       Nothing → lookupFun f ss
   lookupFun _ [] = Nothing
 
+-- | Adds a type definition to the environment
+addTypedef ∷ CIdent → Type → TCM ()
+addTypedef cid t = do
+  ts ← gets typedefs
+  case lookup name ts of
+    Just t' → unless (t == t') (typedefError cid t' t)
+    Nothing → modify (\st → st { typedefs = insert name t ts })
+ where
+  name = cIdentToString cid
+
 -- | Adds a variable to the current scope, making sure there are no duplicates
 addVariable ∷ Variable → TCM ()
 addVariable var = do
@@ -118,3 +128,5 @@ paramToVar p = do
   file ← gets currentFile
   return $ Variable (paramToString p) (file, paramToPos p) varTyp
 
+{-qualType ∷ [Qualifier] → TCM Type-}
+{-qualType qs | length qs /= length (nub qs) = fail "TODO01"-}

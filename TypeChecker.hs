@@ -34,6 +34,7 @@ typeCheck opts tree = evalStateT (checkTree tree) (buildEnv opts)
 checkTree ∷ Tree (FilePath, AbsTree) → TCM (Tree (FilePath, AbsTree))
 checkTree tree = do
   Traverse.mapM addFunctions tree
+  Traverse.mapM addTypedefs tree
   --Traverse.mapM addStructs tree
   --Traverse.mapM addVariables tree
 
@@ -42,13 +43,22 @@ checkTree tree = do
 
   return tree
 
+
+-- Type definitions {{{
+-- | Adds type definitions to the to the state
+addTypedefs ∷ (FilePath, AbsTree) → TCM ()
+addTypedefs (filename, AbsTree tree) = updateFile filename >>
+    sequence_ [ addTypedef name typ | (TypeDef _ name typ) ← tree ]
+
+-- }}}
+-- Functions {{{
 -- | Adds function type definitions to the state
 addFunctions ∷ (FilePath, AbsTree) → TCM ()
 addFunctions (filename, AbsTree tree) = do
   updateFile filename
 
   -- Checks function parameter types, and adds function to environment
-  funs← sequence [ tcFun f | f@(Abs.Function {}) ← tree ]
+  funs ← sequence [ tcFun f | f@(Abs.Function {}) ← tree ]
   mapM_ addFunction funs
 
 -- | Check functions for typing errors, returning the type annotated functions
@@ -78,6 +88,7 @@ checkFunction fun = do
   return fun { statements = statements' }
  where
   filename = fst $ location fun
+--- }}}
 
 --example ∷ AbsTree
 --example = AbsTree [Import (TkImport ((1,1),"import")) "bools.fl",Import (TkImport ((2,1),"import")) "inner/const.fl",Abs.Struct (TkStruct ((4,1),"struct")) (CIdent ((4,8),"First")) [SVDecl (Dec TColor (OnlyVars [Ident (CIdent ((5,15),"color"))])),SVDecl (Dec TVec2 (OnlyVars [Ident (CIdent ((6,14),"coordinates"))]))],StructDecl (TkStruct ((9,1),"struct")) (CIdent ((9,8),"Second")) [SVDecl (Dec TVec2 (OnlyVars [Ident (CIdent ((10,14),"coordinates"))]))] (Ident (CIdent ((11,3),"second"))),StructDecl (TkStruct ((13,1),"struct")) (CIdent ((13,8),"Third")) [SVDecl (Dec TVec2 (OnlyVars [Ident (CIdent ((14,14),"coordinates"))]))] (IdArray (CIdent ((15,3),"third")) (EInt 5)),Abs.Function TColor (CIdent ((17,7),"main")) [ParamDec TInt (Ident (CIdent ((17,16),"x"))),ParamDec TInt (Ident (CIdent ((17,23),"y")))] [SDecl (DecStruct (Ident (CIdent ((19,9),"First"))) (OnlyVars [Ident (CIdent ((19,15),"a"))])),SDecl (DecStruct (Ident (CIdent ((20,9),"First"))) (DefaultVars [Ident (CIdent ((20,15),"b"))] (ECall (Ident (CIdent ((20,19),"First"))) [ETypeCall TColor [EFloat (CFloat "1.0")] OnlyCall,ETypeCall TVec2 [EFloat (CFloat "1.0"),EFloat (CFloat "2.0")] OnlyCall]))),SExp (EAss (EMember (EVar (Ident (CIdent ((22,9),"second")))) (EVar (Ident (CIdent ((22,16),"coordinates"))))) (ETypeCall TVec2 [EFloat (CFloat "1.0"),EFloat (CFloat "2.0")] OnlyCall)),SReturn (TkReturn ((24,9),"return")) (EMember (EVar (Ident (CIdent ((24,16),"b")))) (EVar (Ident (CIdent ((24,18),"color")))))]]
@@ -104,7 +115,6 @@ checkDecl ∷ Decl → TCM Type
 checkDecl = undefined
 
 inferExp ∷ Exp → TCM Type
-inferExp (EInt _) = return TInt
 inferExp (EFloat _) = return TFloat
 inferExp ETrue = return TBool
 inferExp EFalse = return TBool

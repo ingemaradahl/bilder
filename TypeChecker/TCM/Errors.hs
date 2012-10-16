@@ -64,10 +64,24 @@ returnMismatch pos inferred = do
   typeError pos $
     printf ("Couldn't match expected type %s\n" ++
             "            with actual type %s\n" ++
-            "in return expression in function \"%s\"\n")
+            "in return expression in function \"%s\"")
     (show (retType expected))
     (show inferred)
     (ident expected)
+
+typedefError ∷ CIdent → Type → Type → TCM a
+typedefError cid defined proposed =
+  typeError pos $
+    printf ("Trying to define a new type alias \"%s\"\n" ++
+            "                         with type %s\n" ++
+            "while type alias \"%s\" = %s is already present")
+    name
+    (show proposed)
+    name
+    (show defined)
+ where
+  pos = cIdentToPos cid
+  name = cIdentToString cid
 
 
 
