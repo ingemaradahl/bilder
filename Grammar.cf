@@ -6,6 +6,7 @@ AbsTree. AbsTree ::= [Toplevel] ;
 Function.     Toplevel  ::= Type CIdent "(" [Param] ")" "{" [Stm] "}" ;
 Import.       Toplevel  ::= TkImport String ";" ;
 TopDecl.      Toplevel  ::= Decl ";" ;
+TypeDef.      Toplevel  ::= TkTypeDef CIdent "=" Type ";" ;
 terminator Toplevel "" ;
 
 
@@ -22,6 +23,8 @@ position token TkBreak {"break"} ;
 position token TkContinue {"contiune"} ;
 position token TkDiscard {"discard"} ;
 position token TkConst {"const"} ;
+position token TkTypeDef {"typedef"} ;
+position token TkArr {"->"} ;
 
 token CFloat (((digit+ '.' digit+)|(digit+ '.')|('.' digit+)) (('e'|'E')('-')? digit+)?
                ('f'|'F')?)|((digit+ ('e'|'E')('-')? digit+)('f'|'F')?);
@@ -151,9 +154,7 @@ AnonStms.      AnonDecl  ::= "{" [Stm] "}" ;
 OnlyCall.      AnonDecl  ::= ;
 
 EVar.          Exp18 ::= Id ;
---EType.         Exp18 ::= Type;
 
-EInt.          Exp19 ::= Integer ;
 EFloat.        Exp19 ::= CFloat ;
 ETrue.         Exp19 ::= "true" ;
 EFalse.        Exp19 ::= "false" ;
@@ -163,8 +164,6 @@ separator Exp "," ;
 
 
 -- Types ------------------------------------------------------------
-TInt.        Type ::= "int" ;
-TUInt.       Type ::= "uint" ;
 TFloat.      Type ::= "float" ;
 TVoid.       Type ::= "void" ;
 TBool.       Type ::= "bool" ;
@@ -183,12 +182,11 @@ TVec4.       Type ::= "Vec4" ;
 TMat2.       Type ::= "Mat2" ;
 TMat3.       Type ::= "Mat3" ;
 TMat4.       Type ::= "Mat4" ;
-TColor.      Type ::= "Color" ;
-TImage.      Type ::= "Image" ;
+TFunc.       Type ::= Type TkArr Type ;
 TStruct.     Type ::= TkStruct CIdent ;
 
 -- Allow for type of functions
 internal TFun.    Type ::= Type [Type] ;
 internal TArray.  Type ::= Type ;
 internal TConst.  Type ::= Type ;
-separator Type "" ;
+separator nonempty Type "," ;
