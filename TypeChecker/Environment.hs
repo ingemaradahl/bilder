@@ -2,7 +2,7 @@
 
 module TypeChecker.Environment where
 
-import TypeChecker.Types
+import TypeChecker.Types hiding (typedefs)
 import FrontEnd.AbsGrammar
 import qualified TypeChecker.Scope as Scope
 import Compiler (Options)
@@ -14,8 +14,8 @@ import Data.Map hiding (map)
 -- | Environment during type checking
 data Environment = Env {
   scopes  ∷ [Scope.Scope],
+  checkedBlobs ∷ Map FilePath Blob,
 
-  typedefs ∷ Map String Type,
   options   ∷ Options,
   currentFile ∷ FilePath,
   currentFunction ∷ Function
@@ -24,8 +24,8 @@ data Environment = Env {
 -- | Creates an empty environment based on a set of options
 buildEnv ∷ Options → Environment
 buildEnv opts = Env {
-  scopes = [Scope.Scope empty empty],
-  typedefs = empty,
+  scopes = [Scope.emptyScope],
+  checkedBlobs = empty,
   options = opts,
   currentFile = "",
   currentFunction = Null
@@ -43,7 +43,8 @@ popScope env = env { scopes = tail $ scopes env }
 -- Below is various show functions, used for displaying the state
 instance Show Environment where
  show env = printf "Type definitions: \n%s\nFunctions: %s\nVariables:%s"
-   (showTypes $ typedefs env)
+   --(showTypes $ typedefs env)
+   "DEFS"
    (showFuns $ reverse (scopes env))
    (showVars $ reverse (scopes env))
 

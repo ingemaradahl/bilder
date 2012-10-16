@@ -1,2 +1,4 @@
-typedef Color = Vec4;
-typedef Image = Float -> Float -> Color;
+/*
+ *typedef Color = Vec4;
+ *typedef Image = Float -> Float -> Color;
+ */

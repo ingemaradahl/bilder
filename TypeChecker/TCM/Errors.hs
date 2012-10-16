@@ -83,6 +83,12 @@ typedefError cid defined proposed =
   pos = typeIdentToPos cid
   name = typeIdentToString cid
 
+typedefNotFoundError ∷ TypeIdent → TCM a
+typedefNotFoundError tid =
+  typeError pos "apa"
+ where
+  pos = typeIdentToPos tid
+
 
 
 -- | Throw a type error

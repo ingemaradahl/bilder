@@ -31,10 +31,14 @@ buildEnv opts = Env {
 -- CPM - CompilerMonad: Alias for both Error and State monad
 type CPM a = StateT Environment CError a
 
-compileTree ∷ Options → Tree (FilePath,AbsTree) → CError [String]
-compileTree opts tree = evalStateT (compile tree) (buildEnv opts)
-
-compile ∷ Tree (FilePath,AbsTree) → CPM [String]
-compile _ = return ["tree"]
+compileTree ∷ Options → a → CError [String]
+compileTree _ _ = Pass ["LOL"]
+{-
+ -compileTree ∷ Options → Tree (FilePath,AbsTree) → CError [String]
+ -compileTree opts tree = evalStateT (compile tree) (buildEnv opts)
+ -
+ -compile ∷ Tree (FilePath,AbsTree) → CPM [String]
+ -compile _ = return ["tree"]
+ -}
 --compile t@(Tree toplevels) = do
   --return [printTree t]

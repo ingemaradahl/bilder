@@ -35,9 +35,9 @@ paramToPos = cIdentToPos .  paramToCIdent
 
 qualType ∷ [Qualifier] → Maybe Type
 qualType qs | length types == 1 = Just $ head types
+            | otherwise = Nothing
  where
   types = [ t | QType t ← qs ]
-qualType _ = Nothing
 
 -- Match function against argument types
 partialApp ∷ Function → [Type] → Maybe [Type]
@@ -59,8 +59,8 @@ uncurryType t@(TFunc {}) = TFun (head ret) args
   uncurryType' (TFunc t1 _ t2) = t1:[t2]
 uncurryType t = t
 
-traverse ∷ Monad m => (a → m b) → Tree a → m (Tree b)
+traverse ∷ Monad m => (a → [Tree b] → m b) → Tree a → m (Tree b)
 traverse f (Node r bs) = do
   sub ← mapM (traverse f) bs
-  root ← f r
+  root ← f r sub
   return $ Node root sub

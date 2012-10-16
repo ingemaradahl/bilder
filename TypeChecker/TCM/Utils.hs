@@ -6,7 +6,8 @@ import TypeChecker.TCM
 import TypeChecker.TCM.Errors
 import TypeChecker.Environment as Env
 import qualified TypeChecker.Scope as Scope
-import TypeChecker.Types as TC
+import TypeChecker.Types as TC hiding (functions, typedefs, filename, variables)
+import qualified TypeChecker.Types as Blob (functions, typedefs, filename, variables)
 import TypeChecker.Utils
 
 import CompilerTypes
@@ -18,6 +19,7 @@ import Control.Monad.Error
 
 import Prelude hiding (lookup)
 import Data.Map
+import Data.Tree
 
 import Text.Printf
 
@@ -47,13 +49,27 @@ lookupFunction f = do
 -- | Adds a type definition to the environment
 addTypedef ∷ TypeIdent → Type → TCM ()
 addTypedef tid typeFunc = do
-  ts ← gets typedefs
-  case lookup name ts of
+  scs ← gets scopes
+  defs ← lookupTypedef' name
+  case defs of
     Just t' → unless (t == t') (typedefError tid t' t)
-    Nothing → modify (\st → st { typedefs = insert name t ts })
+    Nothing → modify (\st → st { scopes =  Scope.addTypedef name t (head scs):tail scs })
  where
   t = uncurryType typeFunc
   name = typeIdentToString tid
+
+lookupTypedef ∷ TypeIdent → TCM Type
+lookupTypedef tid = do
+  def ← lookupTypedef' n
+  case def of
+    Just t → return t
+    Nothing → typedefNotFoundError tid
+ where
+  n = typeIdentToString tid
+
+lookupTypedef' ∷ String → TCM (Maybe Type)
+lookupTypedef' n = liftM (Scope.lookupTypedef n) $ gets scopes
+
 
 -- | Adds a variable to the current scope, making sure there are no duplicates
 addVariable ∷ Variable → TCM ()
@@ -98,20 +114,65 @@ pushScope = modify Env.pushScope
 popScope ∷ TCM ()
 popScope = modify Env.popScope
 
+clearScope ∷ TCM ()
+clearScope = modify (\st → st { scopes = [Scope.emptyScope] })
+
+newFile ∷ FilePath → TCM ()
+newFile f = updateFile f >> clearScope
+
+makeBlob ∷ Map String [Function] → TCM Blob
+makeBlob funs = do
+  scope ← gets $ head . scopes
+  file ← gets currentFile
+  return $ Blob file funs (Scope.typedefs scope) (Scope.variables scope)
+
+initScope ∷ [Tree Blob] → TCM ()
+initScope = mapM_ (addBlob . rootLabel)
+ where
+  addBlob ∷ Blob → TCM ()
+  addBlob b = do
+    mergeFunctions (Blob.functions b)
+    mergeVariables (Blob.variables b)
+    mergeTypedefs (Blob.typedefs b)
+
+mergeFunctions ∷ Map String [Function] → TCM ()
+mergeFunctions funs = sequence_ [ mapM addFunction fs | (_,fs) ← toList funs]
+
+mergeVariables ∷ Map String Variable → TCM ()
+mergeVariables vars = mapM_ (addVariable . snd) $ toList vars
+
+mergeTypedefs ∷ Map String Type → TCM ()
+mergeTypedefs defs = mapM_ (\(n,t) → addTypedef (TypeIdent ((-1,-1),n)) t ) $ toList defs
+{-
+ -  scs ← gets scopes
+ -  let scope = head scs
+ -  let scopeDefs = Scope.typedefs scope
+ -  let inters = intersection defs scopeDefs
+ -
+ -  -- Assure there are no name collisions
+ -  -- TODO: Check for same stuff
+ -  unless (Data.Map.null inters) $ debugError (show inters) --"LOLAAOEUAOEUAOEU" --undefined -- TODO
+ -
+ -  let scope' = scope { Scope.typedefs = scopeDefs `union` defs }
+ -  modify (\st → st { scopes = scope':tail scs })
+ -}
+
 
 tcFun ∷ Toplevel → TCM Function
 tcFun (Abs.Function t cident params stms) = do
-  updateFile $ cIdentToString cident
   params' ← mapM paramToVar params
+  retType' ← filterTDef t
   file ← gets currentFile
-  return TC.Function {
+  let fun = TC.Function {
     functionName = cIdentToString cident,
     functionLocation = (file, cIdentToPos cident),
-    retType = t,
+    retType = retType',
     paramVars = params',
     parameters = params,
     statements = stms
   }
+  updateFunction fun
+  return fun
 tcFun _ = compileError (-1,-1) "Non-function given as argument to tcFun"
 
 paramExp ∷ Param → TCM Exp
@@ -125,9 +186,14 @@ paramType p@(ParamDefault qs _ _) = maybe (paramNoTypeGiven p) return (qualType 
 
 paramToVar ∷ Param → TCM Variable
 paramToVar p = do
-  varTyp ← paramType p
+  varTyp ← paramType p >>= filterTDef
   file ← gets currentFile
   return $ Variable (paramToString p) (file, paramToPos p) varTyp
+
+filterTDef ∷ Type → TCM Type
+filterTDef (TDefined tid) = lookupTypedef tid
+filterTDef t = return t
+
 
 {-qualType ∷ [Qualifier] → TCM Type-}
 {-qualType qs | length qs /= length (nub qs) = fail "TODO01"-}

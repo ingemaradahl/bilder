@@ -21,6 +21,7 @@ data Function = Function {
   , parameters ∷ [Param]
   , statements ∷ [Stm]
 } | Null
+ deriving (Show)
 
 instance Global Function where
   ident = functionName
@@ -46,15 +47,16 @@ data Variable = Variable {
   , variableLocation ∷ Location
   , varType ∷ Type
 }
+ deriving (Show)
 
 instance Global Variable where
   ident = variableName
   location = variableLocation
 
 
-data Program = Program {
-    functions ∷ Map String Function
-  , structs ∷ Map String Struct
-  , variables ∷ Map String Variable
+data Blob = Blob {
+  filename ∷ FilePath,
+  functions ∷ Map String [Function],
+  typedefs ∷ Map String Type,
+  variables ∷ Map String Variable
 }
-
