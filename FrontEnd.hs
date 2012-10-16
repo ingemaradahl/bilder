@@ -43,7 +43,7 @@ parseWithPrelude f = do
   -- TODO: Add PATH-like stuff for include/.
   p ← parseTree "include/Prelude.fl"
   t ← parseTree f
-  return $ Node (rootLabel t) $ subForest p ++ subForest t
+  return $ Node (rootLabel t) $ p:subForest t
 
 -- | Recursively parse the files to be imported
 parseTree ∷ FilePath → PM (Tree (FilePath, AbsTree))

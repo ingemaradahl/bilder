@@ -2,6 +2,7 @@
 
 module TypeChecker.Utils where
 
+import Data.Tree
 import CompilerTypes
 import FrontEnd.AbsGrammar
 import TypeChecker.Types
@@ -57,3 +58,9 @@ uncurryType t@(TFunc {}) = TFun (head ret) args
   uncurryType' (TFunc t1 _ t2@(TFunc {})) = t1:uncurryType' t2
   uncurryType' (TFunc t1 _ t2) = t1:[t2]
 uncurryType t = t
+
+traverse ∷ Monad m => (a → m b) → Tree a → m (Tree b)
+traverse f (Node r bs) = do
+  sub ← mapM (traverse f) bs
+  root ← f r
+  return $ Node root sub

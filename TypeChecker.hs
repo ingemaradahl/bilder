@@ -8,7 +8,6 @@ import Control.Monad
 import Control.Monad.Trans.State
 import Control.Arrow (second)
 
-import qualified Data.Traversable as Traverse
 import Data.Tree
 import Data.Map (Map, elems, insertWith, empty)
 import Data.Maybe (isJust, fromJust)
@@ -33,8 +32,8 @@ typeCheck opts tree = evalStateT (checkTree tree) (buildEnv opts)
 
 checkTree ∷ Tree (FilePath, AbsTree) → TCM (Tree (FilePath, AbsTree))
 checkTree tree = do
-  Traverse.mapM addFunctions tree
-  Traverse.mapM addTypedefs tree
+  traverse addTypedefs tree
+  traverse addFunctions tree
   --Traverse.mapM addStructs tree
   --Traverse.mapM addVariables tree
 
