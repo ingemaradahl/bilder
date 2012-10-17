@@ -115,7 +115,7 @@ popScope ∷ TCM ()
 popScope = modify Env.popScope
 
 clearScope ∷ TCM ()
-clearScope = modify (\st → st { scopes = [Scope.emptyScope] })
+clearScope = modify (\st → st { scopes = [Scope.emptyScope, Scope.builtInScope] })
 
 newFile ∷ FilePath → TCM ()
 newFile f = updateFile f >> clearScope
