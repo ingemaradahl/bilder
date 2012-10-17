@@ -69,19 +69,19 @@ returnMismatch pos inferred = do
     (show inferred)
     (ident expected)
 
-typedefError ∷ TypeIdent → Type → Type → TCM a
-typedefError cid defined proposed =
+typedefError ∷ Typedef → Typedef → TCM a
+typedefError defined proposed =
   typeError pos $
     printf ("Trying to define a new type alias \"%s\"\n" ++
             "                         with type %s\n" ++
             "while type alias \"%s\" = %s is already present")
     name
-    (show proposed)
+    (show $ typedefType proposed)
     name
-    (show defined)
+    (show $ typedefType defined)
  where
-  pos = typeIdentToPos cid
-  name = typeIdentToString cid
+  pos = snd $ typedefLocation proposed
+  name = typedefName defined
 
 typedefNotFoundError ∷ TypeIdent → TCM a
 typedefNotFoundError tid =

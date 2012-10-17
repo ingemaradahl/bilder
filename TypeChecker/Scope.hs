@@ -39,10 +39,10 @@ addVariable v scope = scope { variables = vs }
 addTypedef ∷ Typedef → Scope → Scope
 addTypedef t s = s { typedefs = insert (typedefName t) t (typedefs s) }
 
-lookupTypedef ∷ String → [Scope] → Maybe Type
+lookupTypedef ∷ String → [Scope] → Maybe Typedef
 lookupTypedef n (s:ss) =
   case Data.Map.lookup n (typedefs s) of
-    Just t  → Just (typedefType t)
+    Just t  → Just t
     Nothing → lookupTypedef n ss
 lookupTypedef _ [] = Nothing
 

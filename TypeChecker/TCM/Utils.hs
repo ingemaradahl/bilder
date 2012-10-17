@@ -52,7 +52,7 @@ addTypedef def = do
   scs ← gets scopes
   defs ← lookupTypedef' (typedefName def)
   case defs of
-    Just t' → unless (t == t') (typedefError (TypeIdent ((0,0), typedefName def)) t' t)
+    Just t' → unless (t == typedefType t') (typedefError t' def)
     Nothing → modify (\st → st { scopes = Scope.addTypedef def (head scs):tail scs })
  where
   t = uncurryType $ typedefType def
@@ -63,15 +63,16 @@ addTypeIdentTypedef tid typeFunc = do
   scs ← gets scopes
   defs ← lookupTypedef' name
   file ← gets currentFile
+  let def = Typedef name (file, pos) t
   case defs of
-    Just t' → unless (t == t') (typedefError tid t' t)
-    Nothing → modify (\st → st { scopes = Scope.addTypedef (Typedef name (file, pos) t) (head scs):tail scs })
+    Just t' → unless (t == typedefType t') (typedefError t' def)
+    Nothing → modify (\st → st { scopes = Scope.addTypedef def (head scs):tail scs })
  where
   t = uncurryType typeFunc
   name = typeIdentToString tid
   pos = typeIdentToPos tid
 
-lookupTypedef ∷ TypeIdent → TCM Type
+lookupTypedef ∷ TypeIdent → TCM Typedef
 lookupTypedef tid = do
   def ← lookupTypedef' n
   case def of
@@ -80,11 +81,11 @@ lookupTypedef tid = do
  where
   n = typeIdentToString tid
 
-lookupTypedef' ∷ String → TCM (Maybe Type)
+lookupTypedef' ∷ String → TCM (Maybe Typedef)
 lookupTypedef' n = liftM (Scope.lookupTypedef n) $ gets scopes
 
 filterType ∷ Type → TCM Type
-filterType (TDefined tid) = lookupTypedef tid
+filterType (TDefined tid) = liftM typedefType $ lookupTypedef tid
 filterType t = return t
 
 -- | Adds a variable to the current scope, making sure there are no duplicates
@@ -161,9 +162,7 @@ mergeVariables ∷ Map String Variable → TCM ()
 mergeVariables vars = mapM_ (addVariable . snd) $ toList vars
 
 mergeTypedefs ∷ Map String Typedef → TCM ()
---mergeTypedefs defs = mapM_ (\(n,t) → addTypedef (TypeIdent ((-1,-1),n)) t) $ toList defs
 mergeTypedefs defs = mapM_ (addTypedef . snd) $ toList defs
-
 
 tcFun ∷ Toplevel → TCM Function
 tcFun (Abs.Function t cident params stms) = do
@@ -212,7 +211,7 @@ paramToVar p = do
   return $ Variable (paramToString p) (file, paramToPos p) varTyp
 
 filterTDef ∷ Type → TCM Type
-filterTDef (TDefined tid) = lookupTypedef tid
+filterTDef (TDefined tid) = liftM typedefType $ lookupTypedef tid
 filterTDef t = return t
 
 
