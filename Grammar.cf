@@ -23,6 +23,7 @@ position token TkBreak {"break"} ;
 position token TkContinue {"contiune"} ;
 position token TkDiscard {"discard"} ;
 position token TkConst {"const"} ;
+position token TkExternal {"external"} ;
 position token TkTypeDef {"typedef"} ;
 position token TkArrow {"->"} ;
 
@@ -45,7 +46,7 @@ separator  Decl "," ;
 SVDecl. StructVarDecl  ::= Decl ";" ;
 separator StructVarDecl "" ;
 
-QExternal.    Qualifier ::= "external" ;
+QExternal.    Qualifier ::= TkExternal ;
 QConst.       Qualifier ::= TkConst ;
 QType.        Qualifier ::= Type ;
 separator nonempty Qualifier "" ;
