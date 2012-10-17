@@ -58,13 +58,6 @@ DecAss. DeclPost  ::= [CIdent] "=" Exp2 ;
 -- Ident ------------------------------------------------------------
 position token CIdent ((lower | '_') (letter | digit | '_')*) ;
 position token TypeIdent ( upper ( letter | digit | '_')*);
-
--- Shift/reduce at , in IdEmptyArray, IdArray and Ident (when used as [Id]).
---IdEmptyArray. Id  ::= CIdent "[" "]" ;
---IdArray.      Id  ::= CIdent "[" Exp "]" ;
---Ident.        Id  ::= CIdent ;
---separator nonempty Id "," ;
-
 separator nonempty CIdent "," ;
 
 -- Statements -------------------------------------------------------
@@ -152,9 +145,12 @@ EMember.       Exp15 ::= Exp15 "." Exp16 ;
 ECall.         Exp16 ::= CIdent "(" [Exp] ")" ;
 
 -- Enables anonymous declaration on the form Image(int x, int y) { stms };
-ETypeCall.     Exp17 ::= Type "(" [Exp] ")" AnonDecl ;
-AnonStms.      AnonDecl  ::= "{" [Stm] "}" ;
-OnlyCall.      AnonDecl  ::= ;
+ETypeCall.     Exp17 ::= Type "(" [Exp] ")" ;
+EAnonDecl.     Exp17 ::= Type "(" [AnonParam] ")" "{" [Stm] "}" ;
+EAnonDeclVoid. Exp17 ::= Type "(" "void" ")" "{" [Stm] "}" ;
+
+AnonParam.      AnonParam ::= Param ;
+separator nonempty AnonParam "," ;
 
 EVar.          Exp18 ::= CIdent ;
 EIndex.        Exp18 ::= CIdent "[" Exp "]" ;
