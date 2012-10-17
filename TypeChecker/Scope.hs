@@ -51,7 +51,9 @@ lookupTypedef _ [] = Nothing
 -- | Creates a Map of built in functions
 builtInFuns ∷ Map String [Function]
 builtInFuns = fromList $ map buildFuns [
-    ("pow", [(TFloat, [("b", TFloat), ("n", TFloat)])]),
+    ("pow", map (\t → (t, [("b",t), ("n",t)])) [TVec2, TVec3, TVec4] ++
+            map (\t → (t, [("b",t), ("n",TFloat)])) [TFloat, TVec2, TVec3, TVec4]
+    ),
     ("sin", [(TFloat, [("phi", TFloat)])]),
     ("cos", [(TFloat, [("phi", TFloat)])]),
     ("dot", [(TVec4, [("x", TVec4), ("y", TVec4)])

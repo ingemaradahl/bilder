@@ -183,7 +183,6 @@ verifyQuals qs = unless (null dups) $ invalidQualList qs
 verifyQualsType ∷ [Qualifier] → TCM Type
 verifyQualsType qs = verifyQuals qs >> maybe (qualsNoTypeGiven qs) return (qualType qs)
 
-
 paramExp ∷ Param → TCM Exp
 paramExp (ParamDefault _ _ e) = return e
 paramExp p = compileError (paramToPos p)
@@ -204,6 +203,3 @@ filterTDef ∷ Type → TCM Type
 filterTDef (TDefined tid) = lookupTypedef tid
 filterTDef t = return t
 
-
-{-qualType ∷ [Qualifier] → TCM Type-}
-{-qualType qs | length qs /= length (nub qs) = fail "TODO01"-}
