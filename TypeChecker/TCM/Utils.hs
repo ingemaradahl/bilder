@@ -7,7 +7,7 @@ import TypeChecker.TCM.Errors
 import TypeChecker.Environment as Env
 import qualified TypeChecker.Scope as Scope
 import TypeChecker.Types as TC hiding (functions, typedefs, filename, variables)
-import qualified TypeChecker.Types as Blob (functions, typedefs, filename, variables)
+import qualified TypeChecker.Types as Blob (functions, typedefs, variables)
 import TypeChecker.Utils
 
 import CompilerTypes
@@ -18,7 +18,7 @@ import Control.Monad.Trans.State
 import Control.Monad.Error
 
 import Prelude hiding (lookup)
-import Data.Map
+import Data.Map hiding (null)
 import Data.Tree
 
 import Text.Printf
@@ -70,6 +70,9 @@ lookupTypedef tid = do
 lookupTypedef' ∷ String → TCM (Maybe Type)
 lookupTypedef' n = liftM (Scope.lookupTypedef n) $ gets scopes
 
+filterType ∷ Type → TCM Type
+filterType (TDefined tid) = lookupTypedef tid
+filterType t = return t
 
 -- | Adds a variable to the current scope, making sure there are no duplicates
 addVariable ∷ Variable → TCM ()
@@ -83,10 +86,13 @@ addVariable var = do
   name = ident var ∷ String
 
 -- | Add a variable to the current scope, using currentFile from the state
-addVariable' ∷ String → Position → Type → TCM ()
-addVariable' n p t = do
+addCIdentVariable ∷ CIdent → Type → TCM ()
+addCIdentVariable cid t = do
   file ← gets currentFile
   addVariable $ Variable n (file,p) t
+ where
+  n = cIdentToString cid
+  p = cIdentToPos cid
 
 -- | Lookup a variable denoted by it's name. May throw error
 lookupVar ∷ String → TCM Variable
@@ -143,19 +149,6 @@ mergeVariables vars = mapM_ (addVariable . snd) $ toList vars
 
 mergeTypedefs ∷ Map String Type → TCM ()
 mergeTypedefs defs = mapM_ (\(n,t) → addTypedef (TypeIdent ((-1,-1),n)) t ) $ toList defs
-{-
- -  scs ← gets scopes
- -  let scope = head scs
- -  let scopeDefs = Scope.typedefs scope
- -  let inters = intersection defs scopeDefs
- -
- -  -- Assure there are no name collisions
- -  -- TODO: Check for same stuff
- -  unless (Data.Map.null inters) $ debugError (show inters) --"LOLAAOEUAOEUAOEU" --undefined -- TODO
- -
- -  let scope' = scope { Scope.typedefs = scopeDefs `union` defs }
- -  modify (\st → st { scopes = scope':tail scs })
- -}
 
 
 tcFun ∷ Toplevel → TCM Function
@@ -175,14 +168,28 @@ tcFun (Abs.Function t cident params stms) = do
   return fun
 tcFun _ = compileError (-1,-1) "Non-function given as argument to tcFun"
 
+verifyQuals ∷ [Qualifier] → TCM ()
+verifyQuals qs = unless (null dups) $ invalidQualList qs
+ where
+  dups = duplicatesWith eq qs
+  eq ∷ Qualifier → Qualifier → Bool
+  eq (QExternal {}) (QExternal {}) = True
+  eq (QConst {}) (QConst {}) = True
+  eq a b = a == b
+
+verifyQualsType ∷ [Qualifier] → TCM Type
+verifyQualsType qs = verifyQuals qs >> maybe (qualsNoTypeGiven qs) return (qualType qs)
+
+
 paramExp ∷ Param → TCM Exp
 paramExp (ParamDefault _ _ e) = return e
 paramExp p = compileError (paramToPos p)
   "Trying to find expression on non-expression parameter declaration"
 
 paramType ∷ Param → TCM Type
-paramType p@(ParamDec qs _) = maybe (paramNoTypeGiven p) return (qualType qs)
-paramType p@(ParamDefault qs _ _) = maybe (paramNoTypeGiven p) return (qualType qs)
+paramType p = verifyQuals qs >> maybe (paramNoTypeGiven p) return (qualType qs)
+ where
+  qs = paramToQuals p
 
 paramToVar ∷ Param → TCM Variable
 paramToVar p = do
