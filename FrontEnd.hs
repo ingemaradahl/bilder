@@ -51,6 +51,6 @@ parseTree f = do
   liftIO . putStrLn $ "reading " ++ f
   imported ← addFile f
   t ← readAndProcessFile f >>= parse
-  liftM (Node (f, t)) (mapM parseTree (map (dir </>) (filterImports t) \\ imported))
+  liftM (Node (f, t)) (mapM parseWithPrelude (map (dir </>) (filterImports t) \\ imported))
  where
   dir = takeDirectory f
