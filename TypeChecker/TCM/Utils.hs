@@ -104,6 +104,9 @@ lookupVar name = gets scopes >>= lookupVar'
     Just v  → return v
     Nothing → lookupVar' ss
 
+lookupVarCIdent ∷ CIdent → TCM Variable
+lookupVarCIdent = lookupVar . cIdentToString
+
 -- | Sets which file is currently checked
 updateFile ∷ FilePath → TCM ()
 updateFile f = modify (\st → st { currentFile = f })
