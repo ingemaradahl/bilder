@@ -25,6 +25,7 @@ import TypeChecker.Types
 import Compiler hiding (Environment, Env, options, buildEnv)
 import FrontEnd.AbsGrammar as Abs
 import CompilerError
+import Builtins
 
 -- | Typechecks the given abstract source and annotates the syntax tree
 typeCheck ∷ Options → Tree (FilePath, AbsTree) → CError (Tree Blob)
@@ -141,9 +142,25 @@ inferExp (ECall cid es) = do
       if null args'
         then return (retType fun) -- Function swallowed all arguments
         else return $ TFun (retType fun) args' -- Function partially applied
+inferExp (ETypeCall t es) = do
+  expts ← mapM inferExp es
+  if expts `elem` typeConstuctors t
+    then return t
+    else noTypeConstructorError t expts
+inferExp (EAdd el er) = inferBinaryExp el er
+inferExp (EMul el er) = inferBinaryExp el er
+inferExp (ESub el er) = inferBinaryExp el er
+inferExp (EDiv el er) = inferBinaryExp el er
 
 inferExp e = debugError $ show e ++ " not inferrablelollolo"
 
+inferBinaryExp ∷ Exp → Exp → TCM Type
+inferBinaryExp el er = do
+  tl ← inferExp el
+  tr ← inferExp er
+  case compNumType tl tr of
+    Just t  → return t
+    Nothing → debugError "KUNNE INTE? WAT"
 -- }}}
 
 --example ∷ AbsTree

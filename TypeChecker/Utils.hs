@@ -62,6 +62,23 @@ partialApp f args = partial args $ map varType $ paramVars f
   partial [] bs = Just bs
   partial _  [] = Nothing
 
+compNumType ∷ Type → Type → Maybe Type
+compNumType TFloat TFloat = Just TFloat
+compNumType TFloat TInt = Just TFloat
+compNumType TInt TFloat = Just TFloat
+compNumType tl tr | tl == tr = Just tr
+                  | isVec tl = mayhaps (tl == tr || tr == TFloat) tl
+                  | isVec tr = mayhaps (tl == tr || tl == TFloat) tr
+                  | otherwise = Nothing
+
+
+isVec ∷ Type → Bool
+isVec TVec2 = True
+isVec TVec3 = True
+isVec TVec4 = True
+isVec _    = False
+
+
 uncurryType ∷ Type → Type
 uncurryType t@(TFunc {}) = TFun (head ret) args
  where
@@ -71,6 +88,10 @@ uncurryType t@(TFunc {}) = TFun (head ret) args
   uncurryType' (TFunc t1 _ t2@(TFunc {})) = t1:uncurryType' t2
   uncurryType' (TFunc t1 _ t2) = t1:[t2]
 uncurryType t = t
+
+mayhaps ∷ Bool → a → Maybe a
+mayhaps True  v = Just v
+mayhaps False _ = Nothing
 
 traverse ∷ Monad m => (a → [Tree b] → m b) → Tree a → m (Tree b)
 traverse f (Node r bs) = do
