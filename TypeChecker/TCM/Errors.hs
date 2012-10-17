@@ -85,10 +85,37 @@ typedefError cid defined proposed =
 
 typedefNotFoundError ∷ TypeIdent → TCM a
 typedefNotFoundError tid =
-  typeError pos "apa"
+  typeError pos $
+    printf "Type definition %s not found"
+    (typeIdentToString tid)
  where
   pos = typeIdentToPos tid
 
+invalidQualList ∷ [Qualifier] → TCM a
+invalidQualList qs =
+  syntaxError pos $
+    printf "Invalid qualifier list: %s"
+    (show qs)
+ where
+  pos = qualToPos $ head qs
+
+qualsNoTypeGiven ∷ [Qualifier] → TCM a
+qualsNoTypeGiven qs =
+  syntaxError pos $
+    printf "No type given in qualifier list: %s"
+    (show qs)
+ where
+  pos = qualToPos $ head qs
+
+decAssError ∷ CIdent → Type → Type → TCM a
+decAssError cid inferred expected =
+  typeError (cIdentToPos cid) $
+    printf ("Couldn't match expected type %s\n" ++
+            "            with actual type %s\n" ++
+            "  in declaration of variable %s")
+    (show expected)
+    (show inferred)
+    (cIdentToString cid)
 
 
 -- | Throw a type error
@@ -97,6 +124,9 @@ typeError = absError TypeError
 
 compileError ∷ Position → String → TCM a
 compileError = absError CompileError
+
+syntaxError ∷ Position → String → TCM a
+syntaxError = absError SyntaxError
 
 debugError ∷ String → TCM a
 debugError = absError CompileError (-1,-1)

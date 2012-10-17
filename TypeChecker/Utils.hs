@@ -33,11 +33,24 @@ paramToString = cIdentToString . paramToCIdent
 paramToPos ∷ Param → Position
 paramToPos = cIdentToPos .  paramToCIdent
 
+paramToQuals ∷ Param → [Qualifier]
+paramToQuals (ParamDec qs _) = qs
+paramToQuals (ParamDefault qs _ _) = qs
+
+qualToPos ∷ Qualifier → Position
+qualToPos (QExternal (TkExternal (p,_))) = p
+qualToPos (QConst (TkConst (p,_))) = p
+qualToPos (QType _) = (-1,-1)
+
 qualType ∷ [Qualifier] → Maybe Type
 qualType qs | length types == 1 = Just $ head types
             | otherwise = Nothing
  where
   types = [ t | QType t ← qs ]
+
+declPostIdents ∷ DeclPost → [CIdent]
+declPostIdents (Vars i) = i
+declPostIdents (DecAss i _) = i
 
 -- Match function against argument types
 partialApp ∷ Function → [Type] → Maybe [Type]
@@ -64,3 +77,21 @@ traverse f (Node r bs) = do
   sub ← mapM (traverse f) bs
   root ← f r sub
   return $ Node root sub
+
+duplicates ∷ Eq a => [a] → [a]
+duplicates [] = []
+duplicates (x:xs)
+  | x `elem` xs = x:duplicates (filter (/= x) xs)
+  | otherwise   = duplicates xs
+
+duplicatesWith ∷ (a → a → Bool) → [a] → [a]
+duplicatesWith _ [] = []
+duplicatesWith f (x:xs)
+ | elemBy f x xs = x:duplicatesWith f (filter (not . f x) xs)
+ | otherwise     = duplicatesWith f xs
+
+elemBy ∷ (a → a → Bool) → a → [a] → Bool
+elemBy _ _ [] = False
+elemBy f y (x:xs)
+ | f y x = True
+ | otherwise = elemBy f y xs
