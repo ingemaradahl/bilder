@@ -47,16 +47,29 @@ lookupFunction f = do
   lookupFun _ [] = Nothing
 
 -- | Adds a type definition to the environment
-addTypedef ∷ TypeIdent → Type → TCM ()
-addTypedef tid typeFunc = do
+addTypedef ∷ Typedef → TCM ()
+addTypedef def = do
+  scs ← gets scopes
+  defs ← lookupTypedef' (typedefName def)
+  case defs of
+    Just t' → unless (t == t') (typedefError (TypeIdent ((0,0), typedefName def)) t' t)
+    Nothing → modify (\st → st { scopes = Scope.addTypedef def (head scs):tail scs })
+ where
+  t = uncurryType $ typedefType def
+
+
+addTypeIdentTypedef ∷ TypeIdent → Type → TCM ()
+addTypeIdentTypedef tid typeFunc = do
   scs ← gets scopes
   defs ← lookupTypedef' name
+  file ← gets currentFile
   case defs of
     Just t' → unless (t == t') (typedefError tid t' t)
-    Nothing → modify (\st → st { scopes =  Scope.addTypedef name t (head scs):tail scs })
+    Nothing → modify (\st → st { scopes = Scope.addTypedef (Typedef name (file, pos) t) (head scs):tail scs })
  where
   t = uncurryType typeFunc
   name = typeIdentToString tid
+  pos = typeIdentToPos tid
 
 lookupTypedef ∷ TypeIdent → TCM Type
 lookupTypedef tid = do
@@ -147,8 +160,9 @@ mergeFunctions funs = sequence_ [ mapM addFunction fs | (_,fs) ← toList funs]
 mergeVariables ∷ Map String Variable → TCM ()
 mergeVariables vars = mapM_ (addVariable . snd) $ toList vars
 
-mergeTypedefs ∷ Map String Type → TCM ()
-mergeTypedefs defs = mapM_ (\(n,t) → addTypedef (TypeIdent ((-1,-1),n)) t ) $ toList defs
+mergeTypedefs ∷ Map String Typedef → TCM ()
+--mergeTypedefs defs = mapM_ (\(n,t) → addTypedef (TypeIdent ((-1,-1),n)) t) $ toList defs
+mergeTypedefs defs = mapM_ (addTypedef . snd) $ toList defs
 
 
 tcFun ∷ Toplevel → TCM Function

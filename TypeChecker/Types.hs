@@ -49,6 +49,13 @@ data Variable = Variable {
 }
  deriving (Show)
 
+data Typedef = Typedef {
+    typedefName ∷ String
+  , typedefLocation ∷ Location
+  , typedefType ∷ Type
+}
+ deriving (Show)
+
 instance Global Variable where
   ident = variableName
   location = variableLocation
@@ -57,6 +64,6 @@ instance Global Variable where
 data Blob = Blob {
   filename ∷ FilePath,
   functions ∷ Map String [Function],
-  typedefs ∷ Map String Type,
+  typedefs ∷ Map String Typedef,
   variables ∷ Map String Variable
 }

@@ -9,7 +9,7 @@ import Data.Map hiding (map)
 
 data Scope = Scope {
   functions ∷ Map String [Function],
-  typedefs ∷ Map String Type,
+  typedefs ∷ Map String Typedef,
   variables ∷ Map String Variable
 }
  deriving (Show)
@@ -36,15 +36,13 @@ addVariable v scope = scope { variables = vs }
   name = ident v
   vs = insert name v $ variables scope
 
-addTypedef ∷ String → Type → Scope → Scope
-addTypedef n t s = s { typedefs = typedefs' }
- where
-  typedefs' = insert n t $ typedefs s
+addTypedef ∷ Typedef → Scope → Scope
+addTypedef t s = s { typedefs = insert (typedefName t) t (typedefs s) }
 
 lookupTypedef ∷ String → [Scope] → Maybe Type
 lookupTypedef n (s:ss) =
   case Data.Map.lookup n (typedefs s) of
-    Just t  → Just t
+    Just t  → Just (typedefType t)
     Nothing → lookupTypedef n ss
 lookupTypedef _ [] = Nothing
 

@@ -46,7 +46,7 @@ checkFile (file, tree) children = do
 -- Type definitions {{{
 -- | Adds type definitions to the to the state
 addTypedefs ∷ AbsTree → TCM ()
-addTypedefs (AbsTree tree) = sequence_ [ addTypedef name typ | (TypeDef _ name typ) ← tree ]
+addTypedefs (AbsTree tree) = sequence_ [ addTypeIdentTypedef name typ | (TypeDef _ name typ) ← tree ]
 
 -- }}}
 -- Functions {{{
