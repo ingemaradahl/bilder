@@ -16,6 +16,7 @@ import FrontEnd.AbsGrammar as Abs
 
 import Control.Monad.Trans.State
 import Control.Monad.Error
+import Control.Applicative
 
 import Prelude hiding (lookup)
 import Data.Map hiding (null)
@@ -50,8 +51,7 @@ lookupFunction f = do
 addTypedef ∷ TypeIdent → Type → TCM ()
 addTypedef tid typeFunc = do
   scs ← gets scopes
-  defs ← lookupTypedef' name
-  case defs of
+  case Scope.lookupTypedef name scs of
     Just t' → unless (t == t') (typedefError tid t' t)
     Nothing → modify (\st → st { scopes =  Scope.addTypedef name t (head scs):tail scs })
  where
@@ -60,19 +60,12 @@ addTypedef tid typeFunc = do
 
 lookupTypedef ∷ TypeIdent → TCM Type
 lookupTypedef tid = do
-  def ← lookupTypedef' n
-  case def of
+  scs ← gets scopes
+  case Scope.lookupTypedef name scs of
     Just t → return t
     Nothing → typedefNotFoundError tid
  where
-  n = typeIdentToString tid
-
-lookupTypedef' ∷ String → TCM (Maybe Type)
-lookupTypedef' n = liftM (Scope.lookupTypedef n) $ gets scopes
-
-filterType ∷ Type → TCM Type
-filterType (TDefined tid) = lookupTypedef tid
-filterType t = return t
+  name = typeIdentToString tid
 
 -- | Adds a variable to the current scope, making sure there are no duplicates
 addVariable ∷ Variable → TCM ()
@@ -153,7 +146,6 @@ mergeVariables vars = mapM_ (addVariable . snd) $ toList vars
 mergeTypedefs ∷ Map String Type → TCM ()
 mergeTypedefs defs = mapM_ (\(n,t) → addTypedef (TypeIdent ((-1,-1),n)) t ) $ toList defs
 
-
 tcFun ∷ Toplevel → TCM Function
 tcFun (Abs.Function t cident params stms) = do
   params' ← mapM paramToVar params
@@ -200,6 +192,9 @@ paramToVar p = do
   return $ Variable (paramToString p) (file, paramToPos p) varTyp
 
 filterTDef ∷ Type → TCM Type
-filterTDef (TDefined tid) = lookupTypedef tid
-filterTDef t = return t
-
+filterTDef (TDefined tid) = lookupTypedef tid >>= filterTDef
+filterTDef (TFun t ts) = TFun <$> filterTDef t <*> mapM filterTDef ts
+filterTDef (TFunc tl arr tr) = TFunc <$> filterTDef tl <*> pure arr <*> filterTDef tr
+filterTDef (TArray t) = TArray <$> filterTDef t
+filterTDef (TConst t) = TConst <$> filterTDef t
+filterTDef t = pure t

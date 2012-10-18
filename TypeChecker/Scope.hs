@@ -1,4 +1,4 @@
-{-# LANGUAGE UnicodeSyntax, FlexibleInstances #-}
+{-# LANGUAGE UnicodeSyntax #-}
 
 module TypeChecker.Scope where
 

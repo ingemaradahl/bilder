@@ -47,7 +47,8 @@ checkFile (file, tree) children = do
 -- Type definitions {{{
 -- | Adds type definitions to the to the state
 addTypedefs ∷ AbsTree → TCM ()
-addTypedefs (AbsTree tree) = sequence_ [ addTypedef name typ | (TypeDef _ name typ) ← tree ]
+addTypedefs (AbsTree tree) = sequence_
+  [ filterTDef typ >>= addTypedef name | (TypeDef _ name typ) ← tree ]
 
 -- }}}
 -- Functions {{{
@@ -107,7 +108,7 @@ checkStatement s = debugError $ show s ++ " NOT DEFINED"
 -- Declarations {{{
 checkDecl ∷ Decl → TCM Type
 checkDecl (Dec qs post) = do
-  t ← verifyQualsType qs >>= filterType
+  t ← verifyQualsType qs >>= filterTDef
   expT ← checkDecAss post
 
   -- Check that inferred type and declared type matches
