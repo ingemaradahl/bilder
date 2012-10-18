@@ -7,6 +7,7 @@ import Prelude hiding (lookup)
 import Control.Monad
 import Control.Monad.Trans.State
 import Control.Arrow (second)
+import Control.Applicative hiding (empty)
 
 import Data.Tree
 import Data.Map (Map, elems, insertWith, empty)
@@ -103,6 +104,10 @@ checkStatement s@(SReturn (TkReturn (pos,_)) e) = do
     then return $ SType t s
     else returnMismatch pos t
 checkStatement s@(SDecl decl) = checkDecl decl >>= (\t → return (SType t s))
+checkStatement (SIf tk@(TkIf (pos,_)) cond stm) = do
+  condt ← inferExp cond
+  unless (condt `elem` [TInt,TFloat,TBool]) $ badConditional condt pos
+  SType condt <$> SIf tk cond <$> checkStatement stm
 checkStatement s = debugError $ show s ++ " NOT DEFINED"
 -- }}}
 -- Declarations {{{

@@ -130,6 +130,11 @@ noTypeConstructorError t ts =
     (show t)
     (show ts)
 
+badConditional ∷ Type → Position → TCM a
+badConditional t pos =
+  typeError pos $
+    printf "Bad conditional with type %s" (show t)
+
 
 -- | Throw a type error
 typeError ∷ Position → String → TCM a
