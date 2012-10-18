@@ -135,6 +135,7 @@ checkDecAss (DecAss _ _ e) = fmap Just $ inferExp e
 -- Expressions {{{
 inferExp ∷ Exp → TCM Type
 inferExp (EFloat _) = return TFloat
+inferExp (EInt _) = return TInt
 inferExp ETrue = return TBool
 inferExp EFalse = return TBool
 inferExp (EVar cid) = liftM varType $ lookupVar cid
@@ -174,11 +175,11 @@ inferExp (EMember el cid) = do
   n = cIdentToString cid
 inferExp (EMemberCall el cid ers) = do
   tel ← inferExp el
-  case componentFunc tel (cIdentToString cid) ers of
+  case componentFunc (cIdentToString cid) tel ers of
     Nothing → noFunctionFound cid [] -- TODO: What arguments?
-    Just (tcf@(TFun rt _), ecf) → do
+    Just (rt, argt, ecf) → do
       tecf ← mapM inferExp ecf
-      if tecf == [tcf]
+      if tecf == argt
         then return rt
         else noFunctionFound cid tecf
 

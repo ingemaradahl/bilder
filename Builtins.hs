@@ -13,6 +13,12 @@ typeConstuctors TVec4 = [[TFloat],[TVec4],[TVec2, TVec2]] ++
 typeConstuctors _ = []
 
 -- | Member-functions (e.g. .map)
-componentFunc ∷ Type → String → [Exp] → Maybe (Type, [Exp])
-componentFunc (TFun TVec4 [TFloat,TFloat]) "map" [EVar cid] = Just (TFun TVec4 [TVec4], [ECall cid []])
+--   Returns (Returntype, [Arg type], [Translated expression])
+componentFunc ∷ String → Type → [Exp] → Maybe (Type, [Type], [Exp])
+-- Image.map(Color → Color) → Color
+componentFunc "map" (TFun TVec4 [TFloat,TFloat]) [EVar cid] = Just (TVec4, [TFun TVec4 [TVec4]], [ECall cid []])
+-- Image.size() → Vec2
+componentFunc "size" (TFun TVec4 [TFloat,TFloat]) [] = Just (TVec2, [], [])
+-- Image.index(Int) → TFloat
+componentFunc "index" (TFun TVec4 [TFloat,TFloat]) es = Just (TFloat, [TInt], es)
 componentFunc _ _ _ = Nothing
