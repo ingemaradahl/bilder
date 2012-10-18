@@ -58,6 +58,11 @@ noFunctionFound f args =
     (cIdentToString f)
     (show args)
 
+noVarFound ∷ CIdent → TCM a
+noVarFound cid =
+  typeError (cIdentToPos cid) $
+    printf "No variable \"%s\" found" (cIdentToString cid)
+
 returnMismatch ∷ Position → Type → TCM a
 returnMismatch pos inferred = do
   expected ← gets currentFunction

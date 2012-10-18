@@ -71,13 +71,24 @@ compNumType tl tr | tl == tr = Just tr
                   | isVec tr = mayhaps (tl == tr || tl == TFloat) tr
                   | otherwise = Nothing
 
-
 isVec ∷ Type → Bool
 isVec TVec2 = True
 isVec TVec3 = True
 isVec TVec4 = True
 isVec _    = False
 
+buildAnonFunc ∷ String → Location → Type → [Type] → Function
+buildAnonFunc name loc ret args = TypeChecker.Types.Function {
+    functionName = name,
+    functionLocation = loc,
+    retType = ret,
+    paramVars = map buildAnonVar args,
+    parameters = [],
+    statements = []
+  }
+ where
+  buildAnonVar ∷ Type → Variable
+  buildAnonVar = Variable "anonvar" ("anonvar",(-1,-1))
 
 uncurryType ∷ Type → Type
 uncurryType t@(TFunc {}) = TFun (head ret) args

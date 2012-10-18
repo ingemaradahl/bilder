@@ -38,14 +38,10 @@ addFunction fun = do
 lookupFunction ∷ String → TCM [Function]
 lookupFunction f = do
   scs ← gets scopes
-  maybe (return []) return $ lookupFun f scs
- where
-  lookupFun ∷ String → [Scope.Scope] → Maybe [Function]
-  lookupFun fun (s:ss) =
-    case lookup fun (Scope.functions s) of
-      Just fs → Just fs
-      Nothing → lookupFun f ss
-  lookupFun _ [] = Nothing
+  case Scope.lookupFunction f scs of
+    Just [] → maybe (return []) (return . pure) $ Scope.lookupVarFun f scs
+    Just fs → return fs
+    Nothing → maybe (return []) (return . pure) $ Scope.lookupVarFun f scs
 
 -- | Adds a type definition to the environment
 addTypedef ∷ Typedef → TCM ()
@@ -97,17 +93,14 @@ addCIdentVariable cid t = do
   p = cIdentToPos cid
 
 -- | Lookup a variable denoted by it's name. May throw error
-lookupVar ∷ String → TCM Variable
-lookupVar name = gets scopes >>= lookupVar'
+lookupVar ∷ CIdent → TCM Variable
+lookupVar cid = do
+  scs ← gets scopes
+  case Scope.lookupVar name scs of
+    Just v → return v
+    Nothing → noVarFound cid
  where
-  lookupVar' ∷ [Scope.Scope] → TCM Variable
-  lookupVar'     [] = typeError (-1,-1) $ "Cannot find variable " ++ name
-  lookupVar' (s:ss) = case lookup name (Scope.variables s) of
-    Just v  → return v
-    Nothing → lookupVar' ss
-
-lookupVarCIdent ∷ CIdent → TCM Variable
-lookupVarCIdent = lookupVar . cIdentToString
+  name = cIdentToString cid
 
 -- | Sets which file is currently checked
 updateFile ∷ FilePath → TCM ()

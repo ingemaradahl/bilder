@@ -129,7 +129,7 @@ inferExp ∷ Exp → TCM Type
 inferExp (EFloat _) = return TFloat
 inferExp ETrue = return TBool
 inferExp EFalse = return TBool
-inferExp (EVar cid) = liftM varType $ lookupVarCIdent cid
+inferExp (EVar cid) = liftM varType $ lookupVar cid
 inferExp (ECall cid es) = do
   args ← mapM inferExp es
   funs ← lookupFunction (cIdentToString cid)
