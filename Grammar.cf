@@ -140,7 +140,8 @@ EPreDec.       Exp14 ::= "--" Exp15 ;
 
 EPostInc.      Exp15 ::= Exp15 "++" ;
 EPostDec.      Exp15 ::= Exp15 "--" ;
-EMember.       Exp15 ::= Exp15 "." Exp16 ;
+EMember.       Exp15 ::= Exp15 "." CIdent ;
+EMemberCall.   Exp15 ::= Exp15 "." CIdent "(" [Exp] ")" ;
 
 ECall.         Exp16 ::= CIdent "(" [Exp] ")" ;
 
