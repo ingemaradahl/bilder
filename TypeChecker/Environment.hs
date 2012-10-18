@@ -62,7 +62,7 @@ showTypesLevel typs l | not (Data.Map.null typs) = newline ++ intercalate newlin
 
 showDef ∷ (String,Typedef) → String
 showDef (name,Typedef _ _ (TFun ret args)) = name ++ " = " ++ showTFun ret args
-showDef (name,t) = name ++ " = " ++ show t
+showDef (name,t) = name ++ " = " ++ show (typedefType t)
 
 showFuns ∷ [Scope.Scope] → String
 showFuns scope = showFuns' scope 0
