@@ -60,6 +60,9 @@ instance Global Variable where
   ident = variableName
   location = variableLocation
 
+instance Global Typedef where
+  ident = typedefName
+  location = typedefLocation
 
 data Blob = Blob {
   filename ∷ FilePath,

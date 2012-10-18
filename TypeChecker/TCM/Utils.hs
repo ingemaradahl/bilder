@@ -51,7 +51,7 @@ lookupFunction f = do
 addTypedef ∷ Typedef → TCM ()
 addTypedef def = do
   scs ← gets scopes
-  case Scope.lookupTypedef (typedefName def) scs of
+  case Scope.lookupTypedef (ident def) scs of
     Just t' → unless (t == typedefType t') (typedefError t' def)
     Nothing → modify (\st → st { scopes = Scope.addTypedef def (head scs):tail scs })
  where
@@ -201,7 +201,7 @@ paramToVar p = do
   return $ Variable (paramToString p) (file, paramToPos p) varTyp
 
 filterTDef ∷ Type → TCM Type
-filterTDef (TDefined tid) = lookupTypedef tid >>= filterTDef
+filterTDef (TDefined tid) = lookupTypedef tid >>= (filterTDef . typedefType)
 filterTDef (TFun t ts) = TFun <$> filterTDef t <*> mapM filterTDef ts
 filterTDef (TFunc tl arr tr) = TFunc <$> filterTDef tl <*> pure arr <*> filterTDef tr
 filterTDef (TArray t) = TArray <$> filterTDef t

@@ -54,14 +54,14 @@ showTypes scs = showTypes' scs 0
   showTypes' (s:ss) l = showTypesLevel (Scope.typedefs s) l ++ showTypes' ss (l+1)
   showTypes' [] _ = ""
 
-showTypesLevel ∷ Map String Type → Int → String
+showTypesLevel ∷ Map String Typedef → Int → String
 showTypesLevel typs l | not (Data.Map.null typs) = newline ++ intercalate newline (map showDef $ toList typs)
                       | otherwise = ""
  where
   newline = '\n':concat (replicate l "> ")
 
-showDef ∷ (String,Type) → String
-showDef (name,TFun ret args) = name ++ " = " ++ showTFun ret args
+showDef ∷ (String,Typedef) → String
+showDef (name,Typedef _ _ (TFun ret args)) = name ++ " = " ++ showTFun ret args
 showDef (name,t) = name ++ " = " ++ show t
 
 showFuns ∷ [Scope.Scope] → String

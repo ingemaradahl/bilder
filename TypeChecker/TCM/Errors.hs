@@ -80,8 +80,8 @@ typedefError defined proposed =
     name
     (show $ typedefType defined)
  where
-  pos = snd $ typedefLocation proposed
-  name = typedefName defined
+  pos = position proposed
+  name = ident defined
 
 typedefNotFoundError ∷ TypeIdent → TCM a
 typedefNotFoundError tid =

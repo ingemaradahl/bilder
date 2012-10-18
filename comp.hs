@@ -6,7 +6,7 @@ import Data.List (intercalate)
 
 import CompilerError
 import FrontEnd
-import Compiler hiding (compile)
+import Compiler
 import TypeChecker
 
 -- Compilation chain

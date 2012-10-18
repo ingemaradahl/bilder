@@ -37,7 +37,7 @@ addVariable v scope = scope { variables = vs }
   vs = insert name v $ variables scope
 
 addTypedef ∷ Typedef → Scope → Scope
-addTypedef t s = s { typedefs = insert (typedefName t) t (typedefs s) }
+addTypedef t s = s { typedefs = insert (ident t) t (typedefs s) }
 
 lookupTypedef ∷ String → [Scope] → Maybe Typedef
 lookupTypedef n (s:ss) =
