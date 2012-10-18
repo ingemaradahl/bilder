@@ -109,6 +109,8 @@ checkStatement (SIf tk@(TkIf (pos,_)) cond stm) = do
   condt ← inferExp cond
   unless (condt `elem` [TInt,TFloat,TBool]) $ badConditional condt pos
   SType condt <$> SIf tk cond <$> checkStatement stm
+checkStatement (SBlock stms) = SBlock <$> mapM checkStatement stms
+checkStatement s@(SExp e) = SType <$> inferExp e <*> pure s
 checkStatement s = debugError $ show s ++ " NOT DEFINED"
 -- }}}
 -- Declarations {{{
