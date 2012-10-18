@@ -185,7 +185,8 @@ EPreDec.       Exp14 ::= TkMinusMinus Exp15 ;
 
 EPostInc.      Exp15 ::= Exp15 TkPlusPlus ;
 EPostDec.      Exp15 ::= Exp15 TkMinusMinus ;
-EMember.       Exp15 ::= Exp15 "." Exp16 ;
+EMember.       Exp15 ::= Exp15 "." CIdent ;
+EMemberCall.   Exp15 ::= Exp15 "." CIdent "(" [Exp] ")" ;
 
 ECall.         Exp16 ::= CIdent "(" [Exp] ")" ;
 
@@ -214,15 +215,6 @@ TVoid.       Type1 ::= "Void" ;
 TFloat.      Type1 ::= "Float" ;
 TBool.       Type1 ::= "Bool" ;
 TInt.        Type1 ::= "Int" ;
-TBVec2.      Type1 ::= "BVec2" ;
-TBVec3.      Type1 ::= "BVec3" ;
-TBVec4.      Type1 ::= "BVec4" ;
-TIVec2.      Type1 ::= "IVec2" ;
-TIVec3.      Type1 ::= "IVec3" ;
-TIVec4.      Type1 ::= "IVec4" ;
-TUVec2.      Type1 ::= "UVec2" ;
-TUVec3.      Type1 ::= "UVec3" ;
-TUVec4.      Type1 ::= "UVec4" ;
 TVec2.       Type1 ::= "Vec2" ;
 TVec3.       Type1 ::= "Vec3" ;
 TVec4.       Type1 ::= "Vec4" ;

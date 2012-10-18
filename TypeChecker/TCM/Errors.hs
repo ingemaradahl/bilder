@@ -15,6 +15,8 @@ import CompilerTypes
 import FrontEnd.AbsGrammar
 import FrontEnd.Instances
 
+import Data.List (intercalate)
+
 import Text.Printf
 
 -- | Error w
@@ -154,6 +156,20 @@ badBinaryTypes tk tl tr =
     (show tr)
     (tkident tk)
 
+wrongVectorComponents ∷ CIdent → Type → TCM a
+wrongVectorComponents cid t =
+  typeError (cIdentToPos cid) $
+    printf ("Could not match range of expected components %s\n" ++
+            "                      with actual components %s")
+    (intercalate ", " (memberComponents t))
+    (cIdentToString cid)
+
+vectorTooBig ∷ CIdent → Int → TCM a
+vectorTooBig cid s =
+  typeError (cIdentToPos cid) $
+    printf "Vector components %s form a new vector of unhandled size %d"
+    (cIdentToString cid)
+    s
 
 -- | Throw a type error
 typeError ∷ Position → String → TCM a
