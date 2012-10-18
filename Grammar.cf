@@ -6,7 +6,7 @@ AbsTree. AbsTree ::= [Toplevel] ;
 Function.     Toplevel  ::= Type CIdent "(" [Param] ")" "{" [Stm] "}" ;
 Import.       Toplevel  ::= TkImport String ";" ;
 TopDecl.      Toplevel  ::= Decl ";" ;
-TypeDef.      Toplevel  ::= TkTypeDef TypeIdent "=" Type ";" ;
+TypeDef.      Toplevel  ::= TkTypeDef TypeIdent TkAss Type ";" ;
 terminator Toplevel "" ;
 
 
@@ -25,15 +25,60 @@ position token TkDiscard {"discard"} ;
 position token TkConst {"const"} ;
 position token TkExternal {"external"} ;
 position token TkTypeDef {"typedef"} ;
-position token TkArrow {"->"} ;
 
+
+position token TkOR     {"||"} ;
+position token TkXOR    {"^^"} ;
+position token TkAnd    {"&&"} ;
+position token TkEqual  {"=="} ;
+position token TkNEqual {"!="} ;
+
+position token TkArrow {"->"} ;
+position token TkPlusPlus {"++"} ;
+position token TkMinusMinus {"--"} ;
+position token TkAssAdd {"+="} ;
+position token TkAssSub {"-="} ;
+position token TkAssMul {"*="} ;
+position token TkBWShiftLeft  {"<<"} ;
+position token TkBWShiftRight {">>"} ;
+position token TkLEt    {"<="} ;
+position token TkGEt    {">="} ;
+
+position token TkAssDiv   {"/="} ;
+position token TkAssMod   {"%="} ;
+position token TkAssBWAnd {"&="} ;
+position token TkAssBWXOR {"^="} ;
+position token TkAssBWOR  {"|="} ;
+
+position token TkQuest ('?') ;
+position token TkColon (':') ;
+
+position token TkAss   ('=') ;
+position token TkPlus  ('+') ;
+position token TkMinus ('-') ;
+position token TkMul   ('*') ;
+position token TkDiv   ('/') ;
+position token TkMod   ('%') ;
+
+position token TkGt    ('>') ;
+position token TkLt    ('<') ;
+
+position token TkNegSign    ('!') ;
+position token TkComplement ('~') ;
+
+position token TkBWOR   ('|') ;
+position token TkBWXOR  ('^') ;
+position token TkBWAnd  ('&') ;
+
+--EAssAdd.       Exp1  ::= Exp1 "+=" Exp2 ;
+--EAssSub.       Exp1  ::= Exp1 "-=" Exp2 ;
 token CFloat (((digit+ '.' digit+)|(digit+ '.')|('.' digit+)) (('e'|'E')('-')? digit+)?
                ('f'|'F')?)|((digit+ ('e'|'E')('-')? digit+)('f'|'F')?);
 
 
 -- Parameter --------------------------------------------------------
 ParamDec.            Param  ::= [Qualifier] CIdent ;
-ParamDefault.        Param  ::= [Qualifier] CIdent "=" Exp19 ;
+ParamDefault.        Param  ::= [Qualifier] CIdent TkAss Exp19 ;
 separator Param "," ;
 
 
@@ -52,7 +97,7 @@ QType.        Qualifier ::= Type ;
 separator nonempty Qualifier "" ;
 
 Vars.   DeclPost  ::= [CIdent] ;
-DecAss. DeclPost  ::= [CIdent] "=" Exp2 ;
+DecAss. DeclPost  ::= [CIdent] TkAss Exp2 ;
 
 
 -- Ident ------------------------------------------------------------
@@ -89,57 +134,57 @@ separator ForDecl "," ;
 
 
 -- Expressions ------------------------------------------------------
-EAss.          Exp1  ::= Exp1 "="  Exp2 ;
-EAssAdd.       Exp1  ::= Exp1 "+=" Exp2 ;
-EAssSub.       Exp1  ::= Exp1 "-=" Exp2 ;
-EAssMul.       Exp1  ::= Exp1 "*=" Exp2 ;
-EAssDiv.       Exp1  ::= Exp1 "/=" Exp2 ;
-EAssMod.       Exp1  ::= Exp1 "%=" Exp2 ;
-EAssBWAnd.     Exp1  ::= Exp1 "&=" Exp2 ;
-EAssBWXOR.     Exp1  ::= Exp1 "^=" Exp2 ;
-EAssBWOR.      Exp1  ::= Exp1 "|=" Exp2 ;
+EAss.          Exp1  ::= Exp1 TkAss  Exp2 ;
+EAssAdd.       Exp1  ::= Exp1 TkAssAdd Exp2 ;
+EAssSub.       Exp1  ::= Exp1 TkAssSub Exp2 ;
+EAssMul.       Exp1  ::= Exp1 TkAssMul Exp2 ;
+EAssDiv.       Exp1  ::= Exp1 TkAssDiv Exp2 ;
+EAssMod.       Exp1  ::= Exp1 TkAssMod Exp2 ;
+EAssBWAnd.     Exp1  ::= Exp1 TkAssBWAnd Exp2 ;
+EAssBWXOR.     Exp1  ::= Exp1 TkAssBWXOR Exp2 ;
+EAssBWOR.      Exp1  ::= Exp1 TkAssBWOR Exp2 ;
 
-ECond.         Exp2  ::= Exp2 "?" Exp3 ":" Exp3 ;
+ECond.         Exp2  ::= Exp2 TkQuest Exp3 TkColon Exp3 ;
 
-EOR.           Exp3  ::= Exp3 "||" Exp4 ;
+EOR.           Exp3  ::= Exp3 TkOR Exp4 ;
 
-EXOR.          Exp4  ::= Exp4 "^^" Exp5 ;
+EXOR.          Exp4  ::= Exp4 TkXOR Exp5 ;
 
-EAnd.          Exp5  ::= Exp5 "&&" Exp6 ;
+EAnd.          Exp5  ::= Exp5 TkAnd Exp6 ;
 
-EBWOR.         Exp6  ::= Exp6 "|" Exp7 ;
+EBWOR.         Exp6  ::= Exp6 TkBWOR Exp7 ;
 
-EBWXOR.        Exp7  ::= Exp7 "^" Exp8 ;
+EBWXOR.        Exp7  ::= Exp7 TkBWXOR Exp8 ;
 
-EBWAnd.        Exp8  ::= Exp8 "&" Exp9 ;
+EBWAnd.        Exp8  ::= Exp8 TkBWAnd Exp9 ;
 
-EEqual.        Exp9  ::= Exp9 "==" Exp10 ;
-ENEqual.       Exp9  ::= Exp9 "!=" Exp10 ;
+EEqual.        Exp9  ::= Exp9 TkEqual  Exp10 ;
+ENEqual.       Exp9  ::= Exp9 TkNEqual Exp10 ;
 
-ELt.           Exp10 ::= Exp10 "<"  Exp11 ;
-EGt.           Exp10 ::= Exp10 ">"  Exp11 ;
-ELEt.          Exp10 ::= Exp10 "<=" Exp11 ;
-EGEt.          Exp10 ::= Exp10 ">=" Exp11 ;
+ELt.           Exp10 ::= Exp10 TkLt Exp11 ;
+EGt.           Exp10 ::= Exp10 TkGt  Exp11 ;
+ELEt.          Exp10 ::= Exp10 TkLEt Exp11 ;
+EGEt.          Exp10 ::= Exp10 TkGEt Exp11 ;
 
-EBWShiftLeft.  Exp11 ::= Exp11 "<<" Exp12 ;
-EBWShiftRight. Exp11 ::= Exp11 ">>" Exp12 ;
+EBWShiftLeft.  Exp11 ::= Exp11 TkBWShiftLeft Exp12 ;
+EBWShiftRight. Exp11 ::= Exp11 TkBWShiftRight Exp12 ;
 
-EAdd.          Exp12 ::= Exp12 "+" Exp13 ;
-ESub.          Exp12 ::= Exp12 "-" Exp13 ;
+EAdd.          Exp12 ::= Exp12 TkPlus Exp13 ;
+ESub.          Exp12 ::= Exp12 TkMinus Exp13 ;
 
-EMul.          Exp13 ::= Exp13 "*" Exp14 ;
-EDiv.          Exp13 ::= Exp13 "/" Exp14 ;
-EMod.          Exp13 ::= Exp13 "%" Exp14 ;
+EMul.          Exp13 ::= Exp13 TkMul Exp14 ;
+EDiv.          Exp13 ::= Exp13 TkDiv Exp14 ;
+EMod.          Exp13 ::= Exp13 TkMod Exp14 ;
 
-ENeg.          Exp14 ::= "-"  Exp15 ;
-ENegSign.      Exp14 ::= "!"  Exp15 ;
-EComplement.   Exp14 ::= "~"  Exp15 ;
-EPos.          Exp14 ::= "+"  Exp15 ;
-EPreInc.       Exp14 ::= "++" Exp15 ;
-EPreDec.       Exp14 ::= "--" Exp15 ;
+ENeg.          Exp14 ::= TkMinus      Exp15 ;
+ENegSign.      Exp14 ::= TkNegSign    Exp15 ;
+EComplement.   Exp14 ::= TkComplement Exp15 ;
+EPos.          Exp14 ::= TkPlus  Exp15 ;
+EPreInc.       Exp14 ::= TkPlusPlus Exp15 ;
+EPreDec.       Exp14 ::= TkMinusMinus Exp15 ;
 
-EPostInc.      Exp15 ::= Exp15 "++" ;
-EPostDec.      Exp15 ::= Exp15 "--" ;
+EPostInc.      Exp15 ::= Exp15 TkPlusPlus ;
+EPostDec.      Exp15 ::= Exp15 TkMinusMinus ;
 EMember.       Exp15 ::= Exp15 "." CIdent ;
 EMemberCall.   Exp15 ::= Exp15 "." CIdent "(" [Exp] ")" ;
 

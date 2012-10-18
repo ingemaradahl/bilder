@@ -9,7 +9,7 @@ import TypeChecker.Types
 
 paramQualifiers ∷ Param → [Qualifier]
 paramQualifiers (ParamDec qs _) = qs
-paramQualifiers (ParamDefault qs _ _) = qs
+paramQualifiers (ParamDefault qs _ _ _) = qs
 
 cIdentToString ∷ CIdent → String
 cIdentToString (CIdent (_,s)) = s
@@ -25,7 +25,7 @@ typeIdentToPos (TypeIdent (pos,_)) = pos
 
 paramToCIdent ∷ Param → CIdent
 paramToCIdent (ParamDec _ i) = i
-paramToCIdent (ParamDefault _ i _) = i
+paramToCIdent (ParamDefault _ i _ _) = i
 
 paramToString ∷ Param → String
 paramToString = cIdentToString . paramToCIdent
@@ -35,7 +35,7 @@ paramToPos = cIdentToPos .  paramToCIdent
 
 paramToQuals ∷ Param → [Qualifier]
 paramToQuals (ParamDec qs _) = qs
-paramToQuals (ParamDefault qs _ _) = qs
+paramToQuals (ParamDefault qs _ _ _) = qs
 
 qualToPos ∷ Qualifier → Position
 qualToPos (QExternal (TkExternal (p,_))) = p
@@ -50,7 +50,7 @@ qualType qs | length types == 1 = Just $ head types
 
 declPostIdents ∷ DeclPost → [CIdent]
 declPostIdents (Vars i) = i
-declPostIdents (DecAss i _) = i
+declPostIdents (DecAss i _ _) = i
 
 -- Match function against argument types
 partialApp ∷ Function → [Type] → Maybe [Type]

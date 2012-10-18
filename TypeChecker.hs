@@ -7,6 +7,7 @@ import Prelude hiding (lookup)
 import Control.Monad
 import Control.Monad.Trans.State
 import Control.Arrow (second)
+import Control.Applicative hiding (empty)
 
 import Data.Tree
 import Data.Map (Map, elems, insertWith, empty)
@@ -24,6 +25,7 @@ import TypeChecker.Types
 
 import Compiler hiding (Environment, Env, options, buildEnv)
 import FrontEnd.AbsGrammar as Abs
+import FrontEnd.Instances
 import CompilerError
 import Builtins
 
@@ -48,7 +50,7 @@ checkFile (file, tree) children = do
 -- | Adds type definitions to the to the state
 addTypedefs ∷ AbsTree → TCM ()
 addTypedefs (AbsTree tree) = sequence_
-  [ filterTDef typ >>= addTypeIdentTypedef name | (TypeDef _ name typ) ← tree ]
+  [ filterTDef typ >>= addTypeIdentTypedef name | (TypeDef _ name _ typ) ← tree ]
 
 -- }}}
 -- Functions {{{
@@ -90,7 +92,7 @@ checkParam ∷ (Param, Variable) → TCM ()
 checkParam (p,v) = checkParam' p >>= flip unless error'
  where
   checkParam' ∷ Param → TCM Bool
-  checkParam' (ParamDefault _ _ e) = liftM (varType v ==) (inferExp e)
+  checkParam' (ParamDefault _ _ _ e) = liftM (varType v ==) (inferExp e)
   checkParam' _  = return True
   error' = paramExp p >>= inferExp >>= paramExpectedTypeError p
 -- }}}
@@ -103,6 +105,12 @@ checkStatement s@(SReturn (TkReturn (pos,_)) e) = do
     then return $ SType t s
     else returnMismatch pos t
 checkStatement s@(SDecl decl) = checkDecl decl >>= (\t → return (SType t s))
+checkStatement (SIf tk@(TkIf (pos,_)) cond stm) = do
+  condt ← inferExp cond
+  unless (condt `elem` [TInt,TFloat,TBool]) $ badConditional condt pos
+  SType condt <$> SIf tk cond <$> checkStatement stm
+checkStatement (SBlock stms) = SBlock <$> mapM checkStatement stms
+checkStatement s@(SExp e) = SType <$> inferExp e <*> pure s
 checkStatement s = debugError $ show s ++ " NOT DEFINED"
 -- }}}
 -- Declarations {{{
@@ -121,7 +129,7 @@ checkDecl (Dec qs post) = do
 
 checkDecAss ∷ DeclPost → TCM (Maybe Type)
 checkDecAss (Vars _) = return Nothing
-checkDecAss (DecAss _ e) = fmap Just $ inferExp e
+checkDecAss (DecAss _ _ e) = fmap Just $ inferExp e
 
 -- }}}
 -- Expressions {{{
@@ -148,10 +156,11 @@ inferExp (ETypeCall t es) = do
   if expts `elem` typeConstuctors t
     then return t
     else noTypeConstructorError t expts
-inferExp (EAdd el er) = inferBinaryExp el er
-inferExp (EMul el er) = inferBinaryExp el er
-inferExp (ESub el er) = inferBinaryExp el er
-inferExp (EDiv el er) = inferBinaryExp el er
+inferExp (EAdd el tk er) = inferBinaryExp tk el er
+inferExp (EMul el tk er) = inferBinaryExp tk el er
+inferExp (ESub el tk er) = inferBinaryExp tk el er
+inferExp (EDiv el tk er) = inferBinaryExp tk el er
+inferExp (ELt el tk er) = inferConditional tk el er
 inferExp (EMember el cid) = do
   t ← inferExp el
   let pos = memberComponents t
@@ -175,13 +184,22 @@ inferExp (EMemberCall el cid ers) = do
 
 inferExp e = debugError $ show e ++ " not inferrablelollolo"
 
-inferBinaryExp ∷ Exp → Exp → TCM Type
-inferBinaryExp el er = do
+
+inferConditional ∷ Token a => a → Exp → Exp → TCM Type
+inferConditional tk el er = do
+  tl ← inferExp el
+  tr ← inferExp er
+  if all (`elem` [TInt,TFloat]) [tl,tr]
+    then return TBool
+    else badCondTypes tk tl tr
+
+inferBinaryExp ∷ Token a => a → Exp → Exp → TCM Type
+inferBinaryExp tk el er = do
   tl ← inferExp el
   tr ← inferExp er
   case compNumType tl tr of
     Just t  → return t
-    Nothing → debugError "KUNNE INTE? WAT"
+    Nothing → badBinaryTypes tk tl tr
 -- }}}
 
 --example ∷ AbsTree

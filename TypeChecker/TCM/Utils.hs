@@ -179,7 +179,7 @@ verifyQualsType ∷ [Qualifier] → TCM Type
 verifyQualsType qs = verifyQuals qs >> maybe (qualsNoTypeGiven qs) return (qualType qs)
 
 paramExp ∷ Param → TCM Exp
-paramExp (ParamDefault _ _ e) = return e
+paramExp (ParamDefault _ _ _ e) = return e
 paramExp p = compileError (paramToPos p)
   "Trying to find expression on non-expression parameter declaration"
 

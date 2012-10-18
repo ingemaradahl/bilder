@@ -13,6 +13,7 @@ import Control.Monad.Error
 import CompilerError
 import CompilerTypes
 import FrontEnd.AbsGrammar
+import FrontEnd.Instances
 
 import Data.List (intercalate)
 
@@ -132,6 +133,29 @@ noTypeConstructorError t ts =
     (show t)
     (show ts)
 
+badConditional ∷ Type → Position → TCM a
+badConditional t pos =
+  typeError pos $
+    printf "Bad conditional with type %s" (show t)
+
+badCondTypes ∷ Token a => a → Type → Type → TCM b
+badCondTypes tk tl tr =
+  typeError (tkpos tk) $
+    printf ("Couldn't match %s and %s\n" ++
+            "in conditional %s")
+    (show tl)
+    (show tr)
+    (tkident tk)
+
+badBinaryTypes ∷ Token a => a → Type → Type → TCM b
+badBinaryTypes tk tl tr =
+  typeError (tkpos tk) $
+    printf ("Couldn't match %s and %s\n" ++
+            " in expression %s")
+    (show tl)
+    (show tr)
+    (tkident tk)
+
 wrongVectorComponents ∷ CIdent → Type → TCM a
 wrongVectorComponents cid t =
   typeError (cIdentToPos cid) $
@@ -173,5 +197,5 @@ showParamType p = case paramType p of
  where
   paramType ∷ Param → Maybe Type
   paramType (ParamDec qs _) = qualType qs
-  paramType (ParamDefault qs _ _) = qualType qs
+  paramType (ParamDefault qs _ _ _) = qualType qs
 
