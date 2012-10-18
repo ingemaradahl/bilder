@@ -138,6 +138,12 @@ inferExp (EFloat _) = return TFloat
 inferExp ETrue = return TBool
 inferExp EFalse = return TBool
 inferExp (EVar cid) = liftM varType $ lookupVar cid
+inferExp (EAss v@(EVar {}) tk e) = do
+  targetType ← inferExp v
+  valueType ← inferExp e
+  case compAssType targetType valueType of
+    Just _ → return targetType
+    Nothing → debugError "FAILueaoeu"
 inferExp (ECall cid es) = do
   args ← mapM inferExp es
   funs ← lookupFunction (cIdentToString cid)

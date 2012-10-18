@@ -62,6 +62,12 @@ partialApp f args = partial args $ map varType $ paramVars f
   partial [] bs = Just bs
   partial _  [] = Nothing
 
+compAssType ∷ Type → Type → Maybe Type
+compAssType TFloat TFloat = Just TFloat
+compAssType TFloat TInt = Just TFloat
+compAssType TInt TFloat = Just TFloat
+compAssType tl tr = mayhaps (isVec tl && (tl == tr || tr == TFloat)) tl
+
 compNumType ∷ Type → Type → Maybe Type
 compNumType TFloat TFloat = Just TFloat
 compNumType TFloat TInt = Just TFloat
