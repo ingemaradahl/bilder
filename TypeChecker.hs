@@ -171,13 +171,22 @@ inferExp (EMember el cid) = do
   t ← inferExp el
   let pos = memberComponents t
   if any (\p -> all (== True) $ map (`elem` p) n) pos
-    then if length n <= length types && length n > 0
-      then return $ types !! (length types - 1)
+    then if length n <= length types
+      then return $ types !! (length n - 1)
       else vectorTooBig cid (length n)
     else wrongVectorComponents cid t
  where
   types = [TFloat, TVec2, TVec3, TVec4]
   n = cIdentToString cid
+inferExp (EMemberCall el cid ers) = do
+  tel ← inferExp el
+  case componentFunc tel (cIdentToString cid) ers of
+    Nothing → noFunctionFound cid [] -- TODO: What arguments?
+    Just (tcf@(TFun rt _), ecf) → do
+      tecf ← mapM inferExp ecf
+      if tecf == [tcf]
+        then return rt
+        else noFunctionFound cid tecf
 
 inferExp e = debugError $ show e ++ " not inferrablelollolo"
 
