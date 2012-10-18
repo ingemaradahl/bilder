@@ -163,6 +163,15 @@ inferExp (EMember el cid) = do
  where
   types = [TFloat, TVec2, TVec3, TVec4]
   n = cIdentToString cid
+inferExp (EMemberCall el cid ers) = do
+  tel ← inferExp el
+  case componentFunc tel (cIdentToString cid) ers of
+    Nothing → noFunctionFound cid [] -- TODO: What arguments?
+    Just (tcf@(TFun rt _), ecf) → do
+      tecf ← mapM inferExp ecf
+      if tecf == [tcf]
+        then return rt
+        else noFunctionFound cid tecf
 
 inferExp e = debugError $ show e ++ " not inferrablelollolo"
 
