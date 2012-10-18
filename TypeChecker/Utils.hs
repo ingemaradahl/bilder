@@ -116,3 +116,9 @@ elemBy _ _ [] = False
 elemBy f y (x:xs)
  | f y x = True
  | otherwise = elemBy f y xs
+
+memberComponents ∷ Type → [String]
+memberComponents TVec2 = ["xy", "rg", "st"]
+memberComponents TVec3 = zipWith (++) (memberComponents TVec2) ["z", "b", "p"]
+memberComponents TVec4 = zipWith (++) (memberComponents TVec3) ["w", "a", "q"]
+memberComponents _ = []

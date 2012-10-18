@@ -152,6 +152,17 @@ inferExp (EAdd el er) = inferBinaryExp el er
 inferExp (EMul el er) = inferBinaryExp el er
 inferExp (ESub el er) = inferBinaryExp el er
 inferExp (EDiv el er) = inferBinaryExp el er
+inferExp (EMember el cid) = do
+  t ← inferExp el
+  let pos = memberComponents t
+  if any (\p -> all (== True) $ map (`elem` p) n) pos
+    then if length n <= length types && length n > 0
+      then return $ types !! (length types - 1)
+      else vectorTooBig cid (length n)
+    else wrongVectorComponents cid t
+ where
+  types = [TFloat, TVec2, TVec3, TVec4]
+  n = cIdentToString cid
 
 inferExp e = debugError $ show e ++ " not inferrablelollolo"
 

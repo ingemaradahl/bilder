@@ -14,6 +14,8 @@ import CompilerError
 import CompilerTypes
 import FrontEnd.AbsGrammar
 
+import Data.List (intercalate)
+
 import Text.Printf
 
 -- | Error w
@@ -125,6 +127,20 @@ noTypeConstructorError t ts =
     (show t)
     (show ts)
 
+wrongVectorComponents ∷ CIdent → Type → TCM a
+wrongVectorComponents cid t =
+  typeError (cIdentToPos cid) $
+    printf ("Could not match range of expected components %s\n" ++
+            "                      with actual components %s")
+    (intercalate ", " (memberComponents t))
+    (cIdentToString cid)
+
+vectorTooBig ∷ CIdent → Int → TCM a
+vectorTooBig cid s =
+  typeError (cIdentToPos cid) $
+    printf "Vector components %s form a new vector of unhandled size %d"
+    (cIdentToString cid)
+    s
 
 -- | Throw a type error
 typeError ∷ Position → String → TCM a
