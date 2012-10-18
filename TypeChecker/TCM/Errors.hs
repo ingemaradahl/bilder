@@ -13,6 +13,7 @@ import Control.Monad.Error
 import CompilerError
 import CompilerTypes
 import FrontEnd.AbsGrammar
+import FrontEnd.Instances
 
 import Text.Printf
 
@@ -135,6 +136,24 @@ badConditional t pos =
   typeError pos $
     printf "Bad conditional with type %s" (show t)
 
+badCondTypes ∷ Token a => a → Type → Type → TCM b
+badCondTypes tk tl tr =
+  typeError (tkpos tk) $
+    printf ("Couldn't match %s and %s\n" ++
+            "in conditional %s")
+    (show tl)
+    (show tr)
+    (tkident tk)
+
+badBinaryTypes ∷ Token a => a → Type → Type → TCM b
+badBinaryTypes tk tl tr =
+  typeError (tkpos tk) $
+    printf ("Couldn't match %s and %s\n" ++
+            " in expression %s")
+    (show tl)
+    (show tr)
+    (tkident tk)
+
 
 -- | Throw a type error
 typeError ∷ Position → String → TCM a
@@ -162,5 +181,5 @@ showParamType p = case paramType p of
  where
   paramType ∷ Param → Maybe Type
   paramType (ParamDec qs _) = qualType qs
-  paramType (ParamDefault qs _ _) = qualType qs
+  paramType (ParamDefault qs _ _ _) = qualType qs
 
