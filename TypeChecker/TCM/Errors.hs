@@ -117,6 +117,14 @@ decAssError cid inferred expected =
     (show inferred)
     (cIdentToString cid)
 
+noTypeConstructorError ∷ Type → [Type] → TCM a
+noTypeConstructorError t ts =
+  typeError (-1,-1) $ -- TODO
+    printf ("No type constructor for %s found,\n" ++
+            "matching argument types %s")
+    (show t)
+    (show ts)
+
 
 -- | Throw a type error
 typeError ∷ Position → String → TCM a

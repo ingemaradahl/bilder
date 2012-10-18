@@ -25,6 +25,7 @@ import TypeChecker.Types
 import Compiler hiding (Environment, Env, options, buildEnv)
 import FrontEnd.AbsGrammar as Abs
 import CompilerError
+import Builtins
 
 -- | Typechecks the given abstract source and annotates the syntax tree
 typeCheck ∷ Options → Tree (FilePath, AbsTree) → CError (Tree Blob)
@@ -46,7 +47,8 @@ checkFile (file, tree) children = do
 -- Type definitions {{{
 -- | Adds type definitions to the to the state
 addTypedefs ∷ AbsTree → TCM ()
-addTypedefs (AbsTree tree) = sequence_ [ addTypeIdentTypedef name typ | (TypeDef _ name typ) ← tree ]
+addTypedefs (AbsTree tree) = sequence_
+  [ filterTDef typ >>= addTypeIdentTypedef name | (TypeDef _ name typ) ← tree ]
 
 -- }}}
 -- Functions {{{
@@ -106,7 +108,7 @@ checkStatement s = debugError $ show s ++ " NOT DEFINED"
 -- Declarations {{{
 checkDecl ∷ Decl → TCM Type
 checkDecl (Dec qs post) = do
-  t ← verifyQualsType qs >>= filterType
+  t ← verifyQualsType qs >>= filterTDef
   expT ← checkDecAss post
 
   -- Check that inferred type and declared type matches
@@ -127,6 +129,7 @@ inferExp ∷ Exp → TCM Type
 inferExp (EFloat _) = return TFloat
 inferExp ETrue = return TBool
 inferExp EFalse = return TBool
+inferExp (EVar cid) = liftM varType $ lookupVarCIdent cid
 inferExp (ECall cid es) = do
   args ← mapM inferExp es
   funs ← lookupFunction (cIdentToString cid)
@@ -140,11 +143,28 @@ inferExp (ECall cid es) = do
       if null args'
         then return (retType fun) -- Function swallowed all arguments
         else return $ TFun (retType fun) args' -- Function partially applied
+inferExp (ETypeCall t es) = do
+  expts ← mapM inferExp es
+  if expts `elem` typeConstuctors t
+    then return t
+    else noTypeConstructorError t expts
+inferExp (EAdd el er) = inferBinaryExp el er
+inferExp (EMul el er) = inferBinaryExp el er
+inferExp (ESub el er) = inferBinaryExp el er
+inferExp (EDiv el er) = inferBinaryExp el er
 
 inferExp e = debugError $ show e ++ " not inferrablelollolo"
 
+inferBinaryExp ∷ Exp → Exp → TCM Type
+inferBinaryExp el er = do
+  tl ← inferExp el
+  tr ← inferExp er
+  case compNumType tl tr of
+    Just t  → return t
+    Nothing → debugError "KUNNE INTE? WAT"
 -- }}}
 
 --example ∷ AbsTree
 --example = AbsTree [Import (TkImport ((1,1),"import")) "bools.fl",Import (TkImport ((2,1),"import")) "inner/const.fl",Abs.Struct (TkStruct ((4,1),"struct")) (CIdent ((4,8),"First")) [SVDecl (Dec TColor (OnlyVars [Ident (CIdent ((5,15),"color"))])),SVDecl (Dec TVec2 (OnlyVars [Ident (CIdent ((6,14),"coordinates"))]))],StructDecl (TkStruct ((9,1),"struct")) (CIdent ((9,8),"Second")) [SVDecl (Dec TVec2 (OnlyVars [Ident (CIdent ((10,14),"coordinates"))]))] (Ident (CIdent ((11,3),"second"))),StructDecl (TkStruct ((13,1),"struct")) (CIdent ((13,8),"Third")) [SVDecl (Dec TVec2 (OnlyVars [Ident (CIdent ((14,14),"coordinates"))]))] (IdArray (CIdent ((15,3),"third")) (EInt 5)),Abs.Function TColor (CIdent ((17,7),"main")) [ParamDec TInt (Ident (CIdent ((17,16),"x"))),ParamDec TInt (Ident (CIdent ((17,23),"y")))] [SDecl (DecStruct (Ident (CIdent ((19,9),"First"))) (OnlyVars [Ident (CIdent ((19,15),"a"))])),SDecl (DecStruct (Ident (CIdent ((20,9),"First"))) (DefaultVars [Ident (CIdent ((20,15),"b"))] (ECall (Ident (CIdent ((20,19),"First"))) [ETypeCall TColor [EFloat (CFloat "1.0")] OnlyCall,ETypeCall TVec2 [EFloat (CFloat "1.0"),EFloat (CFloat "2.0")] OnlyCall]))),SExp (EAss (EMember (EVar (Ident (CIdent ((22,9),"second")))) (EVar (Ident (CIdent ((22,16),"coordinates"))))) (ETypeCall TVec2 [EFloat (CFloat "1.0"),EFloat (CFloat "2.0")] OnlyCall)),SReturn (TkReturn ((24,9),"return")) (EMember (EVar (Ident (CIdent ((24,16),"b")))) (EVar (Ident (CIdent ((24,18),"color")))))]]
 
+-- vi:fdm=marker

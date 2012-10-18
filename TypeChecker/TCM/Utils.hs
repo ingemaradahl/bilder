@@ -16,6 +16,7 @@ import FrontEnd.AbsGrammar as Abs
 
 import Control.Monad.Trans.State
 import Control.Monad.Error
+import Control.Applicative
 
 import Prelude hiding (lookup)
 import Data.Map hiding (null)
@@ -27,7 +28,7 @@ import Text.Printf
 addFunction ∷ Function → TCM ()
 addFunction fun = do
   (s:ss) ← gets scopes
-  let a = lookup name (Scope.functions s) >>= (\fs → if fun `elem` fs then Just fs; else Nothing)
+  let a = lookup name (Scope.functions s) >>= (\fs → if fun `elem` fs then Just fs else Nothing)
   case a of
     Just (f:_) → functionDefinedError f fun
     Nothing → modify (\st → st { scopes = Scope.addFunction fun s : ss })
@@ -50,23 +51,17 @@ lookupFunction f = do
 addTypedef ∷ Typedef → TCM ()
 addTypedef def = do
   scs ← gets scopes
-  defs ← lookupTypedef' (typedefName def)
-  case defs of
+  case Scope.lookupTypedef (typedefName def) scs of
     Just t' → unless (t == typedefType t') (typedefError t' def)
     Nothing → modify (\st → st { scopes = Scope.addTypedef def (head scs):tail scs })
  where
   t = uncurryType $ typedefType def
 
-
 addTypeIdentTypedef ∷ TypeIdent → Type → TCM ()
 addTypeIdentTypedef tid typeFunc = do
-  scs ← gets scopes
-  defs ← lookupTypedef' name
   file ← gets currentFile
   let def = Typedef name (file, pos) t
-  case defs of
-    Just t' → unless (t == typedefType t') (typedefError t' def)
-    Nothing → modify (\st → st { scopes = Scope.addTypedef def (head scs):tail scs })
+  addTypedef def
  where
   t = uncurryType typeFunc
   name = typeIdentToString tid
@@ -74,19 +69,12 @@ addTypeIdentTypedef tid typeFunc = do
 
 lookupTypedef ∷ TypeIdent → TCM Typedef
 lookupTypedef tid = do
-  def ← lookupTypedef' n
-  case def of
+  scs ← gets scopes
+  case Scope.lookupTypedef name scs of
     Just t → return t
     Nothing → typedefNotFoundError tid
  where
-  n = typeIdentToString tid
-
-lookupTypedef' ∷ String → TCM (Maybe Typedef)
-lookupTypedef' n = liftM (Scope.lookupTypedef n) $ gets scopes
-
-filterType ∷ Type → TCM Type
-filterType (TDefined tid) = liftM typedefType $ lookupTypedef tid
-filterType t = return t
+  name = typeIdentToString tid
 
 -- | Adds a variable to the current scope, making sure there are no duplicates
 addVariable ∷ Variable → TCM ()
@@ -117,6 +105,9 @@ lookupVar name = gets scopes >>= lookupVar'
   lookupVar' (s:ss) = case lookup name (Scope.variables s) of
     Just v  → return v
     Nothing → lookupVar' ss
+
+lookupVarCIdent ∷ CIdent → TCM Variable
+lookupVarCIdent = lookupVar . cIdentToString
 
 -- | Sets which file is currently checked
 updateFile ∷ FilePath → TCM ()
@@ -193,7 +184,6 @@ verifyQuals qs = unless (null dups) $ invalidQualList qs
 verifyQualsType ∷ [Qualifier] → TCM Type
 verifyQualsType qs = verifyQuals qs >> maybe (qualsNoTypeGiven qs) return (qualType qs)
 
-
 paramExp ∷ Param → TCM Exp
 paramExp (ParamDefault _ _ e) = return e
 paramExp p = compileError (paramToPos p)
@@ -211,9 +201,9 @@ paramToVar p = do
   return $ Variable (paramToString p) (file, paramToPos p) varTyp
 
 filterTDef ∷ Type → TCM Type
-filterTDef (TDefined tid) = liftM typedefType $ lookupTypedef tid
-filterTDef t = return t
-
-
-{-qualType ∷ [Qualifier] → TCM Type-}
-{-qualType qs | length qs /= length (nub qs) = fail "TODO01"-}
+filterTDef (TDefined tid) = lookupTypedef tid >>= filterTDef
+filterTDef (TFun t ts) = TFun <$> filterTDef t <*> mapM filterTDef ts
+filterTDef (TFunc tl arr tr) = TFunc <$> filterTDef tl <*> pure arr <*> filterTDef tr
+filterTDef (TArray t) = TArray <$> filterTDef t
+filterTDef (TConst t) = TConst <$> filterTDef t
+filterTDef t = pure t

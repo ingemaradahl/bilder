@@ -42,16 +42,23 @@ popScope env = env { scopes = tail $ scopes env }
 -- Show environment {{{
 -- Below is various show functions, used for displaying the state
 instance Show Environment where
- show env = printf "Type definitions: \n%s\nFunctions: %s\nVariables:%s"
-   --(showTypes $ typedefs env)
-   "DEFS"
+ show env = printf "Type definitions: %s\nFunctions: %s\nVariables:%s"
+   (showTypes $ reverse (scopes env))
    (showFuns $ reverse (scopes env))
    (showVars $ reverse (scopes env))
 
-showTypes ∷ Map String Type → String
-showTypes defMap = intercalate "\n" $ map showDef defs
+showTypes ∷ [Scope.Scope] → String
+showTypes scs = showTypes' scs 0
  where
-  defs = toList defMap
+  showTypes' ∷ [Scope.Scope] → Int → String
+  showTypes' (s:ss) l = showTypesLevel (Scope.typedefs s) l ++ showTypes' ss (l+1)
+  showTypes' [] _ = ""
+
+showTypesLevel ∷ Map String Type → Int → String
+showTypesLevel typs l | not (Data.Map.null typs) = newline ++ intercalate newline (map showDef $ toList typs)
+                      | otherwise = ""
+ where
+  newline = '\n':concat (replicate l "> ")
 
 showDef ∷ (String,Type) → String
 showDef (name,TFun ret args) = name ++ " = " ++ showTFun ret args
