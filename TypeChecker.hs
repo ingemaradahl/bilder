@@ -156,8 +156,8 @@ inferExp (EMember el cid) = do
   t ← inferExp el
   let pos = memberComponents t
   if any (\p -> all (== True) $ map (`elem` p) n) pos
-    then if length n <= length types && length n > 0
-      then return $ types !! (length types - 1)
+    then if length n <= length types
+      then return $ types !! (length n - 1)
       else vectorTooBig cid (length n)
     else wrongVectorComponents cid t
  where
