@@ -51,9 +51,10 @@ lookupFunction f = do
 addTypedef ∷ Typedef → TCM ()
 addTypedef def = do
   scs ← gets scopes
-  case Scope.lookupTypedef (ident def) scs of
-    Just t' → unless (t == typedefType t') (typedefError t' def)
-    Nothing → modify (\st → st { scopes = Scope.addTypedef def (head scs):tail scs })
+  def' ← Typedef (ident def) (location def) <$> filterTDef (typedefType def)
+  case Scope.lookupTypedef (ident def') scs of
+    Just t' → unless (t == typedefType t') (typedefError t' def')
+    Nothing → modify (\st → st { scopes = Scope.addTypedef def' (head scs):tail scs })
  where
   t = uncurryType $ typedefType def
 
