@@ -8,6 +8,9 @@ import Data.Tree
 
 import CompilerError
 import CompilerTypes
+
+import TypeChecker.Types
+
 import FrontEnd.AbsGrammar
 
 data Options = Options {
@@ -17,22 +20,20 @@ data Options = Options {
 
 data Environment = Env {
   source ∷ String,
-  position ∷ Position,
   options ∷ Options
 }
 
 buildEnv ∷ Options → Environment
 buildEnv opts = Env {
   source = "",
-  position = (0,0),
   options = opts
 }
 
 -- CPM - CompilerMonad: Alias for both Error and State monad
 type CPM a = StateT Environment CError a
 
-compileTree ∷ Options → a → CError [String]
-compileTree _ _ = Pass ["LOL"]
+compileTree ∷ Options → Tree Blob → CError [String]
+compileTree _ b = Pass [drawTree $ fmap show b]
 {-
  -compileTree ∷ Options → Tree (FilePath,AbsTree) → CError [String]
  -compileTree opts tree = evalStateT (compile tree) (buildEnv opts)

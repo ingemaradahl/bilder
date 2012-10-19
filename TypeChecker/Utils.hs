@@ -149,10 +149,10 @@ mayhaps ∷ Bool → a → Maybe a
 mayhaps True  v = Just v
 mayhaps False _ = Nothing
 
-class MebbeBebbe a where
+class Mongoid a where
   (¿) ∷ a → a → a
 
-instance MebbeBebbe (Maybe a) where
+instance Mongoid (Maybe a) where
   Nothing ¿ perhaps = perhaps
   Just v  ¿ _       = Just v
 
