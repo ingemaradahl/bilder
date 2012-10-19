@@ -11,6 +11,8 @@ import Control.Applicative hiding (empty)
 import Data.Tree
 import Data.Map (Map, elems, insertWith, empty)
 
+import Text.Printf
+
 import TypeChecker.TCM
 import TypeChecker.TCM.Errors
 import TypeChecker.TCM.Utils
@@ -18,7 +20,7 @@ import TypeChecker.TCM.Utils
 import TypeChecker.Utils
 import TypeChecker.Environment hiding (pushScope, popScope)
 import qualified TypeChecker.Scope as Scope (functions)
-import TypeChecker.Types
+import TypeChecker.Types as Types
 
 import Compiler hiding (Environment, Env, options, buildEnv)
 import FrontEnd.AbsGrammar as Abs
@@ -28,7 +30,21 @@ import Builtins
 
 -- | Typechecks the given abstract source and annotates the syntax tree
 typeCheck ∷ Options → Tree (FilePath, AbsTree) → CError (Tree Blob)
-typeCheck opts tree = evalStateT (traverse checkFile tree) (buildEnv opts)
+typeCheck opts tree = do
+   blobTree ← evalStateT (traverse checkFile tree) (buildEnv opts)
+   unless (rootLabel blobTree `exports` main) noEntryPoint
+   return blobTree
+ where
+  rootFile = (fst. rootLabel) tree
+  loc = (rootFile,(-1,-1))
+  main = Types.Function "main" loc TVec4 [x,y] [] []
+  x = Variable "x" loc TFloat
+  y = Variable "y" loc TFloat
+  noEntryPoint ∷ CError a
+  noEntryPoint = Fail $ TypeError (-1,-1) rootFile $
+    printf ("No entrypoint \"main\" of " ++
+      "type Float,Float found in %s")
+      rootFile
 
 checkFile ∷ (FilePath, AbsTree) → [Tree Blob] → TCM Blob
 checkFile (file, tree) children = do

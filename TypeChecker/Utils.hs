@@ -2,8 +2,11 @@
 
 module TypeChecker.Utils where
 
+import Prelude hiding (lookup)
+
 import Control.Arrow (second)
 
+import Data.Map (lookup)
 import Data.Maybe (isJust, fromJust)
 import Data.Tree
 import GHC.Exts (sortWith)
@@ -97,6 +100,12 @@ vecLength ∷ Type → Int
 vecLength TVec2 = 2
 vecLength TVec3 = 3
 vecLength TVec4 = 4
+
+exports ∷ Blob → Function → Bool
+exports (Blob  _ funs _ _) fun =
+  case lookup (ident fun) funs of
+    Just fs → fun `elem` fs
+    Nothing → False
 
 buildAnonFunc ∷ String → Location → Type → [Type] → Function
 buildAnonFunc name loc ret args = TypeChecker.Types.Function {
