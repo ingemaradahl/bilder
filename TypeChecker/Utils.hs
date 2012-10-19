@@ -2,7 +2,12 @@
 
 module TypeChecker.Utils where
 
+import Control.Arrow (second)
+
+import Data.Maybe (isJust, fromJust)
 import Data.Tree
+import GHC.Exts (sortWith)
+
 import CompilerTypes
 import FrontEnd.AbsGrammar
 import TypeChecker.Types
@@ -83,6 +88,16 @@ isVec TVec3 = True
 isVec TVec4 = True
 isVec _    = False
 
+isNum ∷ Type → Bool
+isNum TInt = True
+isNum TFloat = True
+isNum _ = False
+
+vecLength ∷ Type → Int
+vecLength TVec2 = 2
+vecLength TVec3 = 3
+vecLength TVec4 = 4
+
 buildAnonFunc ∷ String → Location → Type → [Type] → Function
 buildAnonFunc name loc ret args = TypeChecker.Types.Function {
     functionName = name,
@@ -106,9 +121,40 @@ uncurryType t@(TFunc {}) = TFun (head ret) args
   uncurryType' (TFunc t1 _ t2) = t1:[t2]
 uncurryType t = t
 
+tryApply ∷ [Function] → [Type] → Maybe Type
+tryApply funs args = if null matches
+  then Nothing
+  else do
+    -- Apply as many arguments as possible (shortest list left after application)
+    let (fun, args') = head $ sortWith snd matches
+    if null args'
+      then Just (retType fun) -- Function swallowed all arguments
+      else Just $ TFun (retType fun) args' -- Function partially applied
+ where
+  matches = map (second fromJust) $
+              filter (isJust . snd) $ zip funs (map (`partialApp` args) funs)
+
+tryUncurry ∷ [Function] → [Type] → Maybe Type
+tryUncurry funs (t:[]) | isVec t = tryUncurry' funs
+                       | otherwise = Nothing
+ where
+  tryUncurry' ∷ [Function] → Maybe Type
+  tryUncurry' (f:fs) = if all isNum (map varType (paramVars f)) && length (map varType (paramVars f)) == vecLength t
+    then Just $ retType f
+    else tryUncurry' fs
+  tryUncurry' [] = Nothing
+tryUncurry _ _ = Nothing
+
 mayhaps ∷ Bool → a → Maybe a
 mayhaps True  v = Just v
 mayhaps False _ = Nothing
+
+class MebbeBebbe a where
+  (¿) ∷ a → a → a
+
+instance MebbeBebbe (Maybe a) where
+  Nothing ¿ perhaps = perhaps
+  Just v  ¿ _       = Just v
 
 traverse ∷ Monad m => (a → [Tree b] → m b) → Tree a → m (Tree b)
 traverse f (Node r bs) = do
