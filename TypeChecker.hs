@@ -157,9 +157,10 @@ inferExp (ECall cid es) = do
     Nothing  → noFunctionFound cid args
 inferExp (ETypeCall t es) = do
   expts ← mapM inferExp es
-  if expts `elem` typeConstuctors t
-    then return t
-    else noTypeConstructorError t expts
+  t' ← filterTDef t
+  if expts `elem` typeConstuctors t'
+    then return t'
+    else noTypeConstructorError t' expts
 inferExp (EAdd el tk er) = inferBinaryExp tk el er
 inferExp (EMul el tk er) = inferBinaryExp tk el er
 inferExp (ESub el tk er) = inferBinaryExp tk el er
