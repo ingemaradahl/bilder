@@ -1,0 +1,222 @@
+{- GLSL 1.3 Grammar
+
+	- Todo:
+
+		layout
+			layout(...)
+		switch
+
+-}
+comment "//" ;
+comment "/*" "*/" ;
+
+
+Tree. Tree ::= [TopLevel] ;
+
+VoidFunction.            TopLevel  ::= Type Ident VoidExp "{" [Stm] "}" ;
+Function.                TopLevel  ::= Type Ident "(" [Param] ")" "{" [Stm] "}" ;
+FunctionPrototype.       TopLevel  ::= Type Ident "(" [Param] ")" ";" ;
+VoidFunctionPrototype.   TopLevel  ::= Type Ident VoidExp ";" ;
+TopDecl.                 TopLevel  ::= Decl ";" ;
+terminator TopLevel "" ;
+
+SVDecl. StructVarDecl  ::= Decl ";" ;
+separator StructVarDecl "" ;
+
+
+-- Parameter --------------------------------------------------------
+ParamDec.            Param  ::= [ParamQualifiers] Id ;
+ParamDecDef.         Param  ::= [ParamQualifiers] Id "=" Exp2 ;
+-- TODO: Structs ?
+separator Param "," ;
+
+
+-- Qualifiers -------------------------------------------------------
+-- Allowed order for ParamQualifiers:
+--         StorageQualifier ParamQualifier PrecisionQualifier Type
+PQStorage.   ParamQualifiers  ::= StorageQualifier ;
+PQParam.     ParamQualifiers  ::= ParamQualifier ;
+PQPrecision. ParamQualifiers  ::= PrecisionQualifier ;
+PQType.      ParamQualifiers  ::= Type ;
+separator nonempty ParamQualifiers "" ;
+
+
+-- Allowed order for DeclQualifiers:
+--         InvariantQualifier StorageQualifier PrecisionQualifier Type
+DQStorage.   DeclQualifiers   ::= StorageQualifier ;
+DQPrecision. DeclQualifiers   ::= PrecisionQualifier ;
+DQInvariant. DeclQualifiers   ::= InvariantQualifier ;
+DQType.      DeclQualifiers   ::= Type ;
+separator nonempty DeclQualifiers "" ;
+
+
+QConst.       StorageQualifier    ::= "const" ;
+QAttribute.   StorageQualifier    ::= "attribute" ;
+QUniform.     StorageQualifier    ::= "uniform" ;
+QVarying.     StorageQualifier    ::= "varying" ;
+
+QIn.       ParamQualifier  ::= "in" ;
+QOut.      ParamQualifier  ::= "out" ;
+QInOut.    ParamQualifier  ::= "inout" ;
+
+QHighP.    PrecisionQualifier ::= "highp" ;
+QMediumP.  PrecisionQualifier ::= "mediump" ;
+QLowP.     PrecisionQualifier ::= "lowp" ;
+
+QInvariant. InvariantQualifier ::= "invariant" ;
+
+-- Declarations -----------------------------------------------------
+Declaration.             Decl  ::= [DeclQualifiers] DeclPost ;
+InvariantRedecl.         Decl  ::= "invariant" [Ident] ;
+PrecisionDecl.           Decl  ::= "precision" PrecisionQualifier Type ;
+Struct.                  Decl  ::= "struct" Ident "{" [StructVarDecl] "}" ;
+StructDecl.              Decl  ::= "struct" Ident "{" [StructVarDecl] "}" Id ;
+separator  Decl "," ;
+
+
+-- TODO only allow explicit expressions (currently Exp19)
+OnlyVars.    DeclPost  ::= [Id] ;
+DefaultVars. DeclPost  ::= [Id] "=" Exp2 ;
+
+
+VoidArg.  VoidExp  ::= "(" "void" ")" ;
+Void.     VoidExp  ::= "(" ")" ;
+
+
+-- Ident ------------------------------------------------------------
+IdEmptyArray. Id  ::= Ident "[" "]" ;
+IdArray.      Id  ::= Ident "[" Exp "]" ;
+OnlyIdent.    Id  ::= Ident ;
+separator nonempty Id "," ;
+separator nonempty Ident "," ;
+
+
+-- Statements -------------------------------------------------------
+SDecl.     Stm ::= Decl ";" ;
+SExp.      Stm ::= Exp ";" ;
+SBlock.    Stm ::= "{" [Stm] "}" ;
+SWhile.    Stm ::= "while" "(" Exp ")" Stm ;
+SDoWhile.  Stm ::= "do" Stm "while" "(" Exp ")" ";" ;
+SFor.      Stm ::= "for" "(" [ForDecl] ";" [Exp] ";" [Exp] ")" Stm ;
+SReturn.   Stm ::= "return" Exp ";" ;
+SVoidReturn.  Stm ::= "return" ";" ;
+SIf.       Stm ::= "if" "(" Exp ")" Stm ;
+SIfElse.   Stm ::= "if" "(" Exp ")" Stm "else" Stm ;
+-- Jumps only available in while, do-while and for
+SBreak.    Stm ::= "break" ";" ;
+SContinue. Stm ::= "continue" ";" ;
+-- discard only available in fragment shader.
+SDiscard.  Stm ::= "discard" ";" ;
+terminator Stm "" ;
+
+
+-- For-specific initiation declarations -----------------------------
+-- TODO: What is allowed in first section of a for-loop?
+FDecl.   ForDecl ::= Decl ;
+FExp.    ForDecl ::= Exp ;
+
+separator ForDecl "," ;
+
+
+-- Expressions ------------------------------------------------------
+-- Bitwise operations only supported by GLSL >= 1.3
+-- TODO: Precedences.
+EAss.          Exp1  ::= Exp1 "="  Exp2 ;
+EAssAdd.       Exp1  ::= Exp1 "+=" Exp2 ;
+EAssSub.       Exp1  ::= Exp1 "-=" Exp2 ;
+EAssMul.       Exp1  ::= Exp1 "*=" Exp2 ;
+EAssDiv.       Exp1  ::= Exp1 "/=" Exp2 ;
+EAssMod.       Exp1  ::= Exp1 "%=" Exp2 ;
+EAssBWAnd.     Exp1  ::= Exp1 "&=" Exp2 ;
+EAssBWXOR.     Exp1  ::= Exp1 "^=" Exp2 ;
+EAssBWOR.      Exp1  ::= Exp1 "|=" Exp2 ;
+
+ECond.         Exp2  ::= Exp2 "?" Exp3 ":" Exp3 ;
+
+EOR.           Exp3  ::= Exp3 "||" Exp4 ;
+
+EXOR.          Exp4  ::= Exp4 "^^" Exp5 ;
+
+EAnd.          Exp5  ::= Exp5 "&&" Exp6 ;
+
+EBWOR.         Exp6  ::= Exp6 "|" Exp7 ;
+
+EBWXOR.        Exp7  ::= Exp7 "^" Exp8 ;
+
+EBWAnd.        Exp8  ::= Exp8 "&" Exp9 ;
+
+EEqual.        Exp9  ::= Exp9 "==" Exp10 ;
+ENEqual.       Exp9  ::= Exp9 "!=" Exp10 ;
+
+ELt.           Exp10 ::= Exp10 "<"  Exp11 ;
+EGt.           Exp10 ::= Exp10 ">"  Exp11 ;
+ELEt.          Exp10 ::= Exp10 "<=" Exp11 ;
+EGEt.          Exp10 ::= Exp10 ">=" Exp11 ;
+
+EBWShiftLeft.  Exp11 ::= Exp11 "<<" Exp12 ;
+EBWShiftRight. Exp11 ::= Exp11 ">>" Exp12 ;
+
+EAdd.          Exp12 ::= Exp12 "+" Exp13 ;
+ESub.          Exp12 ::= Exp12 "-" Exp13 ;
+
+EMul.          Exp13 ::= Exp13 "*" Exp14 ;
+EDiv.          Exp13 ::= Exp13 "/" Exp14 ;
+EMod.          Exp13 ::= Exp13 "%" Exp14 ;
+
+
+ENeg.          Exp14 ::= "-"  Exp15 ;
+ENegSign.      Exp14 ::= "!"  Exp15 ;
+EComplement.   Exp14 ::= "~"  Exp15 ;
+EPos.          Exp14 ::= "+"  Exp15 ;
+EPreInc.       Exp14 ::= "++" Exp15 ;
+EPreDec.       Exp14 ::= "--" Exp15 ;
+
+EPostInc.      Exp15 ::= Exp15 "++" ;
+EPostDec.      Exp15 ::= Exp15 "--" ;
+ESwizzler.     Exp15 ::= Exp15 "." Exp16 ;
+
+ECall.         Exp16 ::= Ident "(" [Exp] ")" ;
+
+ETypeCall.     Exp17 ::= Type "(" [Exp] ")" ;
+
+EVar.          Exp19 ::= Id ;
+EFloat.        Exp19 ::= CFloat ;
+EStr.          Exp19 ::= String ;
+EInt.          Exp19 ::= Integer ;
+ETrue.         Exp19 ::= "true" ;
+EFalse.        Exp19 ::= "false" ;
+EType.         Exp19 ::= Type;
+
+coercions Exp 19 ;
+separator Exp "," ;
+
+
+-- Types ------------------------------------------------------------
+TInt.         Type ::= "int" ;
+TVoid.        Type ::= "void" ;
+TUInt.        Type ::= "uint" ;
+TFloat.       Type ::= "float" ;
+TBool.        Type ::= "bool" ;
+TBVec2.       Type ::= "bvec2" ;
+TBVec3.       Type ::= "bvec3" ;
+TBVec4.       Type ::= "bvec4" ;
+TIVec2.       Type ::= "ivec2" ;
+TIVec3.       Type ::= "ivec3" ;
+TIVec4.       Type ::= "ivec4" ;
+TUVec2.       Type ::= "uvec2" ;
+TUVec3.       Type ::= "uvec3" ;
+TUVec4.       Type ::= "uvec4" ;
+TVec2.        Type ::= "vec2" ;
+TVec3.        Type ::= "vec3" ;
+TVec4.        Type ::= "vec4" ;
+TMat2.        Type ::= "mat2" ;
+TMat3.        Type ::= "mat3" ;
+TMat4.        Type ::= "mat4" ;
+TSampler2D.   Type ::= "sampler2D" ;
+TSamplerCube. Type ::= "samplerCube" ;
+TEmptyArray.  Type ::= Type "[" "]";
+TArray.       Type ::= Type "[" Exp "]";
+
+token CFloat (((digit+ '.' digit+)|(digit+ '.')|('.' digit+)) (('e'|'E')('-')? digit+)?
+               ('f'|'F')?)|((digit+ ('e'|'E')('-')? digit+)('f'|'F')?);
+
