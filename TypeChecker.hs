@@ -2,6 +2,7 @@
 
 module TypeChecker where
 
+-- Imports {{{
 import Prelude hiding (lookup)
 
 import Control.Monad
@@ -27,13 +28,14 @@ import FrontEnd.AbsGrammar as Abs
 import FrontEnd.Instances
 import CompilerError
 import Builtins
+-- }}}
 
 -- | Typechecks the given abstract source and annotates the syntax tree
 typeCheck ∷ Options → Tree (FilePath, AbsTree) → CError (Tree Blob)
 typeCheck opts tree = do
-   blobTree ← evalStateT (traverse checkFile tree) (buildEnv opts)
-   unless (rootLabel blobTree `exports` main) noEntryPoint
-   return blobTree
+  blobTree ← evalStateT (traverse checkFile tree) (buildEnv opts)
+  unless (rootLabel blobTree `exports` main) noEntryPoint
+  return blobTree
  where
   rootFile = (fst. rootLabel) tree
   loc = (rootFile,(-1,-1))
@@ -180,7 +182,7 @@ inferExp (EAss v@(EVar {}) tk e) = do
   valueType ← inferExp e
   case compAssType targetType valueType of
     Just _ → return targetType
-    Nothing → debugError "FAILueaoeu"
+    Nothing → expTypeMismatch tk targetType valueType
 inferExp (ECall cid es) = do
   args ← mapM inferExp es
   funs ← lookupFunction (cIdentToString cid)
