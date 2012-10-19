@@ -139,6 +139,13 @@ inferExp (EInt _) = return TInt
 inferExp ETrue = return TBool
 inferExp EFalse = return TBool
 inferExp (EVar cid) = liftM varType $ lookupVar cid
+inferExp (ECond ec tkq etrue tkc efalse) = do
+  t ← inferExp ec
+  unless (t `elem` [TInt,TFloat,TBool]) $ badConditional t (tkpos tkq)
+  tetrue ← inferExp etrue
+  tefalse ← inferExp efalse
+  unless (tetrue == tefalse) $ typeMismatch (tkpos tkc) tetrue tefalse
+  return tetrue
 inferExp (EAss v@(EVar {}) tk e) = do
   targetType ← inferExp v
   valueType ← inferExp e
@@ -182,7 +189,7 @@ inferExp (EMember el cid) = do
 inferExp (EMemberCall el cid ers) = do
   tel ← inferExp el
   case componentFunc (cIdentToString cid) tel ers of
-    Nothing → noFunctionFound cid [] -- TODO: What arguments?
+    Nothing → mapM inferExp ers >>= noFunctionFound cid
     Just (rt, argt, ecf) → do
       tecf ← mapM inferExp ecf
       if tecf == argt

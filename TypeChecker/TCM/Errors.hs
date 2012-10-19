@@ -171,6 +171,13 @@ vectorTooBig cid s =
     (cIdentToString cid)
     s
 
+typeMismatch ∷ Position → Type → Type → TCM b
+typeMismatch pos ta tb =
+  typeError pos $
+    printf "Types %s and %s does not match."
+    (show ta)
+    (show tb)
+
 -- | Throw a type error
 typeError ∷ Position → String → TCM a
 typeError = absError TypeError
