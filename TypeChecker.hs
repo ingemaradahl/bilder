@@ -6,13 +6,10 @@ import Prelude hiding (lookup)
 
 import Control.Monad
 import Control.Monad.Trans.State
-import Control.Arrow (second)
 import Control.Applicative hiding (empty)
 
 import Data.Tree
 import Data.Map (Map, elems, insertWith, empty)
-import Data.Maybe (isJust, fromJust)
-import GHC.Exts (sortWith)
 
 import TypeChecker.TCM
 import TypeChecker.TCM.Errors
@@ -171,16 +168,9 @@ inferExp (EAss v@(EVar {}) tk e) = do
 inferExp (ECall cid es) = do
   args ← mapM inferExp es
   funs ← lookupFunction (cIdentToString cid)
-  let matches = map (second fromJust) $
-                  filter (isJust . snd) $ zip funs (map (`partialApp` args) funs)
-  if null matches
-    then noFunctionFound cid args
-    else do
-      -- Apply as many arguments as possible (shortest list left after application)
-      let (fun, args') = head $ sortWith snd matches
-      if null args'
-        then return (retType fun) -- Function swallowed all arguments
-        else return $ TFun (retType fun) args' -- Function partially applied
+  case tryApply funs args ¿ tryUncurry funs args of
+    Just fun → return fun
+    Nothing  → noFunctionFound cid args
 inferExp (ETypeCall t es) = do
   expts ← mapM inferExp es
   t' ← filterTDef t
