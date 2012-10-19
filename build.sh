@@ -8,7 +8,7 @@ awk '/^newtype/ && $2!="CFloat" { printf "instance Token %s where\n\
 
 # Build GLSL abstract tree and pretty printer
 bnfc -haskell -p GLSL GLSL.cf &&
-cp GLSL/AbsGLSL.hs FrontEnd/ &&
-cp GLSL/PrintGLSL.hs FrontEnd/ &&
+sed "s/module GLSL\.(.*) where/module FrontEnd.$1 where/" GLSL/AbsGLSL.hs > FrontEnd/AbsGLSL.hs &&
+sed "s/module GLSL\.(.*) where/module FrontEnd.$1 where/" GLSL/PrintGLSL.hs > FrontEnd/PrintGLSL.hs &&
 rm -r GLSL
 
