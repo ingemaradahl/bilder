@@ -2,6 +2,7 @@
 
 module TypeChecker where
 
+-- Imports {{{
 import Prelude hiding (lookup)
 
 import Control.Monad
@@ -11,6 +12,8 @@ import Control.Applicative hiding (empty)
 import Data.Tree
 import Data.Map (Map, elems, insertWith, empty)
 
+import Text.Printf
+
 import TypeChecker.TCM
 import TypeChecker.TCM.Errors
 import TypeChecker.TCM.Utils
@@ -18,17 +21,32 @@ import TypeChecker.TCM.Utils
 import TypeChecker.Utils
 import TypeChecker.Environment hiding (pushScope, popScope)
 import qualified TypeChecker.Scope as Scope (functions)
-import TypeChecker.Types
+import TypeChecker.Types as Types
 
 import Compiler hiding (Environment, Env, options, buildEnv)
 import FrontEnd.AbsGrammar as Abs
 import FrontEnd.Instances
 import CompilerError
 import Builtins
+-- }}}
 
 -- | Typechecks the given abstract source and annotates the syntax tree
 typeCheck ∷ Options → Tree (FilePath, AbsTree) → CError (Tree Blob)
-typeCheck opts tree = evalStateT (traverse checkFile tree) (buildEnv opts)
+typeCheck opts tree = do
+  blobTree ← evalStateT (traverse checkFile tree) (buildEnv opts)
+  unless (rootLabel blobTree `exports` main) noEntryPoint
+  return blobTree
+ where
+  rootFile = (fst. rootLabel) tree
+  loc = (rootFile,(-1,-1))
+  main = Types.Function "main" loc TVec4 [x,y] [] []
+  x = Variable "x" loc TFloat
+  y = Variable "y" loc TFloat
+  noEntryPoint ∷ CError a
+  noEntryPoint = Fail $ TypeError (-1,-1) rootFile $
+    printf ("No entrypoint \"main\" of " ++
+      "type Float,Float found in %s")
+      rootFile
 
 checkFile ∷ (FilePath, AbsTree) → [Tree Blob] → TCM Blob
 checkFile (file, tree) children = do
@@ -164,7 +182,7 @@ inferExp (EAss v@(EVar {}) tk e) = do
   valueType ← inferExp e
   case compAssType targetType valueType of
     Just _ → return targetType
-    Nothing → debugError "FAILueaoeu"
+    Nothing → expTypeMismatch tk targetType valueType
 inferExp (ECall cid es) = do
   args ← mapM inferExp es
   funs ← lookupFunction (cIdentToString cid)
@@ -222,8 +240,5 @@ inferBinaryExp tk el er = do
     Just t  → return t
     Nothing → badBinaryTypes tk tl tr
 -- }}}
-
---example ∷ AbsTree
---example = AbsTree [Import (TkImport ((1,1),"import")) "bools.fl",Import (TkImport ((2,1),"import")) "inner/const.fl",Abs.Struct (TkStruct ((4,1),"struct")) (CIdent ((4,8),"First")) [SVDecl (Dec TColor (OnlyVars [Ident (CIdent ((5,15),"color"))])),SVDecl (Dec TVec2 (OnlyVars [Ident (CIdent ((6,14),"coordinates"))]))],StructDecl (TkStruct ((9,1),"struct")) (CIdent ((9,8),"Second")) [SVDecl (Dec TVec2 (OnlyVars [Ident (CIdent ((10,14),"coordinates"))]))] (Ident (CIdent ((11,3),"second"))),StructDecl (TkStruct ((13,1),"struct")) (CIdent ((13,8),"Third")) [SVDecl (Dec TVec2 (OnlyVars [Ident (CIdent ((14,14),"coordinates"))]))] (IdArray (CIdent ((15,3),"third")) (EInt 5)),Abs.Function TColor (CIdent ((17,7),"main")) [ParamDec TInt (Ident (CIdent ((17,16),"x"))),ParamDec TInt (Ident (CIdent ((17,23),"y")))] [SDecl (DecStruct (Ident (CIdent ((19,9),"First"))) (OnlyVars [Ident (CIdent ((19,15),"a"))])),SDecl (DecStruct (Ident (CIdent ((20,9),"First"))) (DefaultVars [Ident (CIdent ((20,15),"b"))] (ECall (Ident (CIdent ((20,19),"First"))) [ETypeCall TColor [EFloat (CFloat "1.0")] OnlyCall,ETypeCall TVec2 [EFloat (CFloat "1.0"),EFloat (CFloat "2.0")] OnlyCall]))),SExp (EAss (EMember (EVar (Ident (CIdent ((22,9),"second")))) (EVar (Ident (CIdent ((22,16),"coordinates"))))) (ETypeCall TVec2 [EFloat (CFloat "1.0"),EFloat (CFloat "2.0")] OnlyCall)),SReturn (TkReturn ((24,9),"return")) (EMember (EVar (Ident (CIdent ((24,16),"b")))) (EVar (Ident (CIdent ((24,18),"color")))))]]
 
 -- vi:fdm=marker

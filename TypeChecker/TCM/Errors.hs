@@ -178,6 +178,16 @@ typeMismatch pos ta tb =
     (show ta)
     (show tb)
 
+expTypeMismatch ∷ Token a => a → Type → Type → TCM b
+expTypeMismatch tk expected actual =
+  typeError (tkpos tk) $
+    printf ("Couldn't match expected type %s\n" ++
+            "            with actual type %s\n" ++
+            "in expression %s")
+    (show expected)
+    (show actual)
+    (tkident tk)
+
 -- | Throw a type error
 typeError ∷ Position → String → TCM a
 typeError = absError TypeError
