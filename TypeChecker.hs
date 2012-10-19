@@ -111,6 +111,12 @@ checkStatement (SIf tk@(TkIf (pos,_)) cond stm) = do
   SType condt <$> SIf tk cond <$> checkStatement stm
 checkStatement (SBlock stms) = SBlock <$> mapM checkStatement stms
 checkStatement s@(SExp e) = SType <$> inferExp e <*> pure s
+checkStatement (SWhile tk e s) = do
+  te ← inferExp e
+  unless (te `elem` [TBool,TInt,TFloat]) $ badConditional te (tkpos tk)
+  checkStatement s
+checkStatement (SDoWhile _ s tkwhile e) =
+  checkStatement (SWhile tkwhile e s)
 checkStatement s = debugError $ show s ++ " NOT DEFINED"
 -- }}}
 -- Declarations {{{
