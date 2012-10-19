@@ -66,6 +66,7 @@ compAssType ∷ Type → Type → Maybe Type
 compAssType TFloat TFloat = Just TFloat
 compAssType TFloat TInt = Just TFloat
 compAssType TInt TFloat = Just TFloat
+compAssType TInt TInt = Just TInt
 compAssType tl tr = mayhaps (isVec tl && (tl == tr || tr == TFloat)) tl
 
 compNumType ∷ Type → Type → Maybe Type

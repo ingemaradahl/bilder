@@ -117,6 +117,12 @@ checkStatement (SWhile tk e s) = do
   checkStatement s
 checkStatement (SDoWhile _ s tkwhile e) =
   checkStatement (SWhile tkwhile e s)
+checkStatement (SFor tk fdecls econs eloop stm) = do
+  mapM_ checkForDecl fdecls
+  tecons ← mapM inferExp econs
+  sequence_ [ unless (t `elem` [TBool,TInt,TFloat]) $ badConditional t (tkpos tk) | t ← tecons ]
+  mapM_ inferExp eloop
+  checkStatement stm
 checkStatement s = debugError $ show s ++ " NOT DEFINED"
 -- }}}
 -- Declarations {{{
@@ -132,6 +138,10 @@ checkDecl (Dec qs post) = do
   sequence_ [ addCIdentVariable cid t | cid ← declPostIdents post ]
 
   return t
+
+checkForDecl ∷ ForDecl → TCM Type
+checkForDecl (FDecl decl) = checkDecl decl
+checkForDecl (FExp e) = inferExp e
 
 checkDecAss ∷ DeclPost → TCM (Maybe Type)
 checkDecAss (Vars _) = return Nothing
