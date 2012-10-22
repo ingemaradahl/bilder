@@ -188,6 +188,11 @@ expTypeMismatch tk expected actual =
     (show actual)
     (tkident tk)
 
+noReturnError ∷ Function → TCM a
+noReturnError f =
+  typeError (-1,-1) $
+    printf "Function %s is missing a definite return expression" (ident f)
+
 -- | Throw a type error
 typeError ∷ Position → String → TCM a
 typeError = absError TypeError

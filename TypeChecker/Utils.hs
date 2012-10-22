@@ -2,6 +2,7 @@
 
 module TypeChecker.Utils where
 
+-- Imports {{{
 import Prelude hiding (lookup)
 
 import Control.Arrow (second)
@@ -14,7 +15,46 @@ import GHC.Exts (sortWith)
 import CompilerTypes
 import FrontEnd.AbsGrammar
 import TypeChecker.Types
+-- }}}
 
+-- Generic helper functions {{{
+class Mongoid a where
+  (¿) ∷ a → a → a
+
+instance Mongoid (Maybe a) where
+  Nothing ¿ perhaps = perhaps
+  Just v  ¿ _       = Just v
+
+mayhaps ∷ Bool → a → Maybe a
+mayhaps True  v = Just v
+mayhaps False _ = Nothing
+
+duplicates ∷ Eq a => [a] → [a]
+duplicates [] = []
+duplicates (x:xs)
+  | x `elem` xs = x:duplicates (filter (/= x) xs)
+  | otherwise   = duplicates xs
+
+duplicatesWith ∷ (a → a → Bool) → [a] → [a]
+duplicatesWith _ [] = []
+duplicatesWith f (x:xs)
+ | elemBy f x xs = x:duplicatesWith f (filter (not . f x) xs)
+ | otherwise     = duplicatesWith f xs
+
+elemBy ∷ (a → a → Bool) → a → [a] → Bool
+elemBy _ _ [] = False
+elemBy f y (x:xs)
+ | f y x = True
+ | otherwise = elemBy f y xs
+
+traverse ∷ Monad m => (a → [Tree b] → m b) → Tree a → m (Tree b)
+traverse f (Node r bs) = do
+  sub ← mapM (traverse f) bs
+  root ← f r sub
+  return $ Node root sub
+
+-- }}}
+-- Conversions {{{
 paramQualifiers ∷ Param → [Qualifier]
 paramQualifiers (ParamDec qs _) = qs
 paramQualifiers (ParamDefault qs _ _ _) = qs
@@ -59,7 +99,8 @@ qualType qs | length types == 1 = Just $ head types
 declPostIdents ∷ DeclPost → [CIdent]
 declPostIdents (Vars i) = i
 declPostIdents (DecAss i _ _) = i
-
+-- }}}
+-- Function checking {{{
 -- Match function against argument types
 partialApp ∷ Function → [Type] → Maybe [Type]
 partialApp f args = partial args $ map varType $ paramVars f
@@ -69,44 +110,6 @@ partialApp f args = partial args $ map varType $ paramVars f
                         | otherwise = Nothing
   partial [] bs = Just bs
   partial _  [] = Nothing
-
-compAssType ∷ Type → Type → Maybe Type
-compAssType TFloat TFloat = Just TFloat
-compAssType TFloat TInt = Just TFloat
-compAssType TInt TFloat = Just TFloat
-compAssType TInt TInt = Just TInt
-compAssType tl tr = mayhaps (isVec tl && (tl == tr || tr == TFloat)) tl
-
-compNumType ∷ Type → Type → Maybe Type
-compNumType TFloat TFloat = Just TFloat
-compNumType TFloat TInt = Just TFloat
-compNumType TInt TFloat = Just TFloat
-compNumType tl tr | tl == tr = Just tr
-                  | isVec tl = mayhaps (tl == tr || tr == TFloat) tl
-                  | isVec tr = mayhaps (tl == tr || tl == TFloat) tr
-                  | otherwise = Nothing
-
-isVec ∷ Type → Bool
-isVec TVec2 = True
-isVec TVec3 = True
-isVec TVec4 = True
-isVec _    = False
-
-isNum ∷ Type → Bool
-isNum TInt = True
-isNum TFloat = True
-isNum _ = False
-
-vecLength ∷ Type → Int
-vecLength TVec2 = 2
-vecLength TVec3 = 3
-vecLength TVec4 = 4
-
-exports ∷ Blob → Function → Bool
-exports (Blob  _ funs _ _) fun =
-  case lookup (ident fun) funs of
-    Just fs → fun `elem` fs
-    Nothing → False
 
 buildAnonFunc ∷ String → Location → Type → [Type] → Function
 buildAnonFunc name loc ret args = TypeChecker.Types.Function {
@@ -131,6 +134,8 @@ uncurryType t@(TFunc {}) = TFun (head ret) args
   uncurryType' (TFunc t1 _ t2) = t1:[t2]
 uncurryType t = t
 
+-- Try to find a match for applying the set of arguments to a function in the
+-- given list.
 tryApply ∷ [Function] → [Type] → Maybe Type
 tryApply funs args = if null matches
   then Nothing
@@ -144,6 +149,8 @@ tryApply funs args = if null matches
   matches = map (second fromJust) $
               filter (isJust . snd) $ zip funs (map (`partialApp` args) funs)
 
+-- Try to find a match where uncurrying the vector in the list might help with
+-- finding a match in the list of functions.
 tryUncurry ∷ [Function] → [Type] → Maybe Type
 tryUncurry funs (t:[]) | isVec t = tryUncurry' funs
                        | otherwise = Nothing
@@ -155,43 +162,68 @@ tryUncurry funs (t:[]) | isVec t = tryUncurry' funs
   tryUncurry' [] = Nothing
 tryUncurry _ _ = Nothing
 
-mayhaps ∷ Bool → a → Maybe a
-mayhaps True  v = Just v
-mayhaps False _ = Nothing
+checkReturns ∷ [Stm] → Bool
+checkReturns = foldr ((||) . returns) False
 
-class Mongoid a where
-  (¿) ∷ a → a → a
+returns ∷ Stm → Bool
+returns (SReturn _ _) = True
+returns (SVoidReturn _) = True
+returns (SIfElse _ _ s _ s') = returns s && returns s'
+returns (SBlock ss) = checkReturns ss
+returns (SFor _ _ _ _ s) = returns s
+returns (SWhile _ _ s) = returns s
+returns (SDoWhile _ s _ _) = returns s
+returns (SType _ s) = returns s
+returns _ = False
 
-instance Mongoid (Maybe a) where
-  Nothing ¿ perhaps = perhaps
-  Just v  ¿ _       = Just v
+-- }}}
+-- Vector functions {{{
+isVec ∷ Type → Bool
+isVec TVec2 = True
+isVec TVec3 = True
+isVec TVec4 = True
+isVec _    = False
 
-traverse ∷ Monad m => (a → [Tree b] → m b) → Tree a → m (Tree b)
-traverse f (Node r bs) = do
-  sub ← mapM (traverse f) bs
-  root ← f r sub
-  return $ Node root sub
+isNum ∷ Type → Bool
+isNum TInt = True
+isNum TFloat = True
+isNum _ = False
 
-duplicates ∷ Eq a => [a] → [a]
-duplicates [] = []
-duplicates (x:xs)
-  | x `elem` xs = x:duplicates (filter (/= x) xs)
-  | otherwise   = duplicates xs
+vecLength ∷ Type → Int
+vecLength TVec2 = 2
+vecLength TVec3 = 3
+vecLength TVec4 = 4
+-- }}}
+-- Type comparisons {{{
+compAssType ∷ Type → Type → Maybe Type
+compAssType TFloat TFloat = Just TFloat
+compAssType TFloat TInt = Just TFloat
+compAssType TInt TFloat = Just TFloat
+compAssType TInt TInt = Just TInt
+compAssType tl tr = mayhaps (isVec tl && (tl == tr || tr == TFloat)) tl
 
-duplicatesWith ∷ (a → a → Bool) → [a] → [a]
-duplicatesWith _ [] = []
-duplicatesWith f (x:xs)
- | elemBy f x xs = x:duplicatesWith f (filter (not . f x) xs)
- | otherwise     = duplicatesWith f xs
+compNumType ∷ Type → Type → Maybe Type
+compNumType TFloat TFloat = Just TFloat
+compNumType TFloat TInt = Just TFloat
+compNumType TInt TFloat = Just TFloat
+compNumType tl tr | tl == tr = Just tr
+                  | isVec tl = mayhaps (tl == tr || tr == TFloat) tl
+                  | isVec tr = mayhaps (tl == tr || tl == TFloat) tr
+                  | otherwise = Nothing
 
-elemBy ∷ (a → a → Bool) → a → [a] → Bool
-elemBy _ _ [] = False
-elemBy f y (x:xs)
- | f y x = True
- | otherwise = elemBy f y xs
+-- }}}
+
+exports ∷ Blob → Function → Bool
+exports (Blob  _ funs _ _) fun =
+  case lookup (ident fun) funs of
+    Just fs → fun `elem` fs
+    Nothing → False
+
 
 memberComponents ∷ Type → [String]
 memberComponents TVec2 = ["xy", "rg", "st"]
 memberComponents TVec3 = zipWith (++) (memberComponents TVec2) ["z", "b", "p"]
 memberComponents TVec4 = zipWith (++) (memberComponents TVec3) ["w", "a", "q"]
 memberComponents _ = []
+
+-- vi:fdm=marker

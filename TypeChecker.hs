@@ -99,8 +99,11 @@ checkFunction fun = do
   -- Check and annotate statements
   statements' ← mapM checkStatement (statements fun)
 
+  unless (checkReturns statements') $ noReturnError fun
+
   popScope
   return fun { statements = statements' }
+
 -- }}}
 -- Parameters {{{
 checkParam ∷ (Param, Variable) → TCM ()
