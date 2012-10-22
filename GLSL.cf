@@ -13,10 +13,8 @@ comment "/*" "*/" ;
 
 Tree. Tree ::= [TopLevel] ;
 
-VoidFunction.            TopLevel  ::= Type Ident VoidExp "{" [Stm] "}" ;
 Function.                TopLevel  ::= Type Ident "(" [Param] ")" "{" [Stm] "}" ;
 FunctionPrototype.       TopLevel  ::= Type Ident "(" [Param] ")" ";" ;
-VoidFunctionPrototype.   TopLevel  ::= Type Ident VoidExp ";" ;
 TopDecl.                 TopLevel  ::= Decl ";" ;
 terminator TopLevel "" ;
 
@@ -25,8 +23,8 @@ separator StructVarDecl "" ;
 
 
 -- Parameter --------------------------------------------------------
-ParamDec.            Param  ::= [ParamQualifiers] Id ;
-ParamDecDef.         Param  ::= [ParamQualifiers] Id "=" Exp2 ;
+ParamDec.            Param  ::= [ParamQualifiers] Ident ;
+ParamDecDef.         Param  ::= [ParamQualifiers] Ident "=" Exp2 ;
 -- TODO: Structs ?
 separator Param "," ;
 
@@ -70,13 +68,13 @@ Declaration.             Decl  ::= [DeclQualifiers] DeclPost ;
 InvariantRedecl.         Decl  ::= "invariant" [Ident] ;
 PrecisionDecl.           Decl  ::= "precision" PrecisionQualifier Type ;
 Struct.                  Decl  ::= "struct" Ident "{" [StructVarDecl] "}" ;
-StructDecl.              Decl  ::= "struct" Ident "{" [StructVarDecl] "}" Id ;
+StructDecl.              Decl  ::= "struct" Ident "{" [StructVarDecl] "}" Ident ;
 separator  Decl "," ;
 
 
 -- TODO only allow explicit expressions (currently Exp19)
-OnlyVars.    DeclPost  ::= [Id] ;
-DefaultVars. DeclPost  ::= [Id] "=" Exp2 ;
+OnlyVars.    DeclPost  ::= [Ident] ;
+DefaultVars. DeclPost  ::= [Ident] "=" Exp2 ;
 
 
 VoidArg.  VoidExp  ::= "(" "void" ")" ;
@@ -84,10 +82,10 @@ Void.     VoidExp  ::= "(" ")" ;
 
 
 -- Ident ------------------------------------------------------------
-IdEmptyArray. Id  ::= Ident "[" "]" ;
-IdArray.      Id  ::= Ident "[" Exp "]" ;
-OnlyIdent.    Id  ::= Ident ;
-separator nonempty Id "," ;
+--IdEmptyArray. Id  ::= Ident "[" "]" ;
+--IdArray.      Id  ::= Ident "[" Exp "]" ;
+--OnlyIdent.    Id  ::= Ident ;
+--separator nonempty Id "," ;
 separator nonempty Ident "," ;
 
 
@@ -179,7 +177,7 @@ ECall.         Exp16 ::= Ident "(" [Exp] ")" ;
 
 ETypeCall.     Exp17 ::= Type "(" [Exp] ")" ;
 
-EVar.          Exp19 ::= Id ;
+EVar.          Exp19 ::= Ident ;
 EFloat.        Exp19 ::= CFloat ;
 EStr.          Exp19 ::= String ;
 EInt.          Exp19 ::= Integer ;
