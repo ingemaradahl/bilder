@@ -129,15 +129,17 @@ checkStatement s@(SExp e) = SType <$> inferExp e <*> pure s
 checkStatement (SWhile tk e s) = do
   te ← inferExp e
   unless (te `elem` [TBool,TInt,TFloat]) $ badConditional te (tkpos tk)
-  checkStatement s
-checkStatement (SDoWhile _ s tkwhile e) =
-  checkStatement (SWhile tkwhile e s)
+  SType te <$> SWhile tk e <$> checkStatement s
+checkStatement (SDoWhile tkdo s tkwhile e) = do
+  te ← inferExp e
+  unless (te `elem` [TBool,TInt,TFloat]) $ badConditional te (tkpos tkwhile)
+  SType te <$> (SDoWhile tkdo <$> checkStatement s <*> pure tkwhile <*> pure e)
 checkStatement (SFor tk fdecls econs eloop stm) = do
   mapM_ checkForDecl fdecls
   tecons ← mapM inferExp econs
   sequence_ [ unless (t `elem` [TBool,TInt,TFloat]) $ badConditional t (tkpos tk) | t ← tecons ]
   mapM_ inferExp eloop
-  checkStatement stm
+  SFor tk fdecls econs eloop <$> checkStatement stm
 checkStatement s = debugError $ show s ++ " NOT DEFINED"
 -- }}}
 -- Declarations {{{
