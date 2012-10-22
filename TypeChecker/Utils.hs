@@ -14,6 +14,7 @@ import GHC.Exts (sortWith)
 
 import CompilerTypes
 import FrontEnd.AbsGrammar
+import FrontEnd.Instances
 import TypeChecker.Types
 -- }}}
 
@@ -99,6 +100,24 @@ qualType qs | length types == 1 = Just $ head types
 declPostIdents ∷ DeclPost → [CIdent]
 declPostIdents (Vars i) = i
 declPostIdents (DecAss i _ _) = i
+
+stmPos ∷ Stm → Position
+stmPos (SWhile t _ _) = tkpos t
+stmPos (SDoWhile t _ _ _) = tkpos t
+stmPos (SFor t _ _ _ _) = tkpos t
+stmPos (SReturn t _) = tkpos t
+stmPos (SVoidReturn t) = tkpos t
+stmPos (SIf t _ _) = tkpos t
+stmPos (SIfElse t _ _ _ _) = tkpos t
+stmPos (SBreak t) = tkpos t
+stmPos (SContinue t) = tkpos t
+stmPos (SDiscard t) = tkpos t
+stmPos (SType _ s) = stmPos s
+stmPos (SBlock ss) = stmPos $ head ss
+stmPos (SDecl (Dec _ decpost)) = cIdentToPos $ head $ declPostIdents decpost
+stmPos _ = (-1,-1)
+
+
 -- }}}
 -- Function checking {{{
 -- Match function against argument types

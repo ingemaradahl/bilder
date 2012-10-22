@@ -6,6 +6,7 @@ import TypeChecker.Types hiding (typedefs)
 import FrontEnd.AbsGrammar
 import qualified TypeChecker.Scope as Scope
 import Compiler (Options)
+import CompilerTypes
 
 import Text.Printf
 import Data.List (intercalate)
@@ -17,6 +18,7 @@ data Environment = Env {
   checkedBlobs ∷ Map FilePath Blob,
 
   options   ∷ Options,
+  warnings ∷ [(Location, String)],
   currentFile ∷ FilePath,
   currentFunction ∷ Function
 }
@@ -27,6 +29,7 @@ buildEnv opts = Env {
   scopes = [Scope.emptyScope],
   checkedBlobs = empty,
   options = opts,
+  warnings = [],
   currentFile = "",
   currentFunction = Null
 }
@@ -42,7 +45,8 @@ popScope env = env { scopes = tail $ scopes env }
 -- Show environment {{{
 -- Below is various show functions, used for displaying the state
 instance Show Environment where
- show env = printf "Type definitions: %s\nFunctions: %s\nVariables:%s"
+ show env = printf "Warnings:\n%s\nType definitions: %s\nFunctions: %s\nVariables:%s"
+   (intercalate "\n" (map show (warnings env)))
    (showTypes $ reverse (scopes env))
    (showFuns $ reverse (scopes env))
    (showVars $ reverse (scopes env))

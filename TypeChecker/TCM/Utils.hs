@@ -28,7 +28,7 @@ import Text.Printf
 addFunction ∷ Function → TCM ()
 addFunction fun = do
   (s:ss) ← gets scopes
-  let a = lookup name (Scope.functions s) >>= (\fs → if fun `elem` fs then Just fs else Nothing)
+  let a = lookup name (Scope.functions s) >>= (\fs → mayhaps (fun `elem` fs) fs)
   case a of
     Just (f:_) → functionDefinedError f fun
     Nothing → modify (\st → st { scopes = Scope.addFunction fun s : ss })

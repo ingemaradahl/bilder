@@ -24,6 +24,7 @@ import qualified TypeChecker.Scope as Scope (functions)
 import TypeChecker.Types as Types
 
 import Compiler hiding (Environment, Env, options, buildEnv)
+import CompilerTypes
 import FrontEnd.AbsGrammar as Abs
 import FrontEnd.Instances
 import CompilerError
@@ -31,11 +32,11 @@ import Builtins
 -- }}}
 
 -- | Typechecks the given abstract source and annotates the syntax tree
-typeCheck ∷ Options → Tree (FilePath, AbsTree) → CError (Tree Blob)
+typeCheck ∷ Options → Tree (FilePath, AbsTree) → CError ([Warning],Tree Blob)
 typeCheck opts tree = do
-  blobTree ← evalStateT (traverse checkFile tree) (buildEnv opts)
+  (blobTree, st) ← runStateT (traverse checkFile tree) (buildEnv opts)
   unless (rootLabel blobTree `exports` main) noEntryPoint
-  return blobTree
+  return (warnings st, blobTree)
  where
   rootFile = (fst. rootLabel) tree
   loc = (rootFile,(-1,-1))
@@ -97,7 +98,7 @@ checkFunction fun = do
   mapM_ checkParam (zip (parameters fun) (paramVars fun))
 
   -- Check and annotate statements
-  statements' ← mapM checkStatement (statements fun)
+  statements' ← checkStatements (statements fun)
 
   unless (checkReturns statements') $ noReturnError fun
 
@@ -115,6 +116,17 @@ checkParam (p,v) = checkParam' p >>= flip unless error'
   error' = paramExp p >>= inferExp >>= paramExpectedTypeError p
 -- }}}
 -- Statements {{{
+checkStatements ∷ [Stm] → TCM [Stm]
+checkStatements (s:[]) = sequence [checkStatement s]
+checkStatements (s:ss) | returns s = warn >> sequence [checkStatement s]
+                       | otherwise = (:) <$> checkStatement s <*> checkStatements ss
+ where
+  warn ∷ TCM ()
+  warn = modify (\st → st { warnings = warnings st ++
+    [((currentFile st, stmPos $ head ss), "Unreachable statements: " ++ show ss)] })
+checkStatements [] = return []
+
+
 checkStatement ∷ Stm → TCM Stm
 checkStatement s@(SReturn (TkReturn (pos,_)) e) = do
   fun ← gets currentFunction
