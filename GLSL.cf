@@ -1,12 +1,3 @@
-{- GLSL 1.3 Grammar
-
-	- Todo:
-
-		layout
-			layout(...)
-		switch
-
--}
 comment "//" ;
 comment "/*" "*/" ;
 
@@ -25,7 +16,6 @@ separator StructVarDecl "" ;
 -- Parameter --------------------------------------------------------
 ParamDec.            Param  ::= [ParamQualifiers] Ident ;
 ParamDecDef.         Param  ::= [ParamQualifiers] Ident "=" Exp2 ;
--- TODO: Structs ?
 separator Param "," ;
 
 
@@ -64,7 +54,8 @@ QLowP.     PrecisionQualifier ::= "lowp" ;
 QInvariant. InvariantQualifier ::= "invariant" ;
 
 -- Declarations -----------------------------------------------------
-Declaration.             Decl  ::= [DeclQualifiers] DeclPost ;
+Declaration.             Decl  ::= [DeclQualifiers] [Ident] ;
+DefaultDeclaration.      Decl  ::= [DeclQualifiers] [Ident] "=" Exp ;
 InvariantRedecl.         Decl  ::= "invariant" [Ident] ;
 PrecisionDecl.           Decl  ::= "precision" PrecisionQualifier Type ;
 Struct.                  Decl  ::= "struct" Ident "{" [StructVarDecl] "}" ;
@@ -72,20 +63,7 @@ StructDecl.              Decl  ::= "struct" Ident "{" [StructVarDecl] "}" Ident 
 separator  Decl "," ;
 
 
--- TODO only allow explicit expressions (currently Exp19)
-OnlyVars.    DeclPost  ::= [Ident] ;
-DefaultVars. DeclPost  ::= [Ident] "=" Exp2 ;
-
-
-VoidArg.  VoidExp  ::= "(" "void" ")" ;
-Void.     VoidExp  ::= "(" ")" ;
-
-
 -- Ident ------------------------------------------------------------
---IdEmptyArray. Id  ::= Ident "[" "]" ;
---IdArray.      Id  ::= Ident "[" Exp "]" ;
---OnlyIdent.    Id  ::= Ident ;
---separator nonempty Id "," ;
 separator nonempty Ident "," ;
 
 
@@ -109,7 +87,6 @@ terminator Stm "" ;
 
 
 -- For-specific initiation declarations -----------------------------
--- TODO: What is allowed in first section of a for-loop?
 FDecl.   ForDecl ::= Decl ;
 FExp.    ForDecl ::= Exp ;
 
@@ -118,7 +95,6 @@ separator ForDecl "," ;
 
 -- Expressions ------------------------------------------------------
 -- Bitwise operations only supported by GLSL >= 1.3
--- TODO: Precedences.
 EAss.          Exp1  ::= Exp1 "="  Exp2 ;
 EAssAdd.       Exp1  ::= Exp1 "+=" Exp2 ;
 EAssSub.       Exp1  ::= Exp1 "-=" Exp2 ;
@@ -213,6 +189,7 @@ TMat4.        Type ::= "mat4" ;
 TSampler2D.   Type ::= "sampler2D" ;
 TSamplerCube. Type ::= "samplerCube" ;
 TEmptyArray.  Type ::= Type "[" "]";
+TScruct.      Type ::= "struct" Ident ;
 TArray.       Type ::= Type "[" Exp "]";
 
 token CFloat (((digit+ '.' digit+)|(digit+ '.')|('.' digit+)) (('e'|'E')('-')? digit+)?
