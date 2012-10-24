@@ -34,10 +34,7 @@ addFunction fun scope = scope { functions = fs' }
           else insert name [fun] fs
 
 lookupFunction ∷ String → [Scope] → Maybe [Function]
-lookupFunction fun (s:ss) =
-  case lookup fun (functions s) of
-    Just fs → Just fs
-    Nothing → lookupFunction fun ss
+lookupFunction fun (s:ss) = lookup fun (functions s) ¿ lookupFunction fun ss
 lookupFunction _ [] = Nothing
 
 addVariable ∷ Variable → Scope → Scope
