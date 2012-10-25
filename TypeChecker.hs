@@ -38,7 +38,7 @@ typeCheck opts tree = do
   unless (rootLabel blobTree `exports` main) noEntryPoint
   return (warnings st, blobTree)
  where
-  rootFile = (fst. rootLabel) tree
+  rootFile = (fst . rootLabel) tree
   loc = (rootFile,(-1,-1))
   main = Types.Function "main" loc TVec4 [x,y] [] []
   x = Variable "x" loc TFloat
@@ -200,6 +200,11 @@ inferExp (EAss v@(EVar {}) tk e) = do
   case compAssType targetType valueType of
     Just _ → return targetType
     Nothing → expTypeMismatch tk targetType valueType
+inferExp (EAss m@(EMember {}) tk e) = do
+  memType ← inferExp m
+  valueType ← inferExp e
+  unless (memType == valueType) $ expTypeMismatch tk memType valueType
+  return valueType
 inferExp (ECall cid es) = do
   args ← mapM inferExp es
   funs ← lookupFunction (cIdentToString cid)
