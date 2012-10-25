@@ -159,6 +159,27 @@ checkStatement s = debugError $ show s ++ " NOT DEFINED"
 -- }}}
 -- Declarations {{{
 checkDecl ∷ Decl → TCM Type
+checkDecl (Dec qs (DecFun cid ps stms)) = do
+  t ← verifyQualsType qs >>= filterTDef
+  sequence_ [ unless (isQType q) $ noFunctionQualifiers cid | q ← qs ]
+  tps ← mapM anonParamType ps >>= mapM filterTDef
+  ps' ← mapM anonParamToVar ps
+
+  addCIdentVariable cid (TFun t tps)
+  -- Check the declared function.
+  file ← gets currentFile
+  let fun = Types.Function {
+    functionName = cIdentToString cid,
+    functionLocation = (file, cIdentToPos cid),
+    retType = t,
+    paramVars = ps',
+    parameters = map (\(AnonParam p) → p) ps,
+    statements = stms
+  }
+  addFunction fun
+  checkFunction fun
+
+  return (TFun t tps)
 checkDecl (Dec qs post) = do
   t ← verifyQualsType qs >>= filterTDef
   expT ← checkDecAss post

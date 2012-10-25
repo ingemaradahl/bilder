@@ -193,6 +193,11 @@ noReturnError f =
   typeError (-1,-1) $
     printf "Function %s is missing a definite return expression" (ident f)
 
+noFunctionQualifiers ∷ CIdent → TCM a
+noFunctionQualifiers cid =
+  typeError (cIdentToPos cid) $
+    printf "Function declarations can't take any qualifiers other than types."
+
 -- | Throw a type error
 typeError ∷ Position → String → TCM a
 typeError = absError TypeError

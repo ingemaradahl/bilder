@@ -178,6 +178,10 @@ verifyQuals qs = unless (null dups) $ invalidQualList qs
 verifyQualsType ∷ [Qualifier] → TCM Type
 verifyQualsType qs = verifyQuals qs >> maybe (qualsNoTypeGiven qs) return (qualType qs)
 
+isQType ∷ Qualifier → Bool
+isQType (QType {}) = True
+isQType _ = False
+
 paramExp ∷ Param → TCM Exp
 paramExp (ParamDefault _ _ _ e) = return e
 paramExp p = compileError (paramToPos p)
@@ -188,11 +192,17 @@ paramType p = verifyQuals qs >> maybe (paramNoTypeGiven p) return (qualType qs)
  where
   qs = paramToQuals p
 
+anonParamType ∷ AnonParam → TCM Type
+anonParamType (AnonParam p) = paramType p
+
 paramToVar ∷ Param → TCM Variable
 paramToVar p = do
   varTyp ← paramType p >>= filterTDef
   file ← gets currentFile
   return $ Variable (paramToString p) (file, paramToPos p) varTyp
+
+anonParamToVar ∷ AnonParam → TCM Variable
+anonParamToVar (AnonParam p) = paramToVar p
 
 filterTDef ∷ Type → TCM Type
 filterTDef (TDefined tid) = lookupTypedef tid >>= (filterTDef . typedefType)
