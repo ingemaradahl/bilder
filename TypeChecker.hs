@@ -205,6 +205,13 @@ inferExp (EAss m@(EMember {}) tk e) = do
   valueType ← inferExp e
   unless (memType == valueType) $ expTypeMismatch tk memType valueType
   return valueType
+-- TODO: Copy paste technology (.js), generalize cases like this
+inferExp (EAssAdd v@(EVar {}) tk e) = do
+  targetType ← inferExp v
+  valueType ← inferExp e
+  case compAssType targetType valueType of
+    Just _ → return targetType
+    Nothing → expTypeMismatch tk targetType valueType
 inferExp (ECall cid es) = do
   args ← mapM inferExp es
   funs ← lookupFunction (cIdentToString cid)
