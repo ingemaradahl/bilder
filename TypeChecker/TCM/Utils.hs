@@ -150,9 +150,9 @@ mergeTypedefs ∷ Map String Typedef → TCM ()
 mergeTypedefs defs = mapM_ (addTypedef . snd) $ toList defs
 
 tcFun ∷ Toplevel → TCM Function
-tcFun (Abs.Function t cident params stms) = do
+tcFun (Abs.Function qs cident params stms) = do
   params' ← mapM paramToVar params
-  retType' ← filterTDef t
+  retType' ← verifyQualsType qs >>= filterTDef
   file ← gets currentFile
   let fun = TC.Function {
     functionName = cIdentToString cident,
@@ -192,17 +192,11 @@ paramType p = verifyQuals qs >> maybe (paramNoTypeGiven p) return (qualType qs)
  where
   qs = paramToQuals p
 
-anonParamType ∷ AnonParam → TCM Type
-anonParamType (AnonParam p) = paramType p
-
 paramToVar ∷ Param → TCM Variable
 paramToVar p = do
   varTyp ← paramType p >>= filterTDef
   file ← gets currentFile
   return $ Variable (paramToString p) (file, paramToPos p) varTyp
-
-anonParamToVar ∷ AnonParam → TCM Variable
-anonParamToVar (AnonParam p) = paramToVar p
 
 filterTDef ∷ Type → TCM Type
 filterTDef (TDefined tid) = lookupTypedef tid >>= (filterTDef . typedefType)

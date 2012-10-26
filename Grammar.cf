@@ -3,7 +3,7 @@ comment "/*" "*/" ;
 
 AbsTree. AbsTree ::= [Toplevel] ;
 
-Function.     Toplevel  ::= Type CIdent "(" [Param] ")" "{" [Stm] "}" ;
+Function.     Toplevel  ::= [Qualifier] CIdent "(" [Param] ")" "{" [Stm] "}" ;
 Import.       Toplevel  ::= TkImport String ";" ;
 TopDecl.      Toplevel  ::= Decl ";" ;
 TypeDef.      Toplevel  ::= TkTypeDef TypeIdent TkAss Type ";" ;
@@ -70,8 +70,6 @@ position token TkBWOR   ('|') ;
 position token TkBWXOR  ('^') ;
 position token TkBWAnd  ('&') ;
 
---EAssAdd.       Exp1  ::= Exp1 "+=" Exp2 ;
---EAssSub.       Exp1  ::= Exp1 "-=" Exp2 ;
 token CFloat (((digit+ '.' digit+)|(digit+ '.')|('.' digit+)) (('e'|'E')('-')? digit+)?
                ('f'|'F')?)|((digit+ ('e'|'E')('-')? digit+)('f'|'F')?);
 
@@ -98,6 +96,8 @@ separator nonempty Qualifier "" ;
 
 Vars.   DeclPost  ::= [CIdent] ;
 DecAss. DeclPost  ::= [CIdent] TkAss Exp2 ;
+DecFun. DeclPost  ::= CIdent "(" [Param] ")" "{" [Stm] "}" ;
+
 
 
 -- Ident ------------------------------------------------------------
@@ -192,11 +192,6 @@ ECall.         Exp16 ::= CIdent "(" [Exp] ")" ;
 
 -- Enables anonymous declaration on the form Image(int x, int y) { stms };
 ETypeCall.     Exp17 ::= Type "(" [Exp] ")" ;
-EAnonDecl.     Exp17 ::= Type "(" [AnonParam] ")" "{" [Stm] "}" ;
-EAnonDeclVoid. Exp17 ::= Type "(" "void" ")" "{" [Stm] "}" ;
-
-AnonParam.      AnonParam ::= Param ;
-separator nonempty AnonParam "," ;
 
 EVar.          Exp18 ::= CIdent ;
 EIndex.        Exp18 ::= CIdent "[" Exp "]" ;

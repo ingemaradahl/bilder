@@ -162,8 +162,8 @@ checkDecl ∷ Decl → TCM Type
 checkDecl (Dec qs (DecFun cid ps stms)) = do
   t ← verifyQualsType qs >>= filterTDef
   sequence_ [ unless (isQType q) $ noFunctionQualifiers cid | q ← qs ]
-  tps ← mapM anonParamType ps >>= mapM filterTDef
-  ps' ← mapM anonParamToVar ps
+  tps ← mapM paramType ps >>= mapM filterTDef
+  ps' ← mapM paramToVar ps
 
   addCIdentVariable cid (TFun t tps)
   -- Check the declared function.
@@ -173,7 +173,7 @@ checkDecl (Dec qs (DecFun cid ps stms)) = do
     functionLocation = (file, cIdentToPos cid),
     retType = t,
     paramVars = ps',
-    parameters = map (\(AnonParam p) → p) ps,
+    parameters = ps,
     statements = stms
   }
   addFunction fun
