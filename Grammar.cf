@@ -124,6 +124,7 @@ terminator Stm "" ;
 
 -- Enable annotation of types on statements
 internal SType. Stm ::= Type Stm ;
+internal SFunDecl. Stm ::= CIdent Type [Param] [Stm] ;
 
 
 -- For-specific initiation declarations -----------------------------

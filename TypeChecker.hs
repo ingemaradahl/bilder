@@ -134,6 +134,8 @@ checkStatement s@(SReturn (TkReturn (pos,_)) e) = do
   if retType fun == t
     then return $ SType t s
     else returnMismatch pos t
+checkStatement (SDecl decl@(Dec _ (DecFun cid ps stms))) =
+  checkDecl decl >>= \t → return $ SFunDecl cid t ps stms
 checkStatement s@(SDecl decl) = SType <$> checkDecl decl <*> pure s
 checkStatement (SIf tk@(TkIf (pos,_)) cond stm) = do
   condt ← inferExp cond
