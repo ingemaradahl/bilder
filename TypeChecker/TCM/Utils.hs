@@ -153,6 +153,7 @@ tcFun ∷ Toplevel → TCM Function
 tcFun (Abs.Function qs cident params stms) = do
   params' ← mapM paramToVar params
   retType' ← verifyQualsType qs >>= filterTDef
+  sequence_ [ unless (isQType q) $ noFunctionQualifiers cident | q ← qs ]
   file ← gets currentFile
   let fun = TC.Function {
     functionName = cIdentToString cident,
