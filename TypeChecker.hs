@@ -38,7 +38,7 @@ typeCheck opts tree = do
   unless (rootLabel blobTree `exports` main) noEntryPoint
   return (warnings st, blobTree)
  where
-  rootFile = (fst. rootLabel) tree
+  rootFile = (fst . rootLabel) tree
   loc = (rootFile,(-1,-1))
   main = Types.Function "main" loc TVec4 [x,y] [] []
   x = Variable "x" loc TFloat
@@ -218,6 +218,18 @@ inferExp (ECond ec tkq etrue tkc efalse) = do
   unless (tetrue == tefalse) $ typeMismatch (tkpos tkc) tetrue tefalse
   return tetrue
 inferExp (EAss v@(EVar {}) tk e) = do
+  targetType ← inferExp v
+  valueType ← inferExp e
+  case compAssType targetType valueType of
+    Just _ → return targetType
+    Nothing → expTypeMismatch tk targetType valueType
+inferExp (EAss m@(EMember {}) tk e) = do
+  memType ← inferExp m
+  valueType ← inferExp e
+  unless (memType == valueType) $ expTypeMismatch tk memType valueType
+  return valueType
+-- TODO: Copy paste technology (.js), generalize cases like this
+inferExp (EAssAdd v@(EVar {}) tk e) = do
   targetType ← inferExp v
   valueType ← inferExp e
   case compAssType targetType valueType of

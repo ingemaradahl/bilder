@@ -74,6 +74,7 @@ builtInFuns = fromList $ map buildFuns [
             map (\t → (t, [("b",t), ("n",TFloat)])) (TFloat : vecs)
     ),
     ("length", map (\t → (TFloat, [("v",t)])) vecs),
+    ("min", map (\t → (t, [("a", t), ("b", t)])) vecnums ),
     ("sin", [(TFloat, [("phi", TFloat)])]),
     ("cos", [(TFloat, [("phi", TFloat)])]),
     ("dot", [(TVec4, [("x", TVec4), ("y", TVec4)])
@@ -83,6 +84,7 @@ builtInFuns = fromList $ map buildFuns [
   ]
  where
   vecs = [ TVec2, TVec3, TVec4 ]
+  vecnums = TFloat : vecs
   var ∷ (String, Type) → Variable
   var (n, t) = Variable n ("predefined", (-1,-1)) t
   param ∷ (String, Type) → Param
