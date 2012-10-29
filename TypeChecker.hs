@@ -56,6 +56,7 @@ checkFile (file, tree) children = do
   initScope children
   pushScope
 
+  checkTopDecls tree
   addTypedefs tree
   addFunctions tree
 
@@ -193,6 +194,10 @@ checkDecl (Dec qs post) = do
   sequence_ [ addCIdentVariable cid t | cid ← declPostIdents post ]
 
   return t
+
+checkTopDecls ∷ AbsTree → TCM ()
+checkTopDecls (AbsTree tree) =
+  sequence_ [ checkDecl d | (TopDecl d) ← tree ]
 
 checkForDecl ∷ ForDecl → TCM Type
 checkForDecl (FDecl decl) = checkDecl decl
