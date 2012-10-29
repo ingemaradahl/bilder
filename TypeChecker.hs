@@ -156,9 +156,15 @@ checkStatement (SDecl decl@(Dec _ (DecFun cid ps stms))) = do
   return $ SFunDecl cid tdecl ps (statements fun')
 checkStatement s@(SDecl decl) = SType <$> checkDecl decl <*> pure s
 checkStatement (SIf tk@(TkIf (pos,_)) cond stm) = do
-  condt ← inferExp cond
+  condt ← inferExp cond >>= filterTDef
   unless (condt `elem` [TInt,TFloat,TBool]) $ badConditional condt pos
   SType condt <$> SIf tk cond <$> checkStatement stm
+checkStatement (SIfElse tkif@(TkIf (pos,_)) econd strue tkelse sfalse) = do
+  tecond ← inferExp econd >>= filterTDef
+  unless (tecond `elem` [TInt,TFloat,TBool]) $ badConditional tecond pos
+  strue' ← checkStatement strue
+  sfalse' ← checkStatement sfalse
+  return $ SType tecond $ SIfElse tkif econd strue' tkelse sfalse'
 checkStatement (SBlock stms) = SBlock <$> mapM checkStatement stms
 checkStatement s@(SExp e) = SType <$> inferExp e <*> pure s
 checkStatement (SWhile tk e s) = do
