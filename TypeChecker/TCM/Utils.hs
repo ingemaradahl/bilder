@@ -2,12 +2,15 @@
 
 module TypeChecker.TCM.Utils where
 
+import Utils
+
 import TypeChecker.TCM
 import TypeChecker.TCM.Errors
 import TypeChecker.Environment as Env
 import qualified TypeChecker.Scope as Scope
-import TypeChecker.Types as TC hiding (functions, typedefs, filename, variables)
-import qualified TypeChecker.Types as Blob (functions, typedefs, variables)
+import TypeChecker.Types as TC hiding (functions, typedefs, variables)
+import TypeChecker.Types.Blob (Blob, Blob (Blob))
+import qualified TypeChecker.Types.Blob as Blob (functions, typedefs, variables)
 import TypeChecker.Utils
 
 import CompilerTypes

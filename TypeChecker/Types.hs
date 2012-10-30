@@ -5,8 +5,9 @@ module TypeChecker.Types where
 import CompilerTypes
 import FrontEnd.AbsGrammar
 
-import Data.Map (Map, toList)
+import Data.Map (Map, empty, union)
 import Data.List (intercalate)
+import Data.Monoid
 import Text.Printf
 
 class Global a where
@@ -75,20 +76,20 @@ instance Global Typedef where
   ident = typedefName
   location = typedefLocation
 
-data Blob = Blob {
-  filename ∷ FilePath,
-  functions ∷ Map String [Function],
+data Source = Source {
+  functions ∷ Map String Function,
   typedefs ∷ Map String Typedef,
   variables ∷ Map String Variable
 }
 
-instance Show Blob where
-  show (Blob file funs types vars) = printf (
-    "# %s ###########\n" ++
-    "Typedefs:\n%s" ++
-    "Functions:\n%s" ++
-    "Variables:\n%s")
-    file
-    ((concatMap (\(k,v) → printf "  %s: %s\n" k (show $ typedefType v)) $ toList types) :: String)
-    ((concatMap (\(_,v) → printf "  %s\n" $ intercalate "\n  " $ map show v) $ toList funs) :: String)
-    ((concatMap (\(k,v) → printf "  %s: %s\n" k (show v)) $ toList vars) :: String)
+emptySource ∷ Source
+emptySource = Source empty empty empty
+
+instance Monoid Source where
+  l `mappend` r = Source {
+    functions = functions l `union` functions r,
+    typedefs =  typedefs  l `union` typedefs r,
+    variables = variables l `union` variables r
+  }
+  mempty = emptySource
+

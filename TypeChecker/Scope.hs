@@ -4,6 +4,8 @@ module TypeChecker.Scope where
 
 import Prelude hiding (lookup)
 
+import Utils
+
 import TypeChecker.Types hiding (functions, variables, typedefs)
 import FrontEnd.AbsGrammar
 import TypeChecker.Utils

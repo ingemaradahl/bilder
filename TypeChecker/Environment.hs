@@ -15,7 +15,11 @@ import Data.Map hiding (map)
 -- | Environment during type checking
 data Environment = Env {
   scopes  ∷ [Scope.Scope],
-  checkedBlobs ∷ Map FilePath Blob,
+
+  -- Renaming
+  renamed ∷ [FilePath],
+  aliases ∷ Map String String,
+  freeAliases ∷ [Int],
 
   options   ∷ Options,
   warnings ∷ [(Location, String)],
@@ -27,7 +31,11 @@ data Environment = Env {
 buildEnv ∷ Options → Environment
 buildEnv opts = Env {
   scopes = [Scope.emptyScope],
-  checkedBlobs = empty,
+
+  renamed = [],
+  aliases = empty,
+  freeAliases = [1..],
+
   options = opts,
   warnings = [],
   currentFile = "",

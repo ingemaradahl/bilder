@@ -11,17 +11,23 @@ import Control.Applicative hiding (empty)
 
 import Data.Tree
 import Data.Map (Map, elems, insertWith, empty)
+import Data.Foldable (fold)
 
 import Text.Printf
+
+import Utils
 
 import TypeChecker.TCM
 import TypeChecker.TCM.Errors
 import TypeChecker.TCM.Utils
 
+import TypeChecker.Renamer (rename)
+
 import TypeChecker.Utils
 import TypeChecker.Environment hiding (pushScope, popScope)
 import qualified TypeChecker.Scope as Scope (functions)
 import TypeChecker.Types as Types
+import TypeChecker.Types.Blob
 
 import Compiler hiding (Environment, Env, options, buildEnv)
 import CompilerTypes
@@ -32,11 +38,12 @@ import Builtins
 -- }}}
 
 -- | Typechecks the given abstract source and annotates the syntax tree
-typeCheck ∷ Options → Tree (FilePath, AbsTree) → CError ([Warning],Tree Blob)
+typeCheck ∷ Options → Tree (FilePath, AbsTree) → CError ([Warning],Source)
 typeCheck opts tree = do
-  (blobTree, st) ← runStateT (traverse checkFile tree) (buildEnv opts)
-  unless (rootLabel blobTree `exports` main) noEntryPoint
-  return (warnings st, blobTree)
+  (sourceTree, st) ← runStateT
+    (traverse checkFile tree >>= traverse rename) (buildEnv opts)
+  --unless (rootLabel sourceTree `exports` main) noEntryPoint
+  return (warnings st, fold sourceTree)
  where
   rootFile = (fst . rootLabel) tree
   loc = (rootFile,(-1,-1))
