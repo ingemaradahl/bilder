@@ -38,6 +38,10 @@ freeFunctionVars (_, ps, stms) = snd $ foldl stmVars (bound, []) stms
 stmVars ∷ ([String], [String]) → Stm → ([String], [String])
 stmVars (b, f) (SDecl d) = (declToName d ++ b, f)
 stmVars (b, f) (SExp e) = (b, f ++ filterBound b (expVars e))
+stmVars vs (SBlock stms) = foldl stmVars vs stms
+stmVars vs (SWhile _ e s) = (b, f ++ filterBound b (expVars e))
+ where
+  (b, f) = stmVars vs s -- Order does not matter because of unique names
 stmVars (b, f) (SReturn _ e) = (b, f ++ filterBound b (expVars e))
 stmVars vs (SVoidReturn _) = vs
 stmVars (b, f) (SIf _ e stm) = (b'', f ++ f' ++ filterBound b'' (expVars e))
