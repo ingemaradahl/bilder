@@ -5,8 +5,7 @@ module TypeChecker.Renamer.Utils where
 import Control.Applicative
 import Control.Monad.State hiding (mapM)
 
-import Data.Map as Map (insert, lookup)
-import Data.Tree
+import Data.Map as Map (insert, lookup, empty)
 
 import TypeChecker.TCM
 import TypeChecker.TCM.Utils
@@ -38,6 +37,9 @@ lookupAlias s = do
   case Map.lookup s as of
     Just alias → return alias
     Nothing → debugError "ALIAS NOT FOUND"
+
+clearAliases ∷ TCM ()
+clearAliases = modify (\st → st { aliases = Map.empty})
 
 addSource ∷ Source → TCM ()
 addSource src = do

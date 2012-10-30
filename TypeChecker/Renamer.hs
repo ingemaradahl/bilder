@@ -40,6 +40,10 @@ renameBlob ∷ Blob → [Tree (Source, Aliases)] → TCM (Source, Aliases)
 renameBlob blob children = do
   clearScope
 
+  -- Insert aliases from children
+  modify (\st → st { aliases = Map.unions $ Prelude.map (snd . rootLabel) children })
+
+  -- Populate Scope
   mapM_ (addSource . fst . rootLabel) children
   variables' ← renameVariables $ Blob.variables blob
 
@@ -48,7 +52,9 @@ renameBlob blob children = do
    -  mapM renameBody
    -}
 
-  return (Source Map.empty Map.empty variables', Map.empty)
+  aliases' ← gets aliases
+
+  return (Source Map.empty Map.empty variables', aliases')
 
 renameFunction ∷ Map String [Function] → TCM (Map String Function)
 renameFunction funs = undefined
