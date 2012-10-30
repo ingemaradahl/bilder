@@ -38,8 +38,8 @@ instance Monad m ⇒ Monad (CErrorT m) where
   CErrorT v >>= f = CErrorT $ do
     result ← v
     case result of
-      Pass a → runCErrorT $ f a -- TODO verify
-      Fail e → return $ Fail e  -- TODO   "
+      Pass a → runCErrorT $ f a
+      Fail e → return $ Fail e
 
 instance MonadIO m ⇒ MonadIO (CErrorT m) where
   liftIO = lift . liftIO
