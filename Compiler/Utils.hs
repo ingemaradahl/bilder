@@ -8,7 +8,7 @@ import TypeChecker.Utils (cIdentToString, paramToString)
 
 
 -- | Finds all declared (inner) functions.
-findInnerFuns ∷ [Stm] → [(String, [Param], [Stm])]
+findInnerFuns ∷ [Stm] → [AbsFun]
 findInnerFuns [] = []
 findInnerFuns (SFunDecl cid _ ps stms:rest) =
   (cIdentToString cid, ps, stms) : findInnerFuns rest ++ findInnerFuns stms
@@ -27,11 +27,13 @@ declPostToName (DecAss cids _ _) = map cIdentToString cids
 --declPostToName (DecFun {}) = []
 
 -- Free Variables {{{
+type AbsFun = (String, [Param], [Stm])
+
 -- | Find all free variables in a function.
-freeFunctionVars ∷ (String, [Param], [Stm]) → [String]
-freeFunctionVars (_, ps, stms) = snd $ foldl stmVars (bound, []) stms
+freeFunctionVars ∷ [String] → AbsFun → [String]
+freeFunctionVars global (_, ps, stms) = snd $ foldl stmVars (bound, []) stms
  where
-  bound = map paramToString ps -- TODO: Add global variables.
+  bound = global ++ map paramToString ps
 
 -- | Calculates a statements bound and free variables
 --   (given already known bound and free variables)
