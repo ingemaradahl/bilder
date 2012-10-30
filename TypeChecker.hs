@@ -56,6 +56,7 @@ checkFile (file, tree) children = do
   initScope children
   pushScope
 
+  checkTopDecls tree
   addTypedefs tree
   addFunctions tree
 
@@ -134,13 +135,36 @@ checkStatement s@(SReturn (TkReturn (pos,_)) e) = do
   if retType fun == t
     then return $ SType t s
     else returnMismatch pos t
-checkStatement (SDecl decl@(Dec _ (DecFun cid ps stms))) =
-  checkDecl decl >>= \t → return $ SFunDecl cid t ps stms
+checkStatement (SDecl decl@(Dec _ (DecFun cid ps stms))) = do
+  tdecl@(TFun rt _) ← checkDecl decl
+  ps' ← mapM paramToVar ps
+
+  addCIdentVariable cid tdecl
+  -- Check the declared function.
+  file ← gets currentFile
+  let fun = Types.Function {
+    functionName = cIdentToString cid,
+    functionLocation = (file, cIdentToPos cid),
+    retType = rt,
+    paramVars = ps',
+    parameters = ps,
+    statements = stms
+  }
+  addFunction fun
+  fun' ← checkFunction fun
+
+  return $ SFunDecl cid tdecl ps (statements fun')
 checkStatement s@(SDecl decl) = SType <$> checkDecl decl <*> pure s
 checkStatement (SIf tk@(TkIf (pos,_)) cond stm) = do
-  condt ← inferExp cond
+  condt ← inferExp cond >>= filterTDef
   unless (condt `elem` [TInt,TFloat,TBool]) $ badConditional condt pos
   SType condt <$> SIf tk cond <$> checkStatement stm
+checkStatement (SIfElse tkif@(TkIf (pos,_)) econd strue tkelse sfalse) = do
+  tecond ← inferExp econd >>= filterTDef
+  unless (tecond `elem` [TInt,TFloat,TBool]) $ badConditional tecond pos
+  strue' ← checkStatement strue
+  sfalse' ← checkStatement sfalse
+  return $ SType tecond $ SIfElse tkif econd strue' tkelse sfalse'
 checkStatement (SBlock stms) = SBlock <$> mapM checkStatement stms
 checkStatement s@(SExp e) = SType <$> inferExp e <*> pure s
 checkStatement (SWhile tk e s) = do
@@ -161,26 +185,10 @@ checkStatement s = debugError $ show s ++ " NOT DEFINED"
 -- }}}
 -- Declarations {{{
 checkDecl ∷ Decl → TCM Type
-checkDecl (Dec qs (DecFun cid ps stms)) = do
+checkDecl (Dec qs (DecFun cid ps _)) = do
   t ← verifyQualsType qs >>= filterTDef
   sequence_ [ unless (isQType q) $ noFunctionQualifiers cid | q ← qs ]
   tps ← mapM paramType ps >>= mapM filterTDef
-  ps' ← mapM paramToVar ps
-
-  addCIdentVariable cid (TFun t tps)
-  -- Check the declared function.
-  file ← gets currentFile
-  let fun = Types.Function {
-    functionName = cIdentToString cid,
-    functionLocation = (file, cIdentToPos cid),
-    retType = t,
-    paramVars = ps',
-    parameters = ps,
-    statements = stms
-  }
-  addFunction fun
-  checkFunction fun
-
   return (TFun t tps)
 checkDecl (Dec qs post) = do
   t ← verifyQualsType qs >>= filterTDef
@@ -193,6 +201,10 @@ checkDecl (Dec qs post) = do
   sequence_ [ addCIdentVariable cid t | cid ← declPostIdents post ]
 
   return t
+
+checkTopDecls ∷ AbsTree → TCM ()
+checkTopDecls (AbsTree tree) =
+  sequence_ [ checkDecl d | (TopDecl d) ← tree ]
 
 checkForDecl ∷ ForDecl → TCM Type
 checkForDecl (FDecl decl) = checkDecl decl
