@@ -81,6 +81,7 @@ data Source = Source {
   typedefs ∷ Map String Typedef,
   variables ∷ Map String Variable
 }
+ deriving (Show)
 
 emptySource ∷ Source
 emptySource = Source empty empty empty

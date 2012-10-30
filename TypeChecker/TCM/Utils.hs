@@ -146,6 +146,9 @@ initScope = mapM_ (addBlob . rootLabel)
 mergeFunctions ∷ Map String [Function] → TCM ()
 mergeFunctions funs = sequence_ [ mapM addFunction fs | (_,fs) ← toList funs]
 
+mergeFunctions' ∷ Map String Function → TCM ()
+mergeFunctions' funs = mapM_ (addFunction . snd) $ toList funs
+
 mergeVariables ∷ Map String Variable → TCM ()
 mergeVariables vars = mapM_ (addVariable . snd) $ toList vars
 

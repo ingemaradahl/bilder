@@ -17,13 +17,13 @@ data Options = Options {
   deriving (Show)
 
 data Environment = Env {
-  source ∷ String,
+  source ∷ Source,
   options ∷ Options
 }
 
-buildEnv ∷ Options → Environment
-buildEnv opts = Env {
-  source = "",
+buildEnv ∷ Options → Source → Environment
+buildEnv opts src= Env {
+  source = src,
   options = opts
 }
 
@@ -31,11 +31,11 @@ buildEnv opts = Env {
 type CPM a = StateT Environment CError a
 
 compileTree ∷ Options → Source → CError [String]
-compileTree opts src = undefined -- evalStateT compile' (buildEnv opts)
+compileTree opts src = evalStateT compile' (buildEnv opts src)
 
-{-compile' ∷ CPM [String]-}
-{-compile' = do-}
-  {-bs ← gets blobs-}
-  {-return [drawTree $ fmap show bs]-}
+compile' ∷ CPM [String]
+compile' = do
+  src ← gets source
+  return [show src]
 --compile t@(Tree toplevels) = do
   --return [printTree t]

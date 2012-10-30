@@ -6,9 +6,13 @@ import Control.Applicative
 import Control.Monad.State hiding (mapM)
 
 import Data.Map as Map (insert, lookup)
+import Data.Tree
 
 import TypeChecker.TCM
+import TypeChecker.TCM.Utils
 import TypeChecker.TCM.Errors
+
+import TypeChecker.Types
 import TypeChecker.Environment
 
 import Text.Printf
@@ -34,3 +38,13 @@ lookupAlias s = do
   case Map.lookup s as of
     Just alias → return alias
     Nothing → debugError "ALIAS NOT FOUND"
+
+addSource ∷ Source → TCM ()
+addSource src = do
+  mergeFunctions' (functions src)
+  mergeVariables (variables src)
+  mergeTypedefs  (typedefs src)
+
+renameVariable ∷ Variable → TCM Variable
+renameVariable (Variable name loc typ) = Variable <$> newAlias name <*>
+  pure loc <*> pure typ

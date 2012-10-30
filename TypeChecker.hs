@@ -37,13 +37,15 @@ import CompilerError
 import Builtins
 -- }}}
 
--- | Typechecks the given abstract source and annotates the syntax tree
+-- | Typechecks the given abstract source and annotates the syntax tree. Also
+-- performs renaming of identifiers, making all variable and function names
+-- unique
 typeCheck ∷ Options → Tree (FilePath, AbsTree) → CError ([Warning],Source)
 typeCheck opts tree = do
   (sourceTree, st) ← runStateT
     (traverse checkFile tree >>= traverse rename) (buildEnv opts)
   --unless (rootLabel sourceTree `exports` main) noEntryPoint
-  return (warnings st, fold sourceTree)
+  return (warnings st, fold (fmap fst sourceTree))
  where
   rootFile = (fst . rootLabel) tree
   loc = (rootFile,(-1,-1))

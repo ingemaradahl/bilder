@@ -4,16 +4,16 @@ module TypeChecker.Renamer where
 
 import Control.Applicative
 import Control.Monad.State hiding (mapM)
-import Control.Monad.Error
 
 
 import Data.Tree
 import Data.Map as Map hiding (fold)
 
-import Data.Foldable hiding (elem)
 import Data.Monoid
 
 import TypeChecker.TCM
+import TypeChecker.TCM.Utils hiding (initScope)
+
 import TypeChecker.Environment
 import TypeChecker.Renamer.Utils
 
@@ -27,49 +27,37 @@ import CompilerTypes
 
 import Utils
 
-import FrontEnd.AbsGrammar
+type Aliases = Map String String
 
-import Text.Printf
-
-
-{-rename ∷ Tree Blob → CError Source-}
-{-rename bs = liftM fold $ evalStateT (traverse renameBlob bs) emptyIds-}
-
-rename ∷ Blob → [Tree Source] → TCM Source
+rename ∷ Blob → [Tree (Source, Aliases)] → TCM (Source, Aliases)
 rename b ss = do
   done ← gets renamed
   if filename b `elem` done
-    then return (mempty :: Source)
-    else undefined --renameBlob' b ss
+    then return (mempty :: Source, Map.empty)
+    else renameBlob b ss
 
-{-renameBlob' ∷ Blob → [Tree Source] → Renamer Source-}
-{-renameBlob' blob children = do-}
-  {-variables' ← renameVariables $ Blob.variables blob-}
+renameBlob ∷ Blob → [Tree (Source, Aliases)] → TCM (Source, Aliases)
+renameBlob blob children = do
+  clearScope
+
+  mapM_ (addSource . fst . rootLabel) children
+  variables' ← renameVariables $ Blob.variables blob
 
   {-
    -functions' ← liftM (mapWithKey renameFunction) (Blob.functions blob) >>= liftM elems >>=
    -  mapM renameBody
    -}
 
-  return undefined
+  return (Source Map.empty Map.empty variables', Map.empty)
 
+renameFunction ∷ Map String [Function] → TCM (Map String Function)
+renameFunction funs = undefined
 
+renameBody ∷ String → [Function] → TCM [Function]
+renameBody = undefined
 
-{-
- -renameFunction ∷ Map String [Function] → Renamer (Map String Function)
- -renameFunction funs = undefined
- -}
-
-
-
-
-{-
- -renameBody ∷ String → [Function] → Renamer [Function]
- -renameBody = undefined
- -}
-
-{-
- -renameVariables ∷ Map String Variable → Renamer (Map String Variable)
- -renameVariables = return
- -}
+renameVariables ∷ Map String Variable → TCM (Map String Variable)
+renameVariables vars = do
+  vars' ← mapM (renameVariable . snd) (toList vars)
+  return $ fromList $ zip (keys vars) vars'
 
