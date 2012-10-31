@@ -9,7 +9,6 @@ import FrontEnd.AbsGrammar
 
 import TypeChecker.Utils (cIdentToString, paramToString)
 
-import Control.Monad.Identity
 
 -- | Finds all declared (inner) functions.
 findInnerFuns ∷ [Stm] → [AbsFun]
@@ -30,7 +29,7 @@ declPostToName (DecAss cids _ _) = map cIdentToString cids
 -- DecFun is replaced with SFunDecl in the typechecker.
 --declPostToName (DecFun {}) = []
 
--- Exp and Stm helpers {{{
+-- Exp and Stm folding and mapping {{{
 foldExpM ∷ Monad m => (a → Exp → m a) → a → Exp → m a
 foldExpM f p e@(EAss el _ er) = foldM f p [el,er,e]
 foldExpM f p e@(EAssAdd el _ er) = foldM f p [el,er,e]
@@ -105,54 +104,6 @@ foldStm f p s = runIdentity (foldStmM (liftIdentity f) p s)
 
 liftIdentity ∷ (a → b → a) → a → b → Identity a
 liftIdentity f' p' s' = Identity (f' p' s')
--- }}}
--- Free Variables {{{
-type AbsFun = (String, [Param], [Stm])
-
--- | Find all free variables in a function.
-freeFunctionVars ∷ [String] → AbsFun → [String]
-freeFunctionVars global (_, ps, stms) = snd $ foldl stmVars (bound, []) stms
- where
-  bound = global ++ map paramToString ps
-
--- | Calculates a statements bound and free variables
---   (given already known bound and free variables)
-stmVars ∷ ([String], [String]) → Stm → ([String], [String])
-stmVars (b, f) (SDecl d) = (declToName d ++ b, f)
-stmVars (b, f) (SExp e) = (b, f ++ filterBound b (expVars e))
-stmVars vs (SBlock stms) = foldl stmVars vs stms
-stmVars vs (SWhile _ e s) = (b, f ++ filterBound b (expVars e))
- where
-  (b, f) = stmVars vs s -- Order does not matter because of unique names
-stmVars (b, f) (SReturn _ e) = (b, f ++ filterBound b (expVars e))
-stmVars vs (SVoidReturn _) = vs
-stmVars (b, f) (SIf _ e stm) = (b'', f ++ f' ++ filterBound b'' (expVars e))
- where
-  (b', f') = stmVars (b, f) stm
-  b'' = b ++ b'
-stmVars (b, f) (SIfElse _ econd strue _ sfalse) =
-  (b', f ++ ftrue ++ ffalse ++ filterBound b' (expVars econd))
- where
-  (btrue, ftrue) = stmVars (b, f) strue
-  (bfalse, ffalse) = stmVars (b, f) sfalse
-  b' = b ++ btrue ++ bfalse -- This is OK because of unique names.
-stmVars vs (SType _ stm) = stmVars vs stm
-stmVars vs (SFunDecl {}) = vs
-stmVars _ stm = error $ "UNHANDLED " ++ show stm
-
--- | Known bound variables → Variables → Free variables
-filterBound ∷ [String] → [String] → [String]
-filterBound bound = filter (not . (`elem` bound))
-
--- | Find all referenced variables in an expression.
-expVars ∷ Exp → [String]
-expVars = foldExp expVar []
- where
-  expVar ∷ [String] → Exp → [String]
-  expVar p (EVar cid) = cIdentToString cid : p
-  expVar p (EIndex cid _) = cIdentToString cid : p
-  expVar p _ = p
--- }}}
 
 mapExpM ∷ (Monad m, Applicative m) => (Exp → m Exp) → Exp → m Exp
 mapExpM f (EAss el tk er) = EAss <$> f el <*> pure tk <*> f er
@@ -231,5 +182,54 @@ mapStm f s = runIdentity $ mapStmM f' s
  where
   f' ∷ Stm → Identity Stm
   f' stm = return $ f stm
+-- }}}
+-- Free Variables {{{
+-- TODO: Move this to Compiler/Types.hs
+type AbsFun = (String, [Param], [Stm])
+
+-- | Find all free variables in a function.
+freeFunctionVars ∷ [String] → AbsFun → [String]
+freeFunctionVars global (_, ps, stms) = snd $ foldl stmVars (bound, []) stms
+ where
+  bound = global ++ map paramToString ps
+
+-- | Calculates a statements bound and free variables
+--   (given already known bound and free variables)
+stmVars ∷ ([String], [String]) → Stm → ([String], [String])
+stmVars (b, f) (SDecl d) = (declToName d ++ b, f)
+stmVars (b, f) (SExp e) = (b, f ++ filterBound b (expVars e))
+stmVars vs (SBlock stms) = foldl stmVars vs stms
+stmVars vs (SWhile _ e s) = (b, f ++ filterBound b (expVars e))
+ where
+  (b, f) = stmVars vs s -- Order does not matter because of unique names
+stmVars (b, f) (SReturn _ e) = (b, f ++ filterBound b (expVars e))
+stmVars vs (SVoidReturn _) = vs
+stmVars (b, f) (SIf _ e stm) = (b'', f ++ f' ++ filterBound b'' (expVars e))
+ where
+  (b', f') = stmVars (b, f) stm
+  b'' = b ++ b'
+stmVars (b, f) (SIfElse _ econd strue _ sfalse) =
+  (b', f ++ ftrue ++ ffalse ++ filterBound b' (expVars econd))
+ where
+  (btrue, ftrue) = stmVars (b, f) strue
+  (bfalse, ffalse) = stmVars (b, f) sfalse
+  b' = b ++ btrue ++ bfalse -- This is OK because of unique names.
+stmVars vs (SType _ stm) = stmVars vs stm
+stmVars vs (SFunDecl {}) = vs
+stmVars _ stm = error $ "UNHANDLED " ++ show stm
+
+-- | Known bound variables → Variables → Free variables
+filterBound ∷ [String] → [String] → [String]
+filterBound bound = filter (not . (`elem` bound))
+
+-- | Find all referenced variables in an expression.
+expVars ∷ Exp → [String]
+expVars = foldExp expVar []
+ where
+  expVar ∷ [String] → Exp → [String]
+  expVar p (EVar cid) = cIdentToString cid : p
+  expVar p (EIndex cid _) = cIdentToString cid : p
+  expVar p _ = p
+-- }}}
 
 -- vi:fdm=marker
