@@ -12,13 +12,16 @@ import Text.Printf
 import Data.List (intercalate)
 import Data.Map hiding (map)
 
+type Aliases = Map String String
+
 -- | Environment during type checking
 data Environment = Env {
+  -- Scoping, each level in list represents scope level
   scopes  ∷ [Scope.Scope],
 
   -- Renaming
   renamed ∷ [FilePath],
-  aliases ∷ Map String String,
+  aliases ∷ [Aliases], -- List levels correspond to scoping
   freeAliases ∷ [Int],
 
   options   ∷ Options,
@@ -33,7 +36,7 @@ buildEnv opts = Env {
   scopes = [Scope.emptyScope],
 
   renamed = [],
-  aliases = empty,
+  aliases = [],
   freeAliases = [1..],
 
   options = opts,

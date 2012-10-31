@@ -163,6 +163,7 @@ tcFun (Abs.Function qs cident params stms) = do
   file ← gets currentFile
   let fun = TC.Function {
     functionName = cIdentToString cident,
+    alias = "",
     functionLocation = (file, cIdentToPos cident),
     retType = retType',
     paramVars = params',

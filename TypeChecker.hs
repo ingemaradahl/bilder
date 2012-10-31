@@ -49,7 +49,7 @@ typeCheck opts tree = do
  where
   rootFile = (fst . rootLabel) tree
   loc = (rootFile,(-1,-1))
-  main = Types.Function "main" loc TVec4 [x,y] [] []
+  main = Types.Function "main" "" loc TVec4 [x,y] [] []
   x = Variable "x" loc TFloat
   y = Variable "y" loc TFloat
   noEntryPoint ∷ CError a

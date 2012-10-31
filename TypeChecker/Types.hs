@@ -18,6 +18,7 @@ class Global a where
 
 data Function = Function {
     functionName ∷ String
+  , alias ∷ String
   , functionLocation ∷ Location
   , retType ∷ Type
   , paramVars ∷ [Variable]
@@ -35,7 +36,7 @@ instance Eq Function where
              map varType (paramVars fa) == map varType (paramVars fb)
 
 instance Show Function where
-  show (TypeChecker.Types.Function name _ ret params _ _) = printf "%s :: %s -> %s"
+  show (TypeChecker.Types.Function name _ _ ret params _ _) = printf "%s :: %s -> %s"
     name
     (intercalate " -> " $ map (show . varType) params)
     (show ret)

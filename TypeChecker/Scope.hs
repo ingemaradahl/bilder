@@ -95,5 +95,5 @@ builtInFuns = fromList $ map buildFuns [
   buildFuns (n, ts) = (n, map (buildFun n) ts)
   buildFun ∷ String → (Type, [(String, Type)]) → Function
   buildFun n (rt, ts) =
-    TypeChecker.Types.Function n ("predefined", (-1,-1)) rt (map var ts) (map param ts) []
+    TypeChecker.Types.Function n "" ("predefined", (-1,-1)) rt (map var ts) (map param ts) []
 

@@ -5,7 +5,7 @@ module TypeChecker.Renamer.Utils where
 import Control.Applicative
 import Control.Monad.State hiding (mapM)
 
-import Data.Map as Map (insert, lookup, empty)
+import Data.Map as Map (insert, lookup)
 
 import TypeChecker.TCM
 import TypeChecker.TCM.Utils
@@ -28,18 +28,23 @@ newIdSuffix s = (++) <$> newId <*> pure s
 newAlias ∷ String → TCM String
 newAlias s = do
   s' ← newIdSuffix s
-  modify (\st → st { aliases = insert s s' (aliases st)})
+  as ← gets aliases
+  modify (\st → st { aliases = insert s s' (head as):tail as})
   return s'
 
 lookupAlias ∷ String → TCM String
 lookupAlias s = do
   as ← gets aliases
-  case Map.lookup s as of
-    Just alias → return alias
+  case lookupAlias' as of
+    Just alias' → return alias'
     Nothing → debugError "ALIAS NOT FOUND"
-
-clearAliases ∷ TCM ()
-clearAliases = modify (\st → st { aliases = Map.empty})
+ where
+  lookupAlias' ∷ [Aliases] → Maybe String
+  lookupAlias' [] = Nothing
+  lookupAlias' (a:as) =
+    case Map.lookup s a of
+      Just alias' → Just alias'
+      Nothing → lookupAlias' as
 
 addSource ∷ Source → TCM ()
 addSource src = do
@@ -50,3 +55,8 @@ addSource src = do
 renameVariable ∷ Variable → TCM Variable
 renameVariable (Variable name loc typ) = Variable <$> newAlias name <*>
   pure loc <*> pure typ
+
+annotateFunction ∷ Function → TCM Function
+annotateFunction f = do
+  ident' ← newAlias (ident f)
+  return $ f { alias = ident' }
