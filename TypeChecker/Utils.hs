@@ -97,6 +97,7 @@ partialApp f args = partial args $ map varType $ paramVars f
 buildAnonFunc ∷ String → Location → Type → [Type] → Function
 buildAnonFunc name loc ret args = TypeChecker.Types.Function {
     functionName = name,
+    alias = "",
     functionLocation = loc,
     retType = ret,
     paramVars = map buildAnonVar args,
