@@ -34,7 +34,7 @@ blobToSource b = Source {
   }
 -- }}}
 
--- Lifter monad - keeps source and lifting envirornment in State with CError
+-- Lifter monad - keeps source and lifting environment in State with CError
 type LM a = StateT Environment CError a
 
 data Environment = Environment {
@@ -44,7 +44,7 @@ data Environment = Environment {
 }
  deriving (Show)
 
--- Environment helpers {{{
+-- Environment and state helpers {{{
 buildEnv ∷ Source → Environment
 buildEnv s = Environment { source = s, varTypes = empty, callExpansions = empty }
 
@@ -89,8 +89,8 @@ addCallExpansion ∷ String → [String] → LM ()
 addCallExpansion n fs = do
   ces ← gets callExpansions
   modify (\s → s { callExpansions = insert n fs ces })
--- }}}
--- Variable and function lifting {{{
+-- }}}-
+
 -- | Lifts all free variables in all inner functions and globifies the inner functions.
 lambdaLift ∷ LM ()
 lambdaLift = do
@@ -98,6 +98,7 @@ lambdaLift = do
   funs' ← sequence [ liftFunVars f >>= (\v → return (k,v)) | (k,f) ← toList funs ]
   modifySource (\s → s { functions = fromList funs' })
 
+-- Variable lifting {{{
 liftFunVars ∷ T.Function → LM T.Function
 liftFunVars f = do
   clearVarTypes
@@ -125,11 +126,7 @@ liftInnerFunVars (SIf tk e s) = SIf tk <$> expandECall e <*> liftInnerFunVars s
 liftInnerFunVars (SIfElse tkif e strue tkelse sfalse) =
   SIfElse tkif <$> expandECall e <*> liftInnerFunVars strue <*> pure tkelse <*> liftInnerFunVars sfalse
 liftInnerFunVars (SFunDecl cid rt ps stms) = do
-  -- Store this functions varTypes, lift inner inner functions and restore.
-  -- FIXME: Should varTypes be cleared?
-  --vts ← clearVarTypes
   stms' ← mapM liftInnerFunVars stms
- --setVarTypes vts
 
   -- Calculate free variables in the function.
   vars ← sourceVariables
@@ -156,7 +153,7 @@ expandECall (ECall cid es) = do
     Just vs  → return $ ECall cid (es' ++ map nameToVar vs)
  where
   nameToVar ∷ String → Exp
-  nameToVar s = EVar (CIdent ((0,0), s))
+  nameToVar s = EVar (CIdent ((-1,-1), s))
 expandECall e = mapExpM expandECall e
 
 expandECallForDecl ∷ ForDecl → LM ForDecl
@@ -165,6 +162,7 @@ expandECallForDecl (FExp e) = FExp <$> expandECall e
 
 expandECallDecl ∷ Decl → LM Decl
 expandECallDecl (Dec qs dp) = Dec qs <$> expandECallDeclPost dp
+-- TODO: Structs.
 expandECallDecl d = error $ "Not expandable: " ++ show d
 
 expandECallDeclPost ∷ DeclPost → LM DeclPost
@@ -185,3 +183,7 @@ appendReturnTypes (TFun t ps) fs = do
   return $ TFun t (ps ++ ts)
 --appendReturnTypes t _ = error $ "only functions are supported " ++ show t
 -- }}}
+-- Function lifting {{{
+-- }}}
+
+-- vi:fdm=marker
