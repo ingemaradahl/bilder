@@ -2,7 +2,7 @@
 
 module Compiler.Lifter where
 
-import Data.Map (Map, toList, fromList, insert, lookup, empty)
+import Data.Map (Map, toList, fromList, insert, lookup, empty, adjust)
 import Data.Maybe (fromJust)
 import Control.Monad.State
 import Control.Applicative ((<$>), (<*>), pure)
@@ -40,13 +40,19 @@ type LM a = StateT Environment CError a
 data Environment = Environment {
   source ∷ Source,
   varTypes ∷ Map String Type,
-  callExpansions ∷ Map String [String]
+  callExpansions ∷ Map String [String],
+  currentFile ∷ String
 }
  deriving (Show)
 
 -- Environment and state helpers {{{
 buildEnv ∷ Source → Environment
-buildEnv s = Environment { source = s, varTypes = empty, callExpansions = empty }
+buildEnv s = Environment {
+    source = s,
+    varTypes = empty,
+    callExpansions = empty,
+    currentFile = ""
+  }
 
 sourceFunctions ∷ LM (Map String T.Function)
 sourceFunctions = gets source >>= \s → return $ functions s
@@ -57,10 +63,21 @@ sourceTypedefs = gets source >>= \s → return $ typedefs s
 sourceVariables ∷ LM (Map String T.Variable)
 sourceVariables = gets source >>= \s → return $ variables s
 
+addSourceFunction ∷ T.Function → LM ()
+addSourceFunction f =
+  modifySource (\s → s { functions = insert (T.functionName f) f (functions s) })
+
+updateSourceFunction ∷ T.Function → LM ()
+updateSourceFunction f =
+  modifySource (\s → s { functions = adjust (\_ → f) (T.functionName f) (functions s) })
+
 modifySource ∷ (Source → Source) → LM ()
 modifySource fun = do
   src ← gets source
   modify (\s → s { source = fun src })
+
+setCurrentFile ∷ String → LM ()
+setCurrentFile f = modify (\s → s { currentFile = f })
 
 addVarType ∷ String → Type → LM ()
 addVarType n t = do
@@ -94,9 +111,12 @@ addCallExpansion n fs = do
 -- | Lifts all free variables in all inner functions and globifies the inner functions.
 lambdaLift ∷ LM ()
 lambdaLift = do
+  -- lift free variables.
   funs ← sourceFunctions
-  funs' ← sequence [ liftFunVars f >>= (\v → return (k,v)) | (k,f) ← toList funs ]
-  modifySource (\s → s { functions = fromList funs' })
+  mapM (liftFunVars . snd) (toList funs) >>= mapM updateSourceFunction
+
+  -- lift inner functions.
+  liftFuns
 
 -- Variable lifting {{{
 liftFunVars ∷ T.Function → LM T.Function
@@ -184,6 +204,37 @@ appendReturnTypes (TFun t ps) fs = do
 --appendReturnTypes t _ = error $ "only functions are supported " ++ show t
 -- }}}
 -- Function lifting {{{
+-- | Lifts all inner functions to the global scope.
+liftFuns ∷ LM ()
+liftFuns = do
+  funs ← sourceFunctions
+  mapM (liftInnerFuns . snd) (toList funs) >>= mapM_ updateSourceFunction
+ where
+  liftInnerFuns ∷ T.Function → LM T.Function
+  liftInnerFuns f = do
+    setCurrentFile (fst $ T.functionLocation f)
+    stms' ← mapM (funLifter) (T.statements f)
+    return $ f { T.statements = stms' }
+
+funLifter ∷ Stm → LM Stm
+funLifter (SFunDecl cid rt ps stms) = do
+  -- lift inner inner functions first.
+  stms' ← mapM (mapStmM funLifter) stms
+  file ← gets currentFile
+  addSourceFunction $ mkFun file (cIdentToString cid) rt [] ps stms' -- TODO: paramVars
+  return $ SBlock [] -- TODO: Remove fo' realz!
+funLifter s = mapStmM funLifter s
+
+mkFun ∷ String → String → Type → [T.Variable] → [Param] → [Stm] → T.Function
+mkFun f name rt vs ps stms =
+  T.Function {
+    T.functionName = name,
+    T.functionLocation = (f, (-1,-1)),
+    T.retType = rt,
+    T.paramVars = vs,
+    T.parameters = ps,
+    T.statements = stms
+  }
 -- }}}
 
 -- vi:fdm=marker
