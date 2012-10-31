@@ -9,6 +9,10 @@ import FrontEnd.AbsGrammar
 
 import TypeChecker.Utils (cIdentToString, paramToString)
 
+varTypeToParam ∷ String → Type → Param
+varTypeToParam n t = ParamDec [QType t] name
+ where
+  name = CIdent ((-1,-1),n)
 
 -- | Finds all declared (inner) functions.
 findInnerFuns ∷ [Stm] → [AbsFun]
@@ -22,6 +26,18 @@ declToName ∷ Decl → [String]
 declToName (Dec _ dp) = declPostToName dp
 declToName (Struct {}) = []
 declToName (StructDecl _ _ _ cid) = [cIdentToString cid]
+
+declToTypeAndName ∷ Decl → [(Type, String)]
+declToTypeAndName (Dec qs dp) = zip (repeat $ qualsToType qs) (declPostToName dp)
+-- TODO: Structs.
+--declToTypeAndName (Struct {}) = undefined
+--declToTypeAndName (StructDecl {}) = undefined
+
+-- | Qualifiers to type (typechecked so it should always be OK)
+qualsToType ∷ [Qualifier] → Type
+--qualsToType [] = undefined -- Should never happen (typechecked)
+qualsToType (QType t:_) = t
+qualsToType (_:qs) = qualsToType qs
 
 declPostToName ∷ DeclPost → [String]
 declPostToName (Vars cids) = map cIdentToString cids
