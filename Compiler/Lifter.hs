@@ -134,7 +134,7 @@ liftInnerFunVars (SFunDecl cid rt ps stms) = do
   -- Calculate free variables in the function.
   vars ← sourceVariables
   let globals = map fst $ toList vars
-  let frees = freeFunctionVars globals (cIdentToString cid, ps, stms)
+  let frees = freeFunctionVars globals (cIdentToString cid, ps, stms')
 
   -- Add the free variables as parameters and return type.
   ps' ← appendFreeVars ps frees
@@ -148,9 +148,16 @@ liftInnerFunVars x = return x -- The rest: SBreak, SContinue, SDiscard
 
 -- | Expands all ECall's to a function in given statements with the added free variables.
 expandECall ∷ Exp → LM Exp
-expandECall s = error $ "Not yet expandable: " ++ show s
--- ECall CIdent [Exp]
--- EIndex CIdent Exp
+expandECall (ECall cid es) = do
+  eps ← gets callExpansions
+  es' ← mapM (mapExpM expandECall) es
+  case Data.Map.lookup (cIdentToString cid) eps of
+    Nothing → return $ ECall cid es'
+    Just vs  → return $ ECall cid (es' ++ map nameToVar vs)
+ where
+  nameToVar ∷ String → Exp
+  nameToVar s = EVar (CIdent ((0,0), s))
+expandECall e = mapExpM expandECall e
 
 expandECallForDecl ∷ ForDecl → LM ForDecl
 expandECallForDecl fd = error $ "Not yet expandable: " ++ show fd
