@@ -153,6 +153,7 @@ checkStatement (SDecl decl@(Dec _ (DecFun cid ps stms))) = do
   file ← gets currentFile
   let fun = Types.Function {
     functionName = cIdentToString cid,
+    alias = "",
     functionLocation = (file, cIdentToPos cid),
     retType = rt,
     paramVars = ps',

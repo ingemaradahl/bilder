@@ -11,7 +11,7 @@ import Data.Monoid
 import TypeChecker.TCM
 import TypeChecker.TCM.Utils hiding (initScope)
 
-import TypeChecker.Environment
+import TypeChecker.Environment hiding (pushScope, popScope)
 import TypeChecker.Renamer.Utils
 
 import TypeChecker.Types
@@ -48,11 +48,32 @@ renameBlob blob children = do
 
   aliases' ← gets (head . aliases)
 
-  return (Source Map.empty Map.empty variables', aliases')
+  return (Source
+    (fromList (Prelude.map (\f → (ident f, f)) functions'))
+    Map.empty
+    variables'
+
+    , aliases')
 
 
 renameFunction ∷ Function → TCM Function
-renameFunction = undefined
+renameFunction fun = do
+  pushScope
+  pushAlias
+
+  paramVars' ← mapM renameVariable (paramVars fun)
+  parameters' ← mapM renameParam (parameters fun)
+  --statements' ← mapM renameStm (statements fun)
+
+  popAlias
+  popScope
+
+  return fun {
+      functionName = alias fun
+    , paramVars = paramVars'
+    , parameters = parameters'
+  }
+
 
 renameBody ∷ String → [Function] → TCM [Function]
 renameBody = undefined
