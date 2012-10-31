@@ -160,10 +160,17 @@ expandECall (ECall cid es) = do
 expandECall e = mapExpM expandECall e
 
 expandECallForDecl ∷ ForDecl → LM ForDecl
-expandECallForDecl fd = error $ "Not yet expandable: " ++ show fd
+expandECallForDecl (FDecl d) = FDecl <$> expandECallDecl d
+expandECallForDecl (FExp e) = FExp <$> expandECall e
 
 expandECallDecl ∷ Decl → LM Decl
-expandECallDecl d = error $ "Not yet expandable: " ++ show d
+expandECallDecl (Dec qs dp) = Dec qs <$> expandECallDeclPost dp
+expandECallDecl d = error $ "Not expandable: " ++ show d
+
+expandECallDeclPost ∷ DeclPost → LM DeclPost
+expandECallDeclPost dp@(Vars {}) = return dp
+expandECallDeclPost (DecAss cid tk e) = DecAss cid tk <$> expandECall e
+--expandECallDeclPost (DecFun {}) = undefined -- DecFun -> SFunDecl in typechecker.
 
 -- | Appends free variables to the end of parameter list.
 appendFreeVars ∷ [Param] → [String] → LM [Param]
