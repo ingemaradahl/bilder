@@ -41,11 +41,6 @@ renameBlob blob children = do
   variables' ← renameVariables $ Blob.variables blob
   functions' ← mapM renameFunction annotFuns
 
-  {-
-   -functions' ← liftM (mapWithKey renameFunction) (Blob.functions blob) >>= liftM elems >>=
-   -  mapM renameBody
-   -}
-
   aliases' ← gets (head . aliases)
 
   return (Source
@@ -63,7 +58,7 @@ renameFunction fun = do
 
   paramVars' ← mapM renameVariable (paramVars fun)
   parameters' ← mapM renameParam (parameters fun)
-  --statements' ← mapM renameStm (statements fun)
+  statements' ← mapM renameStm (statements fun)
 
   popAlias
   popScope
@@ -72,6 +67,7 @@ renameFunction fun = do
       functionName = alias fun
     , paramVars = paramVars'
     , parameters = parameters'
+    , statements = statements'
   }
 
 
