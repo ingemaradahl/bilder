@@ -14,7 +14,7 @@ import CompilerError
 import Compiler.Utils
 
 -- TODO: Should this be here?
-import TypeChecker.Utils (cIdentToString)
+import TypeChecker.Utils (cIdentToString, paramToString, paramToQuals)
 
 import Control.Arrow (second)
 
@@ -146,6 +146,7 @@ liftInnerFunVars (SIf tk e s) = SIf tk <$> expandECall e <*> liftInnerFunVars s
 liftInnerFunVars (SIfElse tkif e strue tkelse sfalse) =
   SIfElse tkif <$> expandECall e <*> liftInnerFunVars strue <*> pure tkelse <*> liftInnerFunVars sfalse
 liftInnerFunVars (SFunDecl cid rt ps stms) = do
+  sequence_ [ addVarType (paramToString p) ((qualsToType . paramToQuals) p) | p ← ps ]
   stms' ← mapM liftInnerFunVars stms
 
   -- Calculate free variables in the function.
