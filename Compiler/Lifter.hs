@@ -3,7 +3,7 @@
 module Compiler.Lifter where
 
 import Data.Map (Map, toList, fromList, insert, lookup, empty, adjust)
-import Data.Maybe (fromJust)
+import Data.Maybe (fromJust, isNothing, isJust)
 import Control.Monad.State
 import Control.Applicative ((<$>), (<*>), pure)
 
@@ -12,8 +12,11 @@ import qualified TypeChecker.Types as T
 
 import CompilerError
 import Compiler.Utils
+import CompilerTypes
 
-import TypeChecker.Utils (cIdentToString, paramToString, paramToQuals)
+import Text.Printf
+
+import TypeChecker.Utils (cIdentToString, cIdentToPos, paramToString, paramToQuals)
 
 import Control.Arrow (second)
 
@@ -40,7 +43,8 @@ data Environment = Environment {
   source ∷ Source,
   varTypes ∷ Map String Type,
   callExpansions ∷ Map String [String],
-  currentFile ∷ String
+  currentFile ∷ String,
+  warnings ∷ [String]
 }
  deriving (Show)
 
@@ -50,8 +54,12 @@ buildEnv s = Environment {
     source = s,
     varTypes = empty,
     callExpansions = empty,
-    currentFile = ""
+    currentFile = "",
+    warnings = []
   }
+
+warning ∷ String → LM ()
+warning s = modify (\st → st { warnings = warnings st ++ [s] })
 
 sourceFunctions ∷ LM (Map String T.Function)
 sourceFunctions = gets source >>= \s → return $ functions s
@@ -224,7 +232,9 @@ funLifter (SBlock ss:rest) = do
   ss' ← funLifter ss
   rest' ← funLifter rest
   case ss' of
-    [] → return rest'
+    [] → do
+      mapM_ (unusedFunDecl . fromJust) ((filter isJust . map findSFunDecl) ss)
+      return rest'
     _  → return $ SBlock ss':rest'
 funLifter (s:ss) = do
   s' ← liftSFunDecl s
@@ -233,26 +243,61 @@ funLifter (s:ss) = do
     Just stm → return (stm:ss')
     Nothing  → return ss'
 
+unusedFunDecl ∷ Stm → LM ()
+unusedFunDecl stm =
+  warning $ printf "Unused function declaration of %s at line %s and column %s"
+    (sFunDeclToName stm)
+    (show line)
+    (show col)
+ where
+  (line, col) = sFunDeclToPos stm
+
+findSFunDecl ∷ Stm → Maybe Stm
+findSFunDecl (SBlock ss) =
+  case map findSFunDecl ss of
+    []  → Nothing
+    ss' → head $ filter isJust ss'
+findSFunDecl (SWhile _ _ s) = findSFunDecl s
+findSFunDecl (SDoWhile _ s _ _) = findSFunDecl s
+findSFunDecl (SFor _ _ _ _ s) = findSFunDecl s
+findSFunDecl (SIf _ _ s) = findSFunDecl s
+findSFunDecl (SIfElse _ _ st _ sf) =
+  case map findSFunDecl [st,sf] of
+    []  → Nothing
+    ss' → head $ filter isJust ss'
+findSFunDecl (SType _ s) = findSFunDecl s
+findSFunDecl s@(SFunDecl {}) = Just s
+
+sFunDeclToPos ∷ Stm → Position
+sFunDeclToPos (SFunDecl cid _ _ _) = cIdentToPos cid
+sFunDeclToPos s = maybe (0,0) sFunDeclToPos (findSFunDecl s)
+
+sFunDeclToName ∷ Stm → String
+sFunDeclToName (SFunDecl cid _ _ _) = cIdentToString cid
+sFunDeclToName s = maybe "N/A" sFunDeclToName (findSFunDecl s)
+
 liftSFunDecl ∷ Stm → LM (Maybe Stm)
 liftSFunDecl (SWhile tk e s) = do
-  -- TODO: Insert warning when SWhile get's thrown away.
   s' ← liftSFunDecl s
+  when (isNothing s') $ unusedFunDecl s
   return $ maybe Nothing (return . SWhile tk e) s'
 liftSFunDecl (SDoWhile tkd s tkw e) = do
-  -- TODO: Insert warning when SDoWhile get's thrown away.
   s' ← liftSFunDecl s
+  when (isNothing s') $ unusedFunDecl s
   return $ maybe Nothing (\stm → return $ SDoWhile tkd stm tkw e) s'
 liftSFunDecl (SFor tk fd econs eloop s) = do
-  -- TODO: Insert warning when SFor get's thrown away.
   s' ← liftSFunDecl s
+  when (isNothing s') $ unusedFunDecl s
   return $ maybe Nothing (return . SFor tk fd econs eloop) s'
 liftSFunDecl (SIf tk e s) = do
-  -- TODO: Insert warning when SIf get's thrown away.
   s' ← liftSFunDecl s
+  when (isNothing s') $ unusedFunDecl s
   return $ maybe Nothing (return . SIf tk e) s'
 liftSFunDecl (SIfElse tki e strue tke sfalse) = do
   strue' ← liftSFunDecl strue
+  when (isNothing strue') $ unusedFunDecl strue
   sfalse' ← liftSFunDecl sfalse
+  when (isNothing sfalse') $ unusedFunDecl sfalse
   case sfalse' of
     Nothing →
       case strue' of
@@ -266,6 +311,7 @@ liftSFunDecl (SIfElse tki e strue tke sfalse) = do
   negSIf = SIf tki (ENegSign (TkNegSign ((0,0),"!")) e)
 liftSFunDecl (SType t s) = do
   s' ← liftSFunDecl s
+  when (isNothing s') $ unusedFunDecl s
   return $ maybe Nothing (return . SType t) s'
 liftSFunDecl (SFunDecl cid rt ps stms) = do
   -- lift inner inner functions first.
