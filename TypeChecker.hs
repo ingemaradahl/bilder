@@ -22,7 +22,7 @@ import TypeChecker.TCM.Errors
 import TypeChecker.TCM.Utils
 
 import TypeChecker.Inferring
-import TypeChecker.Renamer (rename)
+import TypeChecker.Renamer (rename, strip)
 
 import TypeChecker.Utils
 import TypeChecker.Environment hiding (pushScope, popScope)
@@ -43,17 +43,17 @@ import CompilerError
 typeCheck ∷ Options → Tree (FilePath, AbsTree) → CError ([Warning],Source)
 typeCheck opts tree = do
   (sourceTree, st) ← runStateT
-    (traverse checkFile tree >>= traverse rename) (buildEnv opts)
-  --unless (rootLabel sourceTree `exports` main) noEntryPoint
-  return (warnings st, fold (fmap fst sourceTree))
+    (traverse checkFile tree >>= (\t → check t >> traverse rename t)) (buildEnv opts)
+  return (warnings st, fold (fmap strip sourceTree))
  where
+  check srcTree = unless (rootLabel srcTree `exports` main) noEntryPoint
   rootFile = (fst . rootLabel) tree
   loc = (rootFile,(-1,-1))
   main = Types.Function "main" "" loc TVec4 [x,y] [] []
   x = Variable "x" loc TFloat
   y = Variable "y" loc TFloat
-  noEntryPoint ∷ CError a
-  noEntryPoint = Fail $ TypeError (-1,-1) rootFile $
+  noEntryPoint ∷ TCM a
+  noEntryPoint = typeError (-1,-1) $
     printf ("No entrypoint \"main\" of " ++
       "type Float,Float found in %s")
       rootFile

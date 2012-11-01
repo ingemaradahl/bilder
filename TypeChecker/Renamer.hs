@@ -6,11 +6,14 @@ import Control.Applicative
 import Control.Monad.State hiding (mapM)
 
 import Data.Tree
-import Data.Map as Map hiding (fold, map)
+import Data.Map as Map hiding (fold)
 import Data.Monoid
+
+import Utils
 
 import TypeChecker.TCM
 import TypeChecker.TCM.Utils hiding (initScope)
+import TypeChecker.TCM.Errors
 
 import TypeChecker.Utils
 import TypeChecker.Inferring
@@ -26,22 +29,35 @@ import Compiler.Utils
 
 import FrontEnd.AbsGrammar
 
-rename ∷ Blob → [Tree (Source, Aliases)] → TCM (Source, Aliases)
+fst3 ∷ (a,b,c) → a
+fst3 (x,_,_) = x
+
+snd3 ∷ (a,b,c) → b
+snd3 (_,x,_) = x
+
+trd3 ∷ (a,b,c) → c
+trd3 (_,_,x) = x
+
+rename ∷ Blob → [Tree (Source, Blob, Aliases)] → TCM (Source, Blob, Aliases)
 rename b ss = do
   done ← gets renamed
   if filename b `elem` done
-    then return (mempty :: Source, Map.empty)
+    then return (mempty :: Source, b, Map.empty)
     else renameBlob b ss
 
-renameBlob ∷ Blob → [Tree (Source, Aliases)] → TCM (Source, Aliases)
+strip ∷ (Source, Blob, Aliases) → Source
+strip = fst3
+
+renameBlob ∷ Blob → [Tree (Source, Blob, Aliases)] → TCM (Source, Blob, Aliases)
 renameBlob blob children = do
   clearScope
 
   -- Insert aliases from children
-  modify (\st → st { aliases = [Map.unions $ Prelude.map (snd . rootLabel) children] })
+  modify (\st → st { aliases = [Map.unions $ Prelude.map (trd3 . rootLabel) children] })
 
   -- Populate Scope
-  mapM_ (addSource . fst . rootLabel) children
+  mapM_ (mergeTypedefs . Blob.typedefs . snd3 . rootLabel) children
+  mapM_ (addSource . fst3 . rootLabel) children
   annotFuns ← mapM annotateFunction $ concat $ elems (Blob.functions blob)
   mapM_ addFunction annotFuns
 
@@ -51,9 +67,12 @@ renameBlob blob children = do
   aliases' ← gets (head . aliases)
 
   return (Source
-    (fromList (Prelude.map (\f → (ident f, f)) functions'))
-    Map.empty
+    (fromList (Prelude.map (\f → (alias f, f { functionName = alias f})) functions'))
+    Map.empty -- typedefs
     variables'
+    ,
+
+    blob
 
     , aliases')
 
@@ -83,9 +102,13 @@ renameVariables vars = do
   vars' ← mapM (renameVariable . snd) (toList vars)
   return $ fromList $ Prelude.map (\v → (ident v, v)) vars'
 
+addToScope ∷ Decl → TCM ()
+addToScope (Dec qs post) = do
+  t ← verifyQualsType qs >>= filterTDef
+  sequence_ [ addCIdentVariable cid t | cid ← declPostIdents post]
 
 renameStm ∷ Stm → TCM Stm
-renameStm (SDecl dec) = SDecl <$> renameDecl dec
+renameStm (SDecl dec) = addToScope dec >> SDecl <$> renameDecl dec
 renameStm (SExp e) = SExp <$> renameExp e
 renameStm (SBlock ss) = SBlock <$> mapM renameStm ss
 renameStm (SWhile tk e s) = SWhile tk <$> renameExp e <*> renameStm s
@@ -93,6 +116,7 @@ renameStm (SDoWhile tkdo s tkwh e) = SDoWhile tkdo <$> renameStm s <*>
   pure tkwh <*> renameExp e
 renameStm (SFor tk decls esl esr s) = SFor tk <$> mapM renameForDecl decls <*>
   mapM renameExp esl <*> mapM renameExp esr <*> renameStm s
+renameStm (SReturn t e) = SReturn t <$> renameExp e
 renameStm (SIf tk e s) = SIf tk <$> renameExp e <*> renameStm s
 renameStm (SIfElse tki e st tke sf) = SIfElse tki <$> renameExp e <*>
   renameStm st <*> pure tke <*> renameStm sf
@@ -100,7 +124,7 @@ renameStm (SType t s) = SType t <$> renameStm s
 renameStm (SFunDecl cid t ps ss) = do
   ps' ← mapM paramToVar ps
   file ← gets currentFile
-  addCIdentVariable cid (TFun t (map varType ps'))
+  addCIdentVariable cid (TFun t (Prelude.map varType ps'))
 
   fun ← annotateFunction Types.Function {
       functionName = cIdentToString cid
@@ -121,7 +145,13 @@ renameStm s = mapStmM renameStm s
 
 renameExp ∷ Exp → TCM Exp
 renameExp (EVar cid) = EVar <$> renameCIdent cid
-renameExp (ECall cid e) = ECall <$> renameCIdent cid <*> mapM renameExp e-- FIND CORRECT THINGY
+renameExp (ECall cid es) = do
+  args ← mapM inferExp es
+  funs ← lookupFunction (cIdentToString cid)
+  es' ← mapM renameExp es
+  case tryApply funs args ¿ tryUncurry funs args of
+    Just fun → return $ ECall (newCIdent cid (alias fun)) es'
+    Nothing  → compileError (cIdentToPos cid) $ "Unable to find function" ++ cIdentToString cid
 renameExp e =  mapExpM renameExp e
 
 renameVariable ∷ Variable → TCM Variable
@@ -142,10 +172,15 @@ renameForDecl (FDecl dec) = FDecl <$> renameDecl dec
 renameForDecl (FExp e) = FExp <$> renameExp e
 
 renameDeclPost ∷ DeclPost → TCM DeclPost
-renameDeclPost (Vars cids) = Vars <$> mapM newCIdAlias cids
+renameDeclPost (Vars cids) = do
+  -- add to scope so that inferExp gets it :(
+  Vars <$> mapM newCIdAlias cids
 renameDeclPost (DecAss cids tk e) = DecAss <$> mapM newCIdAlias cids <*>
   pure tk <*> renameExp e
 renameDeclPost (DecFun {}) = error "Should not happen :("
 
 renameCIdent ∷ CIdent → TCM CIdent
 renameCIdent (CIdent (pos, s)) = CIdent <$> ((,) <$> pure pos <*> lookupAlias'' s pos)
+
+newCIdent ∷ CIdent → String → CIdent
+newCIdent (CIdent (pos, _)) s = CIdent (pos, s)

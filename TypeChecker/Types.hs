@@ -4,6 +4,7 @@ module TypeChecker.Types where
 
 import CompilerTypes
 import FrontEnd.AbsGrammar
+import FrontEnd.PrintGrammar
 
 import Data.Map (Map, empty, union)
 import Data.List (intercalate)
@@ -38,10 +39,12 @@ instance Eq Function where
              map varType (paramVars fa) == map varType (paramVars fb)
 
 instance Show Function where
-  show (TypeChecker.Types.Function name _ _ ret params _ _) = printf "%s :: %s -> %s"
+  show (TypeChecker.Types.Function name _ _ ret params pars ss) = printf "%s :: %s -> %s\n -- Parameters ------------------\n%s\n -- Function body --------------\n%s\n\n"
     name
     (intercalate " -> " $ map (show . varType) params)
     (show ret)
+    (concatMap printTree pars)
+    (concatMap printTree ss)
 
 data Struct = Struct {
     structName ∷ String

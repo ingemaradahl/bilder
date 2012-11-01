@@ -123,8 +123,8 @@ uncurryType t = t
 
 -- Try to find a match for applying the set of arguments to a function in the
 -- given list.
-tryApply ∷ [Function] → [Type] → Maybe Type
-tryApply funs args = if null matches
+tryApplyType ∷ [Function] → [Type] → Maybe Type
+tryApplyType funs args = if null matches
   then Nothing
   else do
     -- Apply as many arguments as possible (shortest list left after application)
@@ -136,15 +136,28 @@ tryApply funs args = if null matches
   matches = map (second fromJust) $
               filter (isJust . snd) $ zip funs (map (`partialApp` args) funs)
 
+tryApply ∷ [Function] → [Type] → Maybe Function
+tryApply funs args = if null matches
+  then Nothing
+  else do
+    -- Apply as many arguments as possible (shortest list left after application)
+    let (fun, _) = head $ sortWith snd matches
+    Just fun -- No indication of partial application
+ where
+  matches = map (second fromJust) $
+              filter (isJust . snd) $ zip funs (map (`partialApp` args) funs)
 -- Try to find a match where uncurrying the vector in the list might help with
 -- finding a match in the list of functions.
-tryUncurry ∷ [Function] → [Type] → Maybe Type
+tryUncurryType ∷ [Function] → [Type] → Maybe Type
+tryUncurryType fs ts = fmap retType (tryUncurry fs ts)
+
+tryUncurry ∷ [Function] → [Type] → Maybe Function
 tryUncurry funs (t:[]) | isVec t = tryUncurry' funs
                        | otherwise = Nothing
  where
-  tryUncurry' ∷ [Function] → Maybe Type
+  tryUncurry' ∷ [Function] → Maybe Function
   tryUncurry' (f:fs) = if all isNum (map varType (paramVars f)) && length (map varType (paramVars f)) == vecLength t
-    then Just $ retType f
+    then Just f
     else tryUncurry' fs
   tryUncurry' [] = Nothing
 tryUncurry _ _ = Nothing

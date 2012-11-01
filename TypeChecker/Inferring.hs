@@ -53,7 +53,7 @@ inferExp (EAssAdd v@(EVar {}) tk e) = do
 inferExp (ECall cid es) = do
   args ← mapM inferExp es
   funs ← lookupFunction (cIdentToString cid)
-  case tryApply funs args ¿ tryUncurry funs args of
+  case tryApplyType funs args ¿ tryUncurryType funs args of
     Just fun → return fun
     Nothing  → noFunctionFound cid args
 inferExp (ETypeCall t es) = do
