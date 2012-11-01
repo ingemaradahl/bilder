@@ -98,6 +98,7 @@ checkFunctions = do
 -- | Checks a function for type errors, and returns the annotated function
 checkFunction ∷ Function → TCM Function
 checkFunction fun = do
+  oldfun ← gets currentFunction
   pushScope
   updateFunction fun
 
@@ -113,6 +114,7 @@ checkFunction fun = do
   unless (checkReturns statements') $ noReturnError fun
 
   popScope
+  updateFunction oldfun
   return fun { statements = statements' }
 
 -- }}}

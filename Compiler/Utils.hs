@@ -11,7 +11,7 @@ import TypeChecker.Utils (cIdentToString, paramToString)
 
 
 -- | Finds all declared (inner) functions.
-findInnerFuns ∷ [Stm] → [(String, [Param], [Stm])]
+findInnerFuns ∷ [Stm] → [AbsFun]
 findInnerFuns [] = []
 findInnerFuns (SFunDecl cid _ ps stms:rest) =
   (cIdentToString cid, ps, stms) : findInnerFuns rest ++ findInnerFuns stms
@@ -29,88 +29,83 @@ declPostToName (DecAss cids _ _) = map cIdentToString cids
 -- DecFun is replaced with SFunDecl in the typechecker.
 --declPostToName (DecFun {}) = []
 
--- Free Variables {{{
--- | Find all free variables in a function.
-freeFunctionVars ∷ (String, [Param], [Stm]) → [String]
-freeFunctionVars (_, ps, stms) = snd $ foldl stmVars (bound, []) stms
- where
-  bound = map paramToString ps -- TODO: Add global variables.
+-- Exp and Stm folding and mapping {{{
+foldExpM ∷ Monad m => (a → Exp → m a) → a → Exp → m a
+foldExpM f p e@(EAss el _ er) = foldM (foldExpM f) p [el,er] >>= flip f e
+foldExpM f p e@(EAssAdd el _ er) = foldM (foldExpM f) p [el,er] >>= flip f e
+foldExpM f p e@(EAssSub el _ er) = foldM (foldExpM f) p [el,er] >>= flip f e
+foldExpM f p e@(EAssMul el _ er) = foldM (foldExpM f) p [el,er] >>= flip f e
+foldExpM f p e@(EAssDiv el _ er) = foldM (foldExpM f) p [el,er] >>= flip f e
+foldExpM f p e@(EAssMod el _ er) = foldM (foldExpM f) p [el,er] >>= flip f e
+foldExpM f p e@(EAssBWAnd el _ er) = foldM (foldExpM f) p [el,er] >>= flip f e
+foldExpM f p e@(EAssBWXOR el _ er) = foldM (foldExpM f) p [el,er] >>= flip f e
+foldExpM f p e@(EAssBWOR el _ er) = foldM (foldExpM f) p [el,er] >>= flip f e
+foldExpM f p e@(ECond econd _ etrue _ efalse) =
+  foldM (foldExpM f) p [econd,etrue,efalse] >>= flip f e
+foldExpM f p e@(EOR el _ er) = foldM (foldExpM f) p [el,er] >>= flip f e
+foldExpM f p e@(EXOR el _ er) = foldM (foldExpM f) p [el,er] >>= flip f e
+foldExpM f p e@(EAnd el _ er) = foldM (foldExpM f) p [el,er] >>= flip f e
+foldExpM f p e@(EBWOR el _ er) = foldM (foldExpM f) p [el,er] >>= flip f e
+foldExpM f p e@(EBWXOR el _ er) = foldM (foldExpM f) p [el,er] >>= flip f e
+foldExpM f p e@(EBWAnd el _ er) = foldM (foldExpM f) p [el,er] >>= flip f e
+foldExpM f p e@(EEqual el _ er) = foldM (foldExpM f) p [el,er] >>= flip f e
+foldExpM f p e@(ENEqual el _ er) = foldM (foldExpM f) p [el,er] >>= flip f e
+foldExpM f p e@(ELt el _ er) = foldM (foldExpM f) p [el,er] >>= flip f e
+foldExpM f p e@(EGt el _ er) = foldM (foldExpM f) p [el,er] >>= flip f e
+foldExpM f p e@(ELEt el _ er) = foldM (foldExpM f) p [el,er] >>= flip f e
+foldExpM f p e@(EGEt el _ er) = foldM (foldExpM f) p [el,er] >>= flip f e
+foldExpM f p e@(EBWShiftLeft el _ er) = foldM (foldExpM f) p [el,er] >>= flip f e
+foldExpM f p e@(EBWShiftRight el _ er) = foldM (foldExpM f) p [el,er] >>= flip f e
+foldExpM f p e@(EAdd el _ er) = foldM (foldExpM f) p [el,er] >>= flip f e
+foldExpM f p e@(ESub el _ er) = foldM (foldExpM f) p [el,er] >>= flip f e
+foldExpM f p e@(EMul el _ er) = foldM (foldExpM f) p [el,er] >>= flip f e
+foldExpM f p e@(EDiv el _ er) = foldM (foldExpM f) p [el,er] >>= flip f e
+foldExpM f p e@(EMod el _ er) = foldM (foldExpM f) p [el,er] >>= flip f e
+foldExpM f p e@(ENeg _ ei) = foldExpM f p ei >>= flip f e
+foldExpM f p e@(ENegSign _ ei) = foldExpM f p ei >>= flip f e
+foldExpM f p e@(EComplement _ ei) = foldExpM f p ei >>= flip f e
+foldExpM f p e@(EPos _ ei) = foldExpM f p ei >>= flip f e
+foldExpM f p e@(EPreInc _ ei) = foldExpM f p ei >>= flip f e
+foldExpM f p e@(EPreDec _ ei) = foldExpM f p ei >>= flip f e
+foldExpM f p e@(EPostInc ei _) = foldExpM f p ei >>= flip f e
+foldExpM f p e@(EPostDec ei _) = foldExpM f p ei >>= flip f e
+foldExpM f p e@(EMember ei _) = foldExpM f p ei >>= flip f e
+foldExpM f p e@(EMemberCall ei _ es) = foldM (foldExpM f) p (ei:es) >>= flip f e
+foldExpM f p e@(ECall _ es) = foldM (foldExpM f) p es >>= flip f e
+foldExpM f p e@(ETypeCall _ es) = foldM (foldExpM f) p es >>= flip f e
+foldExpM f p e@(EVar {}) = f p e
+foldExpM f p e@(EIndex _ ei) = foldExpM f p ei >>= flip f e
+foldExpM f p e@(EFloat {}) = f p e
+foldExpM f p e@(EInt {}) = f p e
+foldExpM f p e@ETrue = f p e
+foldExpM f p e@EFalse = f p e
 
--- | Calculates a statements bound and free variables
---   (given already known bound and free variables)
-stmVars ∷ ([String], [String]) → Stm → ([String], [String])
-stmVars (b, f) (SDecl d) = (declToName d ++ b, f)
-stmVars (b, f) (SExp e) = (b, f ++ filterBound b (expVars e))
-stmVars (b, f) (SReturn _ e) = (b, f ++ filterBound b (expVars e))
-stmVars vs (SVoidReturn _) = vs
-stmVars (b, f) (SIf _ e stm) = (b'', f ++ f' ++ filterBound b'' (expVars e))
- where
-  (b', f') = stmVars (b, f) stm
-  b'' = b ++ b'
-stmVars (b, f) (SIfElse _ econd strue _ sfalse) =
-  (b', f ++ ftrue ++ ffalse ++ filterBound b' (expVars econd))
- where
-  (btrue, ftrue) = stmVars (b, f) strue
-  (bfalse, ffalse) = stmVars (b, f) sfalse
-  b' = b ++ btrue ++ bfalse -- This is OK because of unique names.
-stmVars vs (SType _ stm) = stmVars vs stm
-stmVars vs (SFunDecl {}) = vs
-stmVars _ stm = error $ "UNHANDLED " ++ show stm
+foldExp ∷ (a → Exp → a) → a → Exp → a
+foldExp f p e = runIdentity (foldExpM (liftIdentity f) p e)
 
--- | Known bound variables → Variables → Free variables
-filterBound ∷ [String] → [String] → [String]
-filterBound bound = filter (not . (`elem` bound))
+foldStmM ∷ Monad m => (a → Stm → m a) → a → Stm → m a
+foldStmM f p s@(SDecl {}) = f p s
+foldStmM f p s@(SExp {}) = f p s
+foldStmM f p s@(SBlock iss) = foldM (foldStmM f) p iss >>= flip f s
+foldStmM f p s@(SWhile _ _ is) = foldStmM f p is >>= flip f s
+foldStmM f p s@(SDoWhile _ is _ _) = foldStmM f p is >>= flip f s
+foldStmM f p s@(SFor _ _ _ _ is) = foldStmM f p is >>= flip f s
+foldStmM f p s@(SReturn {}) = f p s
+foldStmM f p s@(SVoidReturn {}) = f p s
+foldStmM f p s@(SIf _ _ is) = foldStmM f p is >>= flip f s
+foldStmM f p s@(SIfElse _ _ istrue _ isfalse) =
+  foldM (foldStmM f) p [istrue,isfalse] >>= flip f s
+foldStmM f p s@(SBreak {}) = f p s
+foldStmM f p s@(SContinue {}) = f p s
+foldStmM f p s@(SDiscard {}) = f p s
+foldStmM f p s@(SType _ is) = foldStmM f p is >>= flip f s
+foldStmM f p s@(SFunDecl _ _ _ iss) = foldM (foldStmM f) p iss >>= flip f s
 
--- | Find all referenced variables in an expression.
-expVars ∷ Exp → [String]
-expVars (EAss el _ er) = concatMap expVars [el, er]
-expVars (EAssAdd el _ er) = concatMap expVars [el, er]
-expVars (EAssSub el _ er) = concatMap expVars [el, er]
-expVars (EAssMul el _ er) = concatMap expVars [el, er]
-expVars (EAssDiv el _ er) = concatMap expVars [el, er]
-expVars (EAssMod el _ er) = concatMap expVars [el, er]
-expVars (EAssBWAnd el _ er) = concatMap expVars [el, er]
-expVars (EAssBWXOR el _ er) = concatMap expVars [el, er]
-expVars (EAssBWOR el _ er) = concatMap expVars [el, er]
-expVars (ECond ec _ et _ ef) = concatMap expVars [ec, et, ef]
-expVars (EOR el _ er) = concatMap expVars [el, er]
-expVars (EXOR el _ er) = concatMap expVars [el, er]
-expVars (EAnd el _ er) = concatMap expVars [el, er]
-expVars (EBWOR el _ er) = concatMap expVars [el, er]
-expVars (EBWXOR el _ er) = concatMap expVars [el, er]
-expVars (EBWAnd el _ er) = concatMap expVars [el, er]
-expVars (EEqual el _ er) = concatMap expVars [el, er]
-expVars (ENEqual el _ er) = concatMap expVars [el, er]
-expVars (ELt el _ er) = concatMap expVars [el, er]
-expVars (EGt el _ er) = concatMap expVars [el, er]
-expVars (ELEt el _ er) = concatMap expVars [el, er]
-expVars (EGEt el _ er) = concatMap expVars [el, er]
-expVars (EBWShiftLeft el _ er) = concatMap expVars [el, er]
-expVars (EBWShiftRight el _ er) = concatMap expVars [el, er]
-expVars (EAdd el _ er) = concatMap expVars [el, er]
-expVars (ESub el _ er) = concatMap expVars [el, er]
-expVars (EMul el _ er) = concatMap expVars [el, er]
-expVars (EDiv el _ er) = concatMap expVars [el, er]
-expVars (EMod el _ er) = concatMap expVars [el, er]
-expVars (ENeg _ e) = expVars e
-expVars (ENegSign _ e) = expVars e
-expVars (EComplement _ e) = expVars e
-expVars (EPos _ e) = expVars e
-expVars (EPreInc _ e) = expVars e
-expVars (EPreDec _ e) = expVars e
-expVars (EPostInc e _) = expVars e
-expVars (EPostDec e _) = expVars e
-expVars (EMember e _) = expVars e
-expVars (EMemberCall e _ es) = expVars e ++ concatMap expVars es
-expVars (ECall _ es) = concatMap expVars es
-expVars (ETypeCall _ es) = concatMap expVars es
-expVars (EVar cid) = [cIdentToString cid]
-expVars (EIndex cid e) = cIdentToString cid : expVars e
-expVars (EFloat {}) = []
-expVars (EInt {}) = []
-expVars (ETrue) = []
-expVars (EFalse) = []
--- }}}
+foldStm ∷ (a → Stm → a) → a → Stm → a
+foldStm f p s = runIdentity (foldStmM (liftIdentity f) p s)
+
+liftIdentity ∷ (a → b → a) → a → b → Identity a
+liftIdentity f' p' s' = Identity (f' p' s')
 
 mapExpM ∷ (Monad m, Applicative m) => (Exp → m Exp) → Exp → m Exp
 mapExpM f (EAss el tk er) = EAss <$> f el <*> pure tk <*> f er
@@ -189,5 +184,54 @@ mapStm f s = runIdentity $ mapStmM f' s
  where
   f' ∷ Stm → Identity Stm
   f' stm = return $ f stm
+-- }}}
+-- Free Variables {{{
+-- TODO: Move this to Compiler/Types.hs
+type AbsFun = (String, [Param], [Stm])
+
+-- | Find all free variables in a function.
+freeFunctionVars ∷ [String] → AbsFun → [String]
+freeFunctionVars global (_, ps, stms) = snd $ foldl stmVars (bound, []) stms
+ where
+  bound = global ++ map paramToString ps
+
+-- | Calculates a statements bound and free variables
+--   (given already known bound and free variables)
+stmVars ∷ ([String], [String]) → Stm → ([String], [String])
+stmVars (b, f) (SDecl d) = (declToName d ++ b, f)
+stmVars (b, f) (SExp e) = (b, f ++ filterBound b (expVars e))
+stmVars vs (SBlock stms) = foldl stmVars vs stms
+stmVars vs (SWhile _ e s) = (b, f ++ filterBound b (expVars e))
+ where
+  (b, f) = stmVars vs s -- Order does not matter because of unique names
+stmVars (b, f) (SReturn _ e) = (b, f ++ filterBound b (expVars e))
+stmVars vs (SVoidReturn _) = vs
+stmVars (b, f) (SIf _ e stm) = (b'', f ++ f' ++ filterBound b'' (expVars e))
+ where
+  (b', f') = stmVars (b, f) stm
+  b'' = b ++ b'
+stmVars (b, f) (SIfElse _ econd strue _ sfalse) =
+  (b', f ++ ftrue ++ ffalse ++ filterBound b' (expVars econd))
+ where
+  (btrue, ftrue) = stmVars (b, f) strue
+  (bfalse, ffalse) = stmVars (b, f) sfalse
+  b' = b ++ btrue ++ bfalse -- This is OK because of unique names.
+stmVars vs (SType _ stm) = stmVars vs stm
+stmVars vs (SFunDecl {}) = vs
+stmVars _ stm = error $ "UNHANDLED " ++ show stm
+
+-- | Known bound variables → Variables → Free variables
+filterBound ∷ [String] → [String] → [String]
+filterBound bound = filter (not . (`elem` bound))
+
+-- | Find all referenced variables in an expression.
+expVars ∷ Exp → [String]
+expVars = foldExp expVar []
+ where
+  expVar ∷ [String] → Exp → [String]
+  expVar p (EVar cid) = cIdentToString cid : p
+  expVar p (EIndex cid _) = cIdentToString cid : p
+  expVar p _ = p
+-- }}}
 
 -- vi:fdm=marker
