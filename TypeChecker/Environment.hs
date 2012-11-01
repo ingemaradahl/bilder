@@ -56,11 +56,12 @@ popScope env = env { scopes = tail $ scopes env }
 -- Show environment {{{
 -- Below is various show functions, used for displaying the state
 instance Show Environment where
- show env = printf "Warnings:\n%s\nType definitions: %s\nFunctions: %s\nVariables:%s"
+ show env = printf "Warnings:\n%s\nType definitions: %s\nFunctions: %s\nVariables:%s\nAliases:%s"
    (intercalate "\n" (map show (warnings env)))
    (showTypes $ reverse (scopes env))
    (showFuns $ reverse (scopes env))
    (showVars $ reverse (scopes env))
+   (show (aliases env))
 
 showTypes ∷ [Scope.Scope] → String
 showTypes scs = showTypes' scs 0
@@ -121,3 +122,4 @@ showVarsLevel vars l = newline ++ intercalate newline (map showVar vars)
 showVar ∷ Variable → String
 showVar var = printf "%s: %s" (ident var) (show $ varType var)
 -- }}}
+-- vi:fdm=marker

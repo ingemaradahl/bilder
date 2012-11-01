@@ -65,6 +65,9 @@ declPostIdents ∷ DeclPost → [CIdent]
 declPostIdents (Vars i) = i
 declPostIdents (DecAss i _ _) = i
 
+toCIdent ∷ Global a => a → CIdent
+toCIdent v = CIdent (position v, ident v)
+
 stmPos ∷ Stm → Position
 stmPos (SWhile t _ _) = tkpos t
 stmPos (SDoWhile t _ _ _) = tkpos t

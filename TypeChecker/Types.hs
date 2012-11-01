@@ -15,6 +15,8 @@ class Global a where
   location ∷ a → Location
   position ∷ a → Position
   position = snd . location
+  locfile ∷ a → FilePath
+  locfile = fst . location
 
 data Function = Function {
     functionName ∷ String

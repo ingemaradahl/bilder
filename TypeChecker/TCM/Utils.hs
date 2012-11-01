@@ -89,9 +89,10 @@ addVariable var = do
 
 -- | Add a variable to the current scope, using currentFile from the state
 addCIdentVariable ∷ CIdent → Type → TCM ()
-addCIdentVariable cid t = do
-  file ← gets currentFile
-  addVariable $ Variable n (file,p) t
+addCIdentVariable cid t = cIdentToVariable cid t >>= addVariable
+
+cIdentToVariable ∷ CIdent → Type → TCM Variable
+cIdentToVariable cid t = Variable n <$> ((,) <$> gets currentFile <*> pure p) <*> pure t
  where
   n = cIdentToString cid
   p = cIdentToPos cid
