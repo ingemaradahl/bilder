@@ -159,7 +159,8 @@ renameVariable (Variable name loc typ) = Variable <$> newAlias name <*>
   pure loc <*> pure typ
 
 renameParam ∷ Param → TCM Param
-renameParam (ParamDec qs cid) = ParamDec <$> pure qs <*> renameCIdent cid
+renameParam (ParamDec qs cid) = verifyQualsType qs >>= filterTDef >>=
+  addCIdentVariable cid >> ParamDec <$> pure qs <*> renameCIdent cid
 renameParam (ParamDefault qs cid tk e) = ParamDefault <$> pure qs <*>
   renameCIdent cid <*> pure tk <*> renameExp e
 
@@ -172,9 +173,7 @@ renameForDecl (FDecl dec) = FDecl <$> renameDecl dec
 renameForDecl (FExp e) = FExp <$> renameExp e
 
 renameDeclPost ∷ DeclPost → TCM DeclPost
-renameDeclPost (Vars cids) = do
-  -- add to scope so that inferExp gets it :(
-  Vars <$> mapM newCIdAlias cids
+renameDeclPost (Vars cids) = Vars <$> mapM newCIdAlias cids
 renameDeclPost (DecAss cids tk e) = DecAss <$> mapM newCIdAlias cids <*>
   pure tk <*> renameExp e
 renameDeclPost (DecFun {}) = error "Should not happen :("
