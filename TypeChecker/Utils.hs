@@ -9,52 +9,16 @@ import Control.Arrow (second)
 
 import Data.Map (lookup)
 import Data.Maybe (isJust, fromJust)
-import Data.Tree
 import GHC.Exts (sortWith)
 
+import Utils
 import CompilerTypes
 import FrontEnd.AbsGrammar
 import FrontEnd.Instances
 import TypeChecker.Types
+import TypeChecker.Types.Blob
 -- }}}
 
--- Generic helper functions {{{
-class Mongoid a where
-  (¿) ∷ a → a → a
-
-instance Mongoid (Maybe a) where
-  Nothing ¿ perhaps = perhaps
-  Just v  ¿ _       = Just v
-
-mayhaps ∷ Bool → a → Maybe a
-mayhaps True  v = Just v
-mayhaps False _ = Nothing
-
-duplicates ∷ Eq a => [a] → [a]
-duplicates [] = []
-duplicates (x:xs)
-  | x `elem` xs = x:duplicates (filter (/= x) xs)
-  | otherwise   = duplicates xs
-
-duplicatesWith ∷ (a → a → Bool) → [a] → [a]
-duplicatesWith _ [] = []
-duplicatesWith f (x:xs)
- | elemBy f x xs = x:duplicatesWith f (filter (not . f x) xs)
- | otherwise     = duplicatesWith f xs
-
-elemBy ∷ (a → a → Bool) → a → [a] → Bool
-elemBy _ _ [] = False
-elemBy f y (x:xs)
- | f y x = True
- | otherwise = elemBy f y xs
-
-traverse ∷ Monad m => (a → [Tree b] → m b) → Tree a → m (Tree b)
-traverse f (Node r bs) = do
-  sub ← mapM (traverse f) bs
-  root ← f r sub
-  return $ Node root sub
-
--- }}}
 -- Conversions {{{
 paramQualifiers ∷ Param → [Qualifier]
 paramQualifiers (ParamDec qs _) = qs
@@ -101,6 +65,9 @@ declPostIdents ∷ DeclPost → [CIdent]
 declPostIdents (Vars i) = i
 declPostIdents (DecAss i _ _) = i
 
+toCIdent ∷ Global a => a → CIdent
+toCIdent v = CIdent (position v, ident v)
+
 stmPos ∷ Stm → Position
 stmPos (SWhile t _ _) = tkpos t
 stmPos (SDoWhile t _ _ _) = tkpos t
@@ -133,6 +100,7 @@ partialApp f args = partial args $ map varType $ paramVars f
 buildAnonFunc ∷ String → Location → Type → [Type] → Function
 buildAnonFunc name loc ret args = TypeChecker.Types.Function {
     functionName = name,
+    alias = "",
     functionLocation = loc,
     retType = ret,
     paramVars = map buildAnonVar args,
@@ -155,8 +123,8 @@ uncurryType t = t
 
 -- Try to find a match for applying the set of arguments to a function in the
 -- given list.
-tryApply ∷ [Function] → [Type] → Maybe Type
-tryApply funs args = if null matches
+tryApplyType ∷ [Function] → [Type] → Maybe Type
+tryApplyType funs args = if null matches
   then Nothing
   else do
     -- Apply as many arguments as possible (shortest list left after application)
@@ -168,15 +136,28 @@ tryApply funs args = if null matches
   matches = map (second fromJust) $
               filter (isJust . snd) $ zip funs (map (`partialApp` args) funs)
 
+tryApply ∷ [Function] → [Type] → Maybe Function
+tryApply funs args = if null matches
+  then Nothing
+  else do
+    -- Apply as many arguments as possible (shortest list left after application)
+    let (fun, _) = head $ sortWith snd matches
+    Just fun -- No indication of partial application
+ where
+  matches = map (second fromJust) $
+              filter (isJust . snd) $ zip funs (map (`partialApp` args) funs)
 -- Try to find a match where uncurrying the vector in the list might help with
 -- finding a match in the list of functions.
-tryUncurry ∷ [Function] → [Type] → Maybe Type
+tryUncurryType ∷ [Function] → [Type] → Maybe Type
+tryUncurryType fs ts = fmap retType (tryUncurry fs ts)
+
+tryUncurry ∷ [Function] → [Type] → Maybe Function
 tryUncurry funs (t:[]) | isVec t = tryUncurry' funs
                        | otherwise = Nothing
  where
-  tryUncurry' ∷ [Function] → Maybe Type
+  tryUncurry' ∷ [Function] → Maybe Function
   tryUncurry' (f:fs) = if all isNum (map varType (paramVars f)) && length (map varType (paramVars f)) == vecLength t
-    then Just $ retType f
+    then Just f
     else tryUncurry' fs
   tryUncurry' [] = Nothing
 tryUncurry _ _ = Nothing

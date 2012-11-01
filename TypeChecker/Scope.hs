@@ -3,12 +3,17 @@
 module TypeChecker.Scope where
 
 import Prelude hiding (lookup)
+import Control.Monad.State
+
+import Utils
 
 import TypeChecker.Types hiding (functions, variables, typedefs)
 import FrontEnd.AbsGrammar
 import TypeChecker.Utils
 
 import Data.Map hiding (map)
+
+import Text.Printf
 
 data Scope = Scope {
   functions ∷ Map String [Function],
@@ -69,7 +74,7 @@ lookupTypedef _ [] = Nothing
 
 -- | Creates a Map of built in functions
 builtInFuns ∷ Map String [Function]
-builtInFuns = fromList $ map buildFuns [
+builtInFuns = fromList $ evalState (mapM buildFuns [
     ("pow", map (\t → (t, [("b",t), ("n",t)])) vecs ++
             map (\t → (t, [("b",t), ("n",TFloat)])) (TFloat : vecs)
     ),
@@ -81,7 +86,7 @@ builtInFuns = fromList $ map buildFuns [
             ,(TVec3, [("x", TVec3), ("y", TVec3)])
             ,(TVec2, [("x", TVec2), ("y", TVec2)])
             ])
-  ]
+  ]) [1..]
  where
   vecs = [ TVec2, TVec3, TVec4 ]
   vecnums = TFloat : vecs
@@ -89,9 +94,11 @@ builtInFuns = fromList $ map buildFuns [
   var (n, t) = Variable n ("predefined", (-1,-1)) t
   param ∷ (String, Type) → Param
   param (n, _) = ParamDec [] (CIdent ((-1,-1), n))
-  buildFuns ∷ (String, [(Type, [(String, Type)])]) → (String, [Function])
-  buildFuns (n, ts) = (n, map (buildFun n) ts)
-  buildFun ∷ String → (Type, [(String, Type)]) → Function
-  buildFun n (rt, ts) =
-    TypeChecker.Types.Function n ("predefined", (-1,-1)) rt (map var ts) (map param ts) []
+  buildFuns ∷ (String, [(Type, [(String, Type)])]) → State [Int] (String, [Function])
+  buildFuns (n, ts) = mapM (buildFun n) ts >>= (\funs → return (n, funs))
+  buildFun ∷ String → (Type, [(String, Type)]) → State [Int] Function
+  buildFun n (rt, ts) = do
+    i ← gets head
+    modify tail
+    return $ TypeChecker.Types.Function n (printf "_x%02d%s" i n) ("predefined", (-1,-1)) rt (map var ts) (map param ts) []
 

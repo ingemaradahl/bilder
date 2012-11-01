@@ -2,12 +2,15 @@
 
 module TypeChecker.TCM.Utils where
 
+import Utils
+
 import TypeChecker.TCM
 import TypeChecker.TCM.Errors
 import TypeChecker.Environment as Env
 import qualified TypeChecker.Scope as Scope
-import TypeChecker.Types as TC hiding (functions, typedefs, filename, variables)
-import qualified TypeChecker.Types as Blob (functions, typedefs, variables)
+import TypeChecker.Types as TC hiding (functions, typedefs, variables)
+import TypeChecker.Types.Blob (Blob, Blob (Blob))
+import qualified TypeChecker.Types.Blob as Blob (functions, typedefs, variables)
 import TypeChecker.Utils
 
 import CompilerTypes
@@ -86,9 +89,10 @@ addVariable var = do
 
 -- | Add a variable to the current scope, using currentFile from the state
 addCIdentVariable ∷ CIdent → Type → TCM ()
-addCIdentVariable cid t = do
-  file ← gets currentFile
-  addVariable $ Variable n (file,p) t
+addCIdentVariable cid t = cIdentToVariable cid t >>= addVariable
+
+cIdentToVariable ∷ CIdent → Type → TCM Variable
+cIdentToVariable cid t = Variable n <$> ((,) <$> gets currentFile <*> pure p) <*> pure t
  where
   n = cIdentToString cid
   p = cIdentToPos cid
@@ -143,6 +147,9 @@ initScope = mapM_ (addBlob . rootLabel)
 mergeFunctions ∷ Map String [Function] → TCM ()
 mergeFunctions funs = sequence_ [ mapM addFunction fs | (_,fs) ← toList funs]
 
+mergeFunctions' ∷ Map String Function → TCM ()
+mergeFunctions' funs = mapM_ (addFunction . snd) $ toList funs
+
 mergeVariables ∷ Map String Variable → TCM ()
 mergeVariables vars = mapM_ (addVariable . snd) $ toList vars
 
@@ -157,6 +164,7 @@ tcFun (Abs.Function qs cident params stms) = do
   file ← gets currentFile
   let fun = TC.Function {
     functionName = cIdentToString cident,
+    alias = "",
     functionLocation = (file, cIdentToPos cident),
     retType = retType',
     paramVars = params',

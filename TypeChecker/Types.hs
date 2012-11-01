@@ -4,9 +4,11 @@ module TypeChecker.Types where
 
 import CompilerTypes
 import FrontEnd.AbsGrammar
+import FrontEnd.PrintGrammar
 
-import Data.Map (Map, toList)
+import Data.Map (Map, empty, union)
 import Data.List (intercalate)
+import Data.Monoid
 import Text.Printf
 
 class Global a where
@@ -14,9 +16,12 @@ class Global a where
   location ∷ a → Location
   position ∷ a → Position
   position = snd . location
+  locfile ∷ a → FilePath
+  locfile = fst . location
 
 data Function = Function {
     functionName ∷ String
+  , alias ∷ String
   , functionLocation ∷ Location
   , retType ∷ Type
   , paramVars ∷ [Variable]
@@ -34,10 +39,12 @@ instance Eq Function where
              map varType (paramVars fa) == map varType (paramVars fb)
 
 instance Show Function where
-  show (TypeChecker.Types.Function name _ ret params _ _) = printf "%s :: %s -> %s"
+  show (TypeChecker.Types.Function name _ _ ret params pars ss) = printf "%s :: %s -> %s\n -- Parameters ------------------\n%s\n -- Function body --------------\n%s\n\n"
     name
     (intercalate " -> " $ map (show . varType) params)
     (show ret)
+    (concatMap printTree pars)
+    (concatMap printTree ss)
 
 data Struct = Struct {
     structName ∷ String
@@ -75,20 +82,21 @@ instance Global Typedef where
   ident = typedefName
   location = typedefLocation
 
-data Blob = Blob {
-  filename ∷ FilePath,
-  functions ∷ Map String [Function],
+data Source = Source {
+  functions ∷ Map String Function,
   typedefs ∷ Map String Typedef,
   variables ∷ Map String Variable
 }
+ deriving (Show)
 
-instance Show Blob where
-  show (Blob file funs types vars) = printf (
-    "# %s ###########\n" ++
-    "Typedefs:\n%s" ++
-    "Functions:\n%s" ++
-    "Variables:\n%s")
-    file
-    ((concatMap (\(k,v) → printf "  %s: %s\n" k (show $ typedefType v)) $ toList types) :: String)
-    ((concatMap (\(_,v) → printf "  %s\n" $ intercalate "\n  " $ map show v) $ toList funs) :: String)
-    ((concatMap (\(k,v) → printf "  %s: %s\n" k (show v)) $ toList vars) :: String)
+emptySource ∷ Source
+emptySource = Source empty empty empty
+
+instance Monoid Source where
+  l `mappend` r = Source {
+    functions = functions l `union` functions r,
+    typedefs =  typedefs  l `union` typedefs r,
+    variables = variables l `union` variables r
+  }
+  mempty = emptySource
+

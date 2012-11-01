@@ -2,16 +2,14 @@
 
 module Compiler where
 
-import Control.Monad.State
+import Control.Monad.State hiding (mapM)
 
 import Data.Tree
 
 import CompilerError
-import CompilerTypes
 
 import TypeChecker.Types
 
-import FrontEnd.AbsGrammar
 
 data Options = Options {
   inputFile ∷ FilePath
@@ -19,27 +17,25 @@ data Options = Options {
   deriving (Show)
 
 data Environment = Env {
-  blobs ∷ Tree Blob,
-  source ∷ String,
+  source ∷ Source,
   options ∷ Options
 }
 
-buildEnv ∷ Options → Tree Blob → Environment
-buildEnv opts bs = Env {
-  blobs = bs,
-  source = "",
+buildEnv ∷ Options → Source → Environment
+buildEnv opts src= Env {
+  source = src,
   options = opts
 }
 
 -- CPM - CompilerMonad: Alias for both Error and State monad
 type CPM a = StateT Environment CError a
 
-compileTree ∷ Options → Tree Blob → CError [String]
-compileTree opts bs = evalStateT compile' (buildEnv opts bs)
+compileTree ∷ Options → Source → CError [String]
+compileTree opts src = evalStateT compile' (buildEnv opts src)
 
 compile' ∷ CPM [String]
 compile' = do
-  bs ← gets blobs
-  return [drawTree $ fmap show bs]
+  src ← gets source
+  return [show src]
 --compile t@(Tree toplevels) = do
   --return [printTree t]

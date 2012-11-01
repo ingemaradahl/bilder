@@ -11,40 +11,49 @@ import Control.Applicative hiding (empty)
 
 import Data.Tree
 import Data.Map (Map, elems, insertWith, empty)
+import Data.Foldable (fold)
 
 import Text.Printf
+
+import Utils
 
 import TypeChecker.TCM
 import TypeChecker.TCM.Errors
 import TypeChecker.TCM.Utils
 
+import TypeChecker.Inferring
+import TypeChecker.Renamer (rename, strip)
+
 import TypeChecker.Utils
 import TypeChecker.Environment hiding (pushScope, popScope)
 import qualified TypeChecker.Scope as Scope (functions)
 import TypeChecker.Types as Types
+import TypeChecker.Types.Blob
 
 import Compiler hiding (Environment, Env, options, buildEnv)
 import CompilerTypes
 import FrontEnd.AbsGrammar as Abs
 import FrontEnd.Instances
 import CompilerError
-import Builtins
 -- }}}
 
--- | Typechecks the given abstract source and annotates the syntax tree
-typeCheck ∷ Options → Tree (FilePath, AbsTree) → CError ([Warning],Tree Blob)
+-- | Typechecks the given abstract source and annotates the syntax tree. Also
+-- performs renaming of identifiers, making all variable and function names
+-- unique
+typeCheck ∷ Options → Tree (FilePath, AbsTree) → CError ([Warning],Source)
 typeCheck opts tree = do
-  (blobTree, st) ← runStateT (traverse checkFile tree) (buildEnv opts)
-  unless (rootLabel blobTree `exports` main) noEntryPoint
-  return (warnings st, blobTree)
+  (sourceTree, st) ← runStateT
+    (traverse checkFile tree >>= (\t → check t >> traverse rename t)) (buildEnv opts)
+  return (warnings st, fold (fmap strip sourceTree))
  where
+  check srcTree = unless (rootLabel srcTree `exports` main) noEntryPoint
   rootFile = (fst . rootLabel) tree
   loc = (rootFile,(-1,-1))
-  main = Types.Function "main" loc TVec4 [x,y] [] []
+  main = Types.Function "main" "" loc TVec4 [x,y] [] []
   x = Variable "x" loc TFloat
   y = Variable "y" loc TFloat
-  noEntryPoint ∷ CError a
-  noEntryPoint = Fail $ TypeError (-1,-1) rootFile $
+  noEntryPoint ∷ TCM a
+  noEntryPoint = typeError (-1,-1) $
     printf ("No entrypoint \"main\" of " ++
       "type Float,Float found in %s")
       rootFile
@@ -146,6 +155,7 @@ checkStatement (SDecl decl@(Dec _ (DecFun cid ps stms))) = do
   file ← gets currentFile
   let fun = Types.Function {
     functionName = cIdentToString cid,
+    alias = "",
     functionLocation = (file, cIdentToPos cid),
     retType = rt,
     paramVars = ps',
@@ -216,95 +226,6 @@ checkDecAss ∷ DeclPost → TCM (Maybe Type)
 checkDecAss (Vars _) = return Nothing
 checkDecAss (DecAss _ _ e) = fmap Just $ inferExp e
 
--- }}}
--- Expressions {{{
-inferExp ∷ Exp → TCM Type
-inferExp (EFloat _) = return TFloat
-inferExp (EInt _) = return TInt
-inferExp ETrue = return TBool
-inferExp EFalse = return TBool
-inferExp (EVar cid) = liftM varType $ lookupVar cid
-inferExp (ECond ec tkq etrue tkc efalse) = do
-  t ← inferExp ec
-  unless (t `elem` [TInt,TFloat,TBool]) $ badConditional t (tkpos tkq)
-  tetrue ← inferExp etrue
-  tefalse ← inferExp efalse
-  unless (tetrue == tefalse) $ typeMismatch (tkpos tkc) tetrue tefalse
-  return tetrue
-inferExp (EAss v@(EVar {}) tk e) = do
-  targetType ← inferExp v
-  valueType ← inferExp e
-  case compAssType targetType valueType of
-    Just _ → return targetType
-    Nothing → expTypeMismatch tk targetType valueType
-inferExp (EAss m@(EMember {}) tk e) = do
-  memType ← inferExp m
-  valueType ← inferExp e
-  unless (memType == valueType) $ expTypeMismatch tk memType valueType
-  return valueType
--- TODO: Copy paste technology (.js), generalize cases like this
-inferExp (EAssAdd v@(EVar {}) tk e) = do
-  targetType ← inferExp v
-  valueType ← inferExp e
-  case compAssType targetType valueType of
-    Just _ → return targetType
-    Nothing → expTypeMismatch tk targetType valueType
-inferExp (ECall cid es) = do
-  args ← mapM inferExp es
-  funs ← lookupFunction (cIdentToString cid)
-  case tryApply funs args ¿ tryUncurry funs args of
-    Just fun → return fun
-    Nothing  → noFunctionFound cid args
-inferExp (ETypeCall t es) = do
-  expts ← mapM inferExp es
-  t' ← filterTDef t
-  if expts `elem` typeConstuctors t'
-    then return t'
-    else noTypeConstructorError t' expts
-inferExp (EAdd el tk er) = inferBinaryExp tk el er
-inferExp (EMul el tk er) = inferBinaryExp tk el er
-inferExp (ESub el tk er) = inferBinaryExp tk el er
-inferExp (EDiv el tk er) = inferBinaryExp tk el er
-inferExp (ELt el tk er) = inferConditional tk el er
-inferExp (EMember el cid) = do
-  t ← inferExp el
-  let pos = memberComponents t
-  if any (\p -> all (== True) $ map (`elem` p) n) pos
-    then if length n <= length types
-      then return $ types !! (length n - 1)
-      else vectorTooBig cid (length n)
-    else wrongVectorComponents cid t
- where
-  types = [TFloat, TVec2, TVec3, TVec4]
-  n = cIdentToString cid
-inferExp (EMemberCall el cid ers) = do
-  tel ← inferExp el
-  case componentFunc (cIdentToString cid) tel ers of
-    Nothing → mapM inferExp ers >>= noFunctionFound cid
-    Just (rt, argt, ecf) → do
-      tecf ← mapM inferExp ecf
-      if tecf == argt
-        then return rt
-        else noFunctionFound cid tecf
-
-inferExp e = debugError $ show e ++ " not inferrablelollolo"
-
-
-inferConditional ∷ Token a => a → Exp → Exp → TCM Type
-inferConditional tk el er = do
-  tl ← inferExp el
-  tr ← inferExp er
-  if all (`elem` [TInt,TFloat]) [tl,tr]
-    then return TBool
-    else badCondTypes tk tl tr
-
-inferBinaryExp ∷ Token a => a → Exp → Exp → TCM Type
-inferBinaryExp tk el er = do
-  tl ← inferExp el
-  tr ← inferExp er
-  case compNumType tl tr of
-    Just t  → return t
-    Nothing → badBinaryTypes tk tl tr
 -- }}}
 
 -- vi:fdm=marker

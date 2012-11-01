@@ -12,10 +12,17 @@ import Text.Printf
 import Data.List (intercalate)
 import Data.Map hiding (map)
 
+type Aliases = Map String String
+
 -- | Environment during type checking
 data Environment = Env {
+  -- Scoping, each level in list represents scope level
   scopes  ∷ [Scope.Scope],
-  checkedBlobs ∷ Map FilePath Blob,
+
+  -- Renaming
+  renamed ∷ [FilePath],
+  aliases ∷ [Aliases], -- List levels correspond to scoping
+  freeAliases ∷ [Int],
 
   options   ∷ Options,
   warnings ∷ [(Location, String)],
@@ -27,7 +34,11 @@ data Environment = Env {
 buildEnv ∷ Options → Environment
 buildEnv opts = Env {
   scopes = [Scope.emptyScope],
-  checkedBlobs = empty,
+
+  renamed = [],
+  aliases = [],
+  freeAliases = [1..],
+
   options = opts,
   warnings = [],
   currentFile = "",
@@ -45,11 +56,12 @@ popScope env = env { scopes = tail $ scopes env }
 -- Show environment {{{
 -- Below is various show functions, used for displaying the state
 instance Show Environment where
- show env = printf "Warnings:\n%s\nType definitions: %s\nFunctions: %s\nVariables:%s"
+ show env = printf "Warnings:\n%s\nType definitions: %s\nFunctions: %s\nVariables:%s\nAliases:%s"
    (intercalate "\n" (map show (warnings env)))
    (showTypes $ reverse (scopes env))
    (showFuns $ reverse (scopes env))
    (showVars $ reverse (scopes env))
+   (show (aliases env))
 
 showTypes ∷ [Scope.Scope] → String
 showTypes scs = showTypes' scs 0
@@ -110,3 +122,4 @@ showVarsLevel vars l = newline ++ intercalate newline (map showVar vars)
 showVar ∷ Variable → String
 showVar var = printf "%s: %s" (ident var) (show $ varType var)
 -- }}}
+-- vi:fdm=marker
