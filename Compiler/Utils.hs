@@ -4,11 +4,18 @@ module Compiler.Utils where
 
 import Control.Applicative
 import Control.Monad.Identity
+import Control.Monad.State
+
+import CompilerError
 
 import FrontEnd.AbsGrammar
 
 import TypeChecker.Utils (cIdentToString, cIdentToPos, paramToString)
 import qualified TypeChecker.Types as T
+
+
+liftCError ∷ CError a → StateT b CError a
+liftCError m = StateT (\s → case m of { Fail f → Fail f; Pass a → return (a,s) })
 
 -- | Creates a Variable from a FilePath and a Param
 paramToVar ∷ FilePath → Param → T.Variable

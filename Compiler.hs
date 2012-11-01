@@ -5,8 +5,8 @@ module Compiler where
 import Control.Monad.State hiding (mapM)
 
 import CompilerError
+import Compiler.Utils
 
-import Compiler.Lifter hiding (Environment, source, buildEnv)
 import qualified Compiler.Lifter as L
 
 import TypeChecker.Types
@@ -18,13 +18,15 @@ data Options = Options {
 
 data Environment = Env {
   source ∷ Source,
-  options ∷ Options
+  options ∷ Options,
+  warnings ∷ [String]
 }
 
 buildEnv ∷ Options → Source → Environment
 buildEnv opts src= Env {
   source = src,
-  options = opts
+  options = opts,
+  warnings = []
 }
 
 -- CPM - CompilerMonad: Alias for both Error and State monad
@@ -33,9 +35,13 @@ type CPM a = StateT Environment CError a
 compileTree ∷ Options → Source → CError [String]
 compileTree opts src = evalStateT compile' (buildEnv opts src)
 
+lambdaLift ∷ Source → CPM Source
+lambdaLift src = do
+  env ← liftCError $ execStateT L.lambdaLift (L.buildEnv src)
+  modify (\s → s { warnings = L.warnings env ++ warnings s })
+  return (L.source env)
+
 compile' ∷ CPM [String]
 compile' = do
-  src ← gets source
+  src ← gets source >>= lambdaLift
   return [show src]
---compile t@(Tree toplevels) = do
-  --return [printTree t]

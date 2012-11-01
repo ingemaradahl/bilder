@@ -99,7 +99,6 @@ addCallExpansion n fs = do
 -- }}}-
 
 -- | Lifts all free variables in all inner functions and globifies the inner functions.
--- TODO: lambdaLift ∷ Source → (Warnings, Source)
 lambdaLift ∷ LM ()
 lambdaLift = do
   -- lift free variables.
