@@ -7,7 +7,15 @@ import Control.Monad.Identity
 
 import FrontEnd.AbsGrammar
 
-import TypeChecker.Utils (cIdentToString, paramToString)
+import TypeChecker.Utils (cIdentToString, cIdentToPos, paramToString)
+import qualified TypeChecker.Types as T
+
+-- | Creates a Variable from a FilePath and a Param
+paramToVar ∷ FilePath → Param → T.Variable
+paramToVar f (ParamDec qs cid) =
+  T.Variable (cIdentToString cid) (f, cIdentToPos cid) (qualsToType qs)
+paramToVar f (ParamDefault qs cid _ _) =
+  T.Variable (cIdentToString cid) (f, cIdentToPos cid) (qualsToType qs)
 
 varTypeToParam ∷ String → Type → Param
 varTypeToParam n t = ParamDec [QType t] name

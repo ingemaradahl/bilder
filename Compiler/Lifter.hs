@@ -13,7 +13,6 @@ import qualified TypeChecker.Types as T
 import CompilerError
 import Compiler.Utils
 
--- TODO: Should this be here?
 import TypeChecker.Utils (cIdentToString, paramToString, paramToQuals)
 
 import Control.Arrow (second)
@@ -109,6 +108,7 @@ addCallExpansion n fs = do
 -- }}}-
 
 -- | Lifts all free variables in all inner functions and globifies the inner functions.
+-- TODO: lambdaLift ∷ Source → (Warnings, Source)
 lambdaLift ∷ LM ()
 lambdaLift = do
   -- lift free variables.
@@ -197,7 +197,7 @@ appendFreeVars ps fs = do
   ps' ← sequence [ varType n >>= \t → return $ varTypeToParam n t | n ← fs ]
   return $ ps ++ ps'
 
--- | Appends free variables types a functions return type.
+-- | Appends free variables types to a functions return type.
 appendReturnTypes ∷ Type → [String] → LM Type
 appendReturnTypes (TFun t ps) fs = do
   ts ← mapM varType fs
@@ -214,17 +214,67 @@ liftFuns = do
   liftInnerFuns ∷ T.Function → LM T.Function
   liftInnerFuns f = do
     setCurrentFile (fst $ T.functionLocation f)
-    stms' ← mapM (funLifter) (T.statements f)
+    stms' ← funLifter (T.statements f)
     return $ f { T.statements = stms' }
 
-funLifter ∷ Stm → LM Stm
-funLifter (SFunDecl cid rt ps stms) = do
+-- | Lifts all functions from a list of Stm
+funLifter ∷ [Stm] → LM [Stm]
+funLifter [] = return []
+funLifter (SBlock ss:rest) = do
+  ss' ← funLifter ss
+  rest' ← funLifter rest
+  case ss' of
+    [] → return rest'
+    _  → return $ SBlock ss':rest'
+funLifter (s:ss) = do
+  s' ← liftSFunDecl s
+  ss' ← funLifter ss
+  case s' of
+    Just stm → return (stm:ss')
+    Nothing  → return ss'
+
+liftSFunDecl ∷ Stm → LM (Maybe Stm)
+liftSFunDecl (SWhile tk e s) = do
+  -- TODO: Insert warning when SWhile get's thrown away.
+  s' ← liftSFunDecl s
+  return $ maybe Nothing (return . SWhile tk e) s'
+liftSFunDecl (SDoWhile tkd s tkw e) = do
+  -- TODO: Insert warning when SDoWhile get's thrown away.
+  s' ← liftSFunDecl s
+  return $ maybe Nothing (\stm → return $ SDoWhile tkd stm tkw e) s'
+liftSFunDecl (SFor tk fd econs eloop s) = do
+  -- TODO: Insert warning when SFor get's thrown away.
+  s' ← liftSFunDecl s
+  return $ maybe Nothing (return . SFor tk fd econs eloop) s'
+liftSFunDecl (SIf tk e s) = do
+  -- TODO: Insert warning when SIf get's thrown away.
+  s' ← liftSFunDecl s
+  return $ maybe Nothing (return . SIf tk e) s'
+liftSFunDecl (SIfElse tki e strue tke sfalse) = do
+  strue' ← liftSFunDecl strue
+  sfalse' ← liftSFunDecl sfalse
+  case sfalse' of
+    Nothing →
+      case strue' of
+        Nothing → return Nothing -- none
+        Just st → return $ Just $ SIf tki e st -- first
+    Just sf →
+      case strue' of
+        Nothing → return $ Just $ negSIf sf -- second
+        Just st → return $ Just $ SIfElse tki e st tke sf -- both
+ where
+  negSIf = SIf tki (ENegSign (TkNegSign ((0,0),"!")) e)
+liftSFunDecl (SType t s) = do
+  s' ← liftSFunDecl s
+  return $ maybe Nothing (return . SType t) s'
+liftSFunDecl (SFunDecl cid rt ps stms) = do
   -- lift inner inner functions first.
-  stms' ← mapM (mapStmM funLifter) stms
+  stms' ← funLifter stms
+  -- create a new top level function...
   file ← gets currentFile
-  addSourceFunction $ mkFun file (cIdentToString cid) rt [] ps stms' -- TODO: paramVars
-  return $ SBlock [] -- TODO: Remove fo' realz!
-funLifter s = mapStmM funLifter s
+  addSourceFunction $ mkFun file (cIdentToString cid) rt (map (paramToVar file) ps) ps stms'
+  return Nothing
+liftSFunDecl s = return $ Just s
 
 mkFun ∷ String → String → Type → [T.Variable] → [Param] → [Stm] → T.Function
 mkFun f name rt vs ps stms =
