@@ -25,7 +25,7 @@ import TypeChecker.Types as Types
 import TypeChecker.Types.Blob (Blob, filename)
 import qualified TypeChecker.Types.Blob as Blob (functions, typedefs, variables)
 
-import Compiler.Utils
+import Compiler.Utils hiding (paramToVar)
 
 import FrontEnd.AbsGrammar
 

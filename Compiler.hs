@@ -4,12 +4,12 @@ module Compiler where
 
 import Control.Monad.State hiding (mapM)
 
-import Data.Tree
-
 import CompilerError
 
-import TypeChecker.Types
+import Compiler.Lifter hiding (Environment, source, buildEnv)
+import qualified Compiler.Lifter as L
 
+import TypeChecker.Types
 
 data Options = Options {
   inputFile ∷ FilePath

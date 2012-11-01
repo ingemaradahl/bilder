@@ -2,13 +2,12 @@
 
 module Compiler.Lifter where
 
-import Data.Map (Map, toList, fromList, insert, lookup, empty, adjust)
+import Data.Map (Map, toList, insert, lookup, empty, adjust)
 import Data.Maybe (fromJust, isNothing, isJust)
 import Control.Monad.State
 import Control.Applicative ((<$>), (<*>), pure)
 
 import FrontEnd.AbsGrammar
-import qualified TypeChecker.Types as T
 
 import CompilerError
 import Compiler.Utils
@@ -17,24 +16,8 @@ import CompilerTypes
 import Text.Printf
 
 import TypeChecker.Utils (cIdentToString, cIdentToPos, paramToString, paramToQuals)
-
-import Control.Arrow (second)
-
--- TEMPORARY - SHOULD NOT BE HERE {{{
-data Source = Source {
-  functions ∷ Map String T.Function,
-  typedefs ∷ Map String T.Typedef,
-  variables ∷ Map String T.Variable
-}
- deriving (Show)
-
-blobToSource ∷ T.Blob → Source
-blobToSource b = Source {
-    functions = fromList $ map (second head) (toList $ T.functions b),
-    typedefs = T.typedefs b,
-    variables = T.variables b
-  }
--- }}}
+import TypeChecker.Types (Source, functions, typedefs, variables)
+import qualified TypeChecker.Types as T
 
 -- Lifter monad - keeps source and lifting environment in State with CError
 type LM a = StateT Environment CError a
@@ -330,7 +313,8 @@ mkFun f name rt vs ps stms =
     T.retType = rt,
     T.paramVars = vs,
     T.parameters = ps,
-    T.statements = stms
+    T.statements = stms,
+    T.alias = ""
   }
 -- }}}
 
