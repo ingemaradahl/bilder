@@ -6,7 +6,7 @@ import CompilerTypes
 import FrontEnd.AbsGrammar
 import FrontEnd.PrintGrammar
 
-import Data.Map (Map, empty, union)
+import Data.Map (Map, empty, union, toList)
 import Data.List (intercalate)
 import Data.Monoid
 import Text.Printf
@@ -87,7 +87,14 @@ data Source = Source {
   typedefs ∷ Map String Typedef,
   variables ∷ Map String Variable
 }
- deriving (Show)
+
+instance Show Source where
+  show (Source funs typs vars) = printf "Functions:\n%s\n\nTypedefs:\n%s\n\nVariables:\n%s\n\n"
+    (indentMapValue funs)
+    (indentMapValue typs)
+    (indentMapValue vars)
+   where
+    indentMapValue m = intercalate "\n" $ map (unlines . map (\l → "    " ++ l) . lines . show . snd) (toList m)
 
 emptySource ∷ Source
 emptySource = Source empty empty empty

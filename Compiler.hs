@@ -23,7 +23,7 @@ data Environment = Env {
 }
 
 buildEnv ∷ Options → Source → Environment
-buildEnv opts src= Env {
+buildEnv opts src = Env {
   source = src,
   options = opts,
   warnings = []
@@ -35,13 +35,17 @@ type CPM a = StateT Environment CError a
 compileTree ∷ Options → Source → CError [String]
 compileTree opts src = evalStateT compile' (buildEnv opts src)
 
-lambdaLift ∷ Source → CPM Source
-lambdaLift src = do
+lambdaLift ∷ CPM ()
+lambdaLift = do
+  src ← gets source
   env ← liftCError $ execStateT L.lambdaLift (L.buildEnv src)
-  modify (\s → s { warnings = L.warnings env ++ warnings s })
-  return (L.source env)
+  modify (\s → s {
+      warnings = L.warnings env ++ warnings s,
+      source = L.source env
+    })
 
 compile' ∷ CPM [String]
 compile' = do
-  src ← gets source >>= lambdaLift
+  lambdaLift
+  src ← gets source
   return [show src]
