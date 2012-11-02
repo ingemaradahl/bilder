@@ -45,10 +45,10 @@ warning ∷ String → LM ()
 warning s = modify (\st → st { warnings = warnings st ++ [s] })
 
 sourceFunctions ∷ LM (Map String T.Function)
-sourceFunctions = gets source >>= \s → return $ functions s
+sourceFunctions = gets (functions . source)
 
 sourceVariables ∷ LM (Map String T.Variable)
-sourceVariables = gets source >>= \s → return $ variables s
+sourceVariables = gets (variables . source)
 
 addSourceFunction ∷ T.Function → LM ()
 addSourceFunction f =
