@@ -77,7 +77,6 @@ addSource ∷ Source → TCM ()
 addSource src = do
   mergeFunctions' (functions src)
   mergeVariables (variables src)
-  mergeTypedefs  (typedefs src)
 
 annotateFunction ∷ Function → TCM Function
 annotateFunction f = do

@@ -84,25 +84,22 @@ instance Global Typedef where
 
 data Source = Source {
   functions ∷ Map String Function,
-  typedefs ∷ Map String Typedef,
   variables ∷ Map String Variable
 }
 
 instance Show Source where
-  show (Source funs typs vars) = printf "Functions:\n%s\n\nTypedefs:\n%s\n\nVariables:\n%s\n\n"
+  show (Source funs vars) = printf "Functions:\n%s\n\nVariables:\n%s\n\n"
     (indentMapValue funs)
-    (indentMapValue typs)
     (indentMapValue vars)
    where
     indentMapValue m = intercalate "\n" $ map (unlines . map (\l → "    " ++ l) . lines . show . snd) (toList m)
 
 emptySource ∷ Source
-emptySource = Source empty empty empty
+emptySource = Source empty empty
 
 instance Monoid Source where
   l `mappend` r = Source {
     functions = functions l `union` functions r,
-    typedefs =  typedefs  l `union` typedefs r,
     variables = variables l `union` variables r
   }
   mempty = emptySource
