@@ -2,7 +2,7 @@
 
 module Compiler.Lifter where
 
-import Data.Map (Map, toList, insert, lookup, empty, adjust)
+import Data.Map (Map, toList, insert, lookup, empty, adjust, fromList)
 import Data.Maybe (fromJust, isNothing, isJust)
 import Control.Monad.State
 import Control.Applicative ((<$>), (<*>), pure)
@@ -27,7 +27,8 @@ data Environment = Environment {
   varTypes ∷ Map String Type,
   callExpansions ∷ Map String [String],
   currentFile ∷ String,
-  warnings ∷ [String]
+  warnings ∷ [String],
+  paramRenameCount ∷ Int
 }
  deriving (Show)
 
@@ -38,8 +39,15 @@ buildEnv s = Environment {
     varTypes = empty,
     callExpansions = empty,
     currentFile = "",
-    warnings = []
+    warnings = [],
+    paramRenameCount = 0
   }
+
+nextRenameIndex ∷ LM Int
+nextRenameIndex = do
+  c ← gets paramRenameCount
+  modify (\s → s { paramRenameCount = c + 1 })
+  return c
 
 warning ∷ String → LM ()
 warning s = modify (\st → st { warnings = warnings st ++ [s] })
@@ -142,14 +150,33 @@ liftInnerFunVars (SFunDecl cid rt ps stms) = do
   let frees = freeFunctionVars globals (cIdentToString cid, ps, stms')
 
   -- Add the free variables as parameters and return type.
-  ps' ← appendFreeVars ps frees
+  (ps', renames) ← appendFreeVars ps frees
   rt' ← appendReturnTypes rt frees
+  --stms'' ← renameStmVars renames stms'
 
   -- Remember the expansion so that all calls can be expanded.
   addCallExpansion (cIdentToString cid) frees
 
-  return $ SFunDecl cid rt' ps' stms'
+  return $ SFunDecl cid rt' ps' (map (mapStmExp (renameExpVars renames)) stms')
 liftInnerFunVars x = return x -- The rest: SBreak, SContinue, SDiscard
+
+-- | Renames all variables in an expression according to the Map.
+renameExpVars ∷ Map String String → Exp → Exp
+renameExpVars rm (EVar cid) = EVar (renameCIdent rm cid)
+renameExpVars rm (EIndex cid e) = EIndex (renameCIdent rm cid) (renameExpVars rm e)
+renameExpVars rm e = mapExp (renameExpVars rm) e
+
+renameForDeclVars ∷ Map String String → ForDecl → ForDecl
+renameForDeclVars rm (FExp e) = FExp (renameExpVars rm e)
+renameForDeclVars rm (FDecl (Dec qs (DecAss cids tk e))) =
+  FDecl (Dec qs (DecAss cids tk (renameExpVars rm e)))
+renameForDeclVars _ fd = fd
+
+renameCIdent ∷ Map String String → CIdent → CIdent
+renameCIdent rm (CIdent (pos,n)) =
+  case Data.Map.lookup n rm of
+    Nothing → CIdent (pos,n)
+    Just n' → CIdent (pos,n')
 
 -- | Expands all ECall's to a function in given statements with the added free variables.
 expandECall ∷ Exp → LM Exp
@@ -179,10 +206,19 @@ expandECallDeclPost (DecAss cid tk e) = DecAss cid tk <$> expandECall e
 --expandECallDeclPost (DecFun {}) = undefined -- DecFun -> SFunDecl in typechecker.
 
 -- | Appends free variables to the end of parameter list.
-appendFreeVars ∷ [Param] → [String] → LM [Param]
+--   Returns the new list of parameters and a map of all renames.
+appendFreeVars ∷ [Param] → [String] → LM ([Param], Map String String)
 appendFreeVars ps fs = do
-  ps' ← sequence [ varType n >>= \t → return $ varTypeToParam n t | n ← fs ]
-  return $ ps ++ ps'
+  ps' ← sequence [ do
+      t ← varType n
+      n' ← renameFreeVar n
+      return (varTypeToParam n' t, (n, n'))
+    | n ← fs
+    ]
+  return (ps ++ map fst ps', fromList (map snd ps'))
+
+renameFreeVar ∷ String → LM String
+renameFreeVar s = nextRenameIndex >>= (\i → return $ printf "_f%0.3i%s" i s)
 
 -- | Appends free variables types to a functions return type.
 appendReturnTypes ∷ Type → [String] → LM Type
@@ -255,23 +291,17 @@ sFunDeclToName ∷ Stm → String
 sFunDeclToName (SFunDecl cid _ _ _) = cIdentToString cid
 sFunDeclToName s = maybe "N/A" sFunDeclToName (findSFunDecl s)
 
+liftStm ∷ Stm → (Stm → Stm) → LM (Maybe Stm)
+liftStm s f = do
+  s' ← liftSFunDecl s
+  when (isNothing s') $ unusedFunDecl s
+  return $ maybe Nothing (return . f) s'
+
 liftSFunDecl ∷ Stm → LM (Maybe Stm)
-liftSFunDecl (SWhile tk e s) = do
-  s' ← liftSFunDecl s
-  when (isNothing s') $ unusedFunDecl s
-  return $ maybe Nothing (return . SWhile tk e) s'
-liftSFunDecl (SDoWhile tkd s tkw e) = do
-  s' ← liftSFunDecl s
-  when (isNothing s') $ unusedFunDecl s
-  return $ maybe Nothing (\stm → return $ SDoWhile tkd stm tkw e) s'
-liftSFunDecl (SFor tk fd econs eloop s) = do
-  s' ← liftSFunDecl s
-  when (isNothing s') $ unusedFunDecl s
-  return $ maybe Nothing (return . SFor tk fd econs eloop) s'
-liftSFunDecl (SIf tk e s) = do
-  s' ← liftSFunDecl s
-  when (isNothing s') $ unusedFunDecl s
-  return $ maybe Nothing (return . SIf tk e) s'
+liftSFunDecl (SWhile tk e s) = liftStm s (SWhile tk e)
+liftSFunDecl (SDoWhile tkd s tkw e) = liftStm s (\s' → SDoWhile tkd s' tkw e)
+liftSFunDecl (SFor tk fd econs eloop s) = liftStm s (SFor tk fd econs eloop)
+liftSFunDecl (SIf tk e s) = liftStm s (SIf tk e)
 liftSFunDecl (SIfElse tki e strue tke sfalse) = do
   strue' ← liftSFunDecl strue
   when (isNothing strue') $ unusedFunDecl strue
@@ -288,10 +318,7 @@ liftSFunDecl (SIfElse tki e strue tke sfalse) = do
         Just st → return $ Just $ SIfElse tki e st tke sf -- both
  where
   negSIf = SIf tki (ENegSign (TkNegSign ((0,0),"!")) e)
-liftSFunDecl (SType t s) = do
-  s' ← liftSFunDecl s
-  when (isNothing s') $ unusedFunDecl s
-  return $ maybe Nothing (return . SType t) s'
+liftSFunDecl (SType t s) = liftStm s (SType t)
 liftSFunDecl (SFunDecl cid rt ps stms) = do
   -- lift inner inner functions first.
   stms' ← funLifter stms
