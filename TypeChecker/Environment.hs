@@ -2,7 +2,7 @@
 
 module TypeChecker.Environment where
 
-import TypeChecker.Types hiding (typedefs)
+import TypeChecker.Types
 import FrontEnd.AbsGrammar
 import qualified TypeChecker.Scope as Scope
 import Compiler (Options)

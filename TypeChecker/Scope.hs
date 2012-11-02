@@ -7,7 +7,7 @@ import Control.Monad.State
 
 import Utils
 
-import TypeChecker.Types hiding (functions, variables, typedefs)
+import TypeChecker.Types hiding (functions, variables)
 import FrontEnd.AbsGrammar
 import TypeChecker.Utils
 

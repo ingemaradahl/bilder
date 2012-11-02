@@ -8,7 +8,7 @@ import TypeChecker.TCM
 import TypeChecker.TCM.Errors
 import TypeChecker.Environment as Env
 import qualified TypeChecker.Scope as Scope
-import TypeChecker.Types as TC hiding (functions, typedefs, variables)
+import TypeChecker.Types as TC hiding (functions, variables)
 import TypeChecker.Types.Blob (Blob, Blob (Blob))
 import qualified TypeChecker.Types.Blob as Blob (functions, typedefs, variables)
 import TypeChecker.Utils
