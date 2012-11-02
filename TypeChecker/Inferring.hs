@@ -5,7 +5,6 @@ module TypeChecker.Inferring where
 -- Imports {{{
 import Control.Monad
 
-import Utils
 import Builtins
 
 import TypeChecker.TCM
@@ -53,7 +52,7 @@ inferExp (EAssAdd v@(EVar {}) tk e) = do
 inferExp (ECall cid es) = do
   args ← mapM inferExp es
   funs ← lookupFunction (cIdentToString cid)
-  case tryApplyType funs args ¿ tryUncurryType funs args of
+  case tryApplyType funs args `mplus` tryUncurryType funs args of
     Just fun → return fun
     Nothing  → noFunctionFound cid args
 inferExp (ETypeCall t es) = do

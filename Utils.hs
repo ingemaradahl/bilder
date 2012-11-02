@@ -7,13 +7,6 @@ import Control.Monad
 import Data.Monoid
 import Data.Tree
 
-class Mongoid a where
-  (¿) ∷ a → a → a
-
-instance Mongoid (Maybe a) where
-  Nothing ¿ perhaps = perhaps
-  Just v  ¿ _       = Just v
-
 mayhaps ∷ Bool → a → Maybe a
 mayhaps True  v = Just v
 mayhaps False _ = Nothing

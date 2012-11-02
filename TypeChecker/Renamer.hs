@@ -3,13 +3,12 @@
 module TypeChecker.Renamer where
 
 import Control.Applicative
+import Control.Monad
 import Control.Monad.State hiding (mapM)
 
 import Data.Tree
 import Data.Map as Map hiding (fold)
 import Data.Monoid
-
-import Utils
 
 import TypeChecker.TCM
 import TypeChecker.TCM.Utils hiding (initScope)
@@ -149,7 +148,7 @@ renameExp (ECall cid es) = do
   args ← mapM inferExp es
   funs ← lookupFunction (cIdentToString cid)
   es' ← mapM renameExp es
-  case tryApply funs args ¿ tryUncurry funs args of
+  case tryApply funs args `mplus` tryUncurry funs args of
     Just fun → return $ ECall (newCIdent cid (alias fun)) es'
     Nothing  → compileError (cIdentToPos cid) $ "Unable to find function" ++ cIdentToString cid
 renameExp e =  mapExpM renameExp e
