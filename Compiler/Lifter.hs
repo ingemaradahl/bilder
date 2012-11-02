@@ -16,7 +16,7 @@ import CompilerTypes
 import Text.Printf
 
 import TypeChecker.Utils (cIdentToString, cIdentToPos, paramToString, paramToQuals)
-import TypeChecker.Types (Source, functions, typedefs, variables)
+import TypeChecker.Types (Source, functions, variables)
 import qualified TypeChecker.Types as T
 
 -- Lifter monad - keeps source and lifting environment in State with CError
@@ -46,9 +46,6 @@ warning s = modify (\st → st { warnings = warnings st ++ [s] })
 
 sourceFunctions ∷ LM (Map String T.Function)
 sourceFunctions = gets source >>= \s → return $ functions s
-
-sourceTypedefs ∷ LM (Map String T.Typedef)
-sourceTypedefs = gets source >>= \s → return $ typedefs s
 
 sourceVariables ∷ LM (Map String T.Variable)
 sourceVariables = gets source >>= \s → return $ variables s

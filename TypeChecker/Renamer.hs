@@ -68,7 +68,6 @@ renameBlob blob children = do
 
   return (Source
     (fromList (Prelude.map (\f → (alias f, f { functionName = alias f})) functions'))
-    Map.empty -- typedefs
     variables'
     ,
 
@@ -120,17 +119,18 @@ renameStm (SReturn t e) = SReturn t <$> renameExp e
 renameStm (SIf tk e s) = SIf tk <$> renameExp e <*> renameStm s
 renameStm (SIfElse tki e st tke sf) = SIfElse tki <$> renameExp e <*>
   renameStm st <*> pure tke <*> renameStm sf
-renameStm (SType t s) = SType t <$> renameStm s
+renameStm (SType t s) = SType <$> filterTDef t <*> renameStm s
 renameStm (SFunDecl cid t ps ss) = do
   ps' ← mapM paramToVar ps
   file ← gets currentFile
-  addCIdentVariable cid (TFun t (Prelude.map varType ps'))
+  t' ← filterTDef t
+  addCIdentVariable cid (TFun t' (Prelude.map varType ps'))
 
   fun ← annotateFunction Types.Function {
       functionName = cIdentToString cid
     , alias = ""
     , functionLocation = (file, cIdentToPos cid)
-    , retType = t
+    , retType = t'
     , paramVars = ps'
     , parameters = ps
     , statements = ss
@@ -158,14 +158,19 @@ renameVariable ∷ Variable → TCM Variable
 renameVariable (Variable name loc typ) = Variable <$> newAlias name <*>
   pure loc <*> pure typ
 
+filterQuals ∷ [Qualifier] → TCM [Qualifier]
+filterQuals (QType t:qs) = (:) <$> (QType <$> filterTDef t) <*> filterQuals qs
+filterQuals (q:qs) = (:) <$> pure q <*> filterQuals qs
+filterQuals [] = pure []
+
 renameParam ∷ Param → TCM Param
 renameParam (ParamDec qs cid) = verifyQualsType qs >>= filterTDef >>=
-  addCIdentVariable cid >> ParamDec <$> pure qs <*> renameCIdent cid
-renameParam (ParamDefault qs cid tk e) = ParamDefault <$> pure qs <*>
+  addCIdentVariable cid >> ParamDec <$> filterQuals qs <*> renameCIdent cid
+renameParam (ParamDefault qs cid tk e) = ParamDefault <$> filterQuals qs <*>
   renameCIdent cid <*> pure tk <*> renameExp e
 
 renameDecl ∷ Decl → TCM Decl
-renameDecl (Dec qs post) = Dec qs <$> renameDeclPost post
+renameDecl (Dec qs post) = Dec <$> filterQuals qs <*> renameDeclPost post
 -- TODO STRUCT HELL
 
 renameForDecl ∷ ForDecl → TCM ForDecl
