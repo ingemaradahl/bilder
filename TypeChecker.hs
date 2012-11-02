@@ -177,7 +177,11 @@ checkStatement (SIfElse tkif@(TkIf (pos,_)) econd strue tkelse sfalse) = do
   strue' ← checkStatement strue
   sfalse' ← checkStatement sfalse
   return $ SType tecond $ SIfElse tkif econd strue' tkelse sfalse'
-checkStatement (SBlock stms) = SBlock <$> mapM checkStatement stms
+checkStatement (SBlock stms) = do
+  pushScope
+  stms' ← checkStatements stms
+  popScope
+  return $ SBlock stms'
 checkStatement s@(SExp e) = SType <$> inferExp e <*> pure s
 checkStatement (SWhile tk e s) = do
   te ← inferExp e
