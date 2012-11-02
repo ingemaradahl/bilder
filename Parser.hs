@@ -13,7 +13,7 @@ import FrontEnd.AbsGrammar
 import FrontEnd.ParGrammar
 import FrontEnd.ErrM
 
-import Compiler hiding (options, buildEnv)
+import Compiler hiding (options, buildEnv, warnings)
 import CompilerError
 import CompilerTypes
 

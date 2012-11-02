@@ -30,7 +30,7 @@ import qualified TypeChecker.Scope as Scope (functions)
 import TypeChecker.Types as Types
 import TypeChecker.Types.Blob
 
-import Compiler hiding (Environment, Env, options, buildEnv)
+import Compiler hiding (Environment, Env, options, buildEnv, warnings)
 import CompilerTypes
 import FrontEnd.AbsGrammar as Abs
 import FrontEnd.Instances
