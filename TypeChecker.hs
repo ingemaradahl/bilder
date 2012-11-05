@@ -207,12 +207,12 @@ checkDecl (Dec qs (DecFun cid ps _)) = do
   tps ← mapM paramType ps >>= mapM filterTDef
   return (TFun t tps)
 checkDecl (Dec qs post) = do
-  t ← verifyQualsType qs >>= filterTDef
+  t ← liftM uncurryType $ verifyQualsType qs >>= filterTDef
   expT ← checkDecAss post
 
   -- Check that inferred type and declared type matches
   maybe (return ())
-    (\a → unless (t == a) $ decAssError (head $ declPostIdents post) a t ) expT
+    (\a → unless (t == a) $ decAssError (head $ declPostIdents post) a t) expT
 
   sequence_ [ addCIdentVariable cid t | cid ← declPostIdents post ]
 
