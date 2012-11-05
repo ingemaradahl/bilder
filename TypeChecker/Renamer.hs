@@ -147,14 +147,24 @@ renameExp (EVar cid) = EVar <$> renameCIdent cid
 renameExp (ECall cid es) = do
   args ← mapM inferExp es
   funs ← lookupFunction (cIdentToString cid)
+  fun ← maybe err return $ tryApply funs args `mplus` tryUncurry funs args
+
+  -- It's possible that the found function is created on the fly by
+  -- lookupFunction, in which case the alias field is empty.
+  alias' ← if Prelude.null (alias fun)
+    then lookupAlias (cIdentToString cid)
+    else return (alias fun)
+
+  -- Rename argument expressions
   es' ← mapM renameExp es
-  case tryApply funs args `mplus` tryUncurry funs args of
-    Just fun → do
-      alias' ← if Prelude.null (alias fun)
-        then lookupAlias (cIdentToString cid)
-        else return (alias fun)
-      return $ ECall (newCIdent cid alias') es'
-    Nothing  → compileError (cIdentToPos cid) $ "Unable to find function" ++ cIdentToString cid
+
+  -- If the argument types match, whe have a clean application, otherwise it's
+  -- either a partial application or the argument is uncurried
+  if Prelude.map varType (paramVars fun) == args
+    then return $ ECall (newCIdent cid alias') es'
+    else return $ EPartCall (newCIdent cid alias') es' -- TODO Uncurrying
+ where
+  err = compileError (cIdentToPos cid) $ "Unable to find function" ++ cIdentToString cid
 renameExp e =  mapExpM renameExp e
 
 renameVariable ∷ Variable → TCM Variable

@@ -179,6 +179,7 @@ mapExpM f (EPostDec e tk) = EPostDec <$> f e <*> pure tk
 mapExpM f (EMember e cid) = EMember <$> f e <*> pure cid
 mapExpM f (EMemberCall el cid es) = EMemberCall <$> f el <*> pure cid <*> mapM f es
 mapExpM f (ECall cid es) = ECall cid <$> mapM f es
+mapExpM f (EPartCall cid es) = EPartCall cid <$> mapM f es
 mapExpM f (ETypeCall t es) = ETypeCall t <$> mapM f es
 mapExpM f (EIndex cid e) = EIndex cid <$> f e
 mapExpM _ (EVar cid) = pure $ EVar cid

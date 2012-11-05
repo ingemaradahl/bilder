@@ -43,7 +43,7 @@ instance Show Function where
     name
     (intercalate " -> " $ map (show . varType) params)
     (show ret)
-    (concatMap printTree pars)
+    (intercalate ", " $ map printTree pars)
     (concatMap printTree ss)
 
 data Struct = Struct {

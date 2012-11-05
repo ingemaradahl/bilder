@@ -205,6 +205,8 @@ EFalse.        Exp19 ::= "false" ;
 coercions Exp 19 ;
 separator Exp "," ;
 
+-- Decorations help the pretty printer
+internal EPartCall.     Exp16 ::= CIdent "<{(" [Exp] ")}>" ;
 
 -- Types ------------------------------------------------------------
 TVoid.       Type1 ::= "Void" ;
