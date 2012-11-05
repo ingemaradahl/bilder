@@ -66,7 +66,7 @@ renameBlob blob children = do
   aliases' ← gets (head . aliases)
 
   return (Source
-    (fromList (Prelude.map (\f → (alias f, f { functionName = alias f})) functions'))
+    (fromList (Prelude.map (\f → (alias f, f )) functions'))
     variables'
     ,
 
@@ -149,7 +149,11 @@ renameExp (ECall cid es) = do
   funs ← lookupFunction (cIdentToString cid)
   es' ← mapM renameExp es
   case tryApply funs args `mplus` tryUncurry funs args of
-    Just fun → return $ ECall (newCIdent cid (alias fun)) es'
+    Just fun → do
+      alias' ← if Prelude.null (alias fun)
+        then lookupAlias (cIdentToString cid)
+        else return (alias fun)
+      return $ ECall (newCIdent cid alias') es'
     Nothing  → compileError (cIdentToPos cid) $ "Unable to find function" ++ cIdentToString cid
 renameExp e =  mapExpM renameExp e
 

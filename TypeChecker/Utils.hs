@@ -100,7 +100,7 @@ partialApp f args = partial args $ map varType $ paramVars f
 buildAnonFunc ∷ String → Location → Type → [Type] → Function
 buildAnonFunc name loc ret args = TypeChecker.Types.Function {
     functionName = name,
-    alias = "",
+    alias = "", -- Hacky, but has to be empty (see renameExp|ECall)
     functionLocation = loc,
     retType = ret,
     paramVars = map buildAnonVar args,
@@ -139,13 +139,11 @@ tryApplyType funs args = if null matches
 tryApply ∷ [Function] → [Type] → Maybe Function
 tryApply funs args = if null matches
   then Nothing
-  else do
-    -- Apply as many arguments as possible (shortest list left after application)
-    let (fun, _) = head $ sortWith snd matches
-    Just fun -- No indication of partial application
+  else Just $ fst $ head $ sortWith snd matches
  where
   matches = map (second fromJust) $
               filter (isJust . snd) $ zip funs (map (`partialApp` args) funs)
+
 -- Try to find a match where uncurrying the vector in the list might help with
 -- finding a match in the list of functions.
 tryUncurryType ∷ [Function] → [Type] → Maybe Type
