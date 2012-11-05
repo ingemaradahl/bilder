@@ -103,6 +103,7 @@ foldExpM f p e@(EPostDec ei _) = foldExpM f p ei >>= flip f e
 foldExpM f p e@(EMember ei _) = foldExpM f p ei >>= flip f e
 foldExpM f p e@(EMemberCall ei _ es) = foldM (foldExpM f) p (ei:es) >>= flip f e
 foldExpM f p e@(ECall _ es) = foldM (foldExpM f) p es >>= flip f e
+foldExpM f p e@(EPartCall _ es) = foldM (foldExpM f) p es >>= flip f e
 foldExpM f p e@(ETypeCall _ es) = foldM (foldExpM f) p es >>= flip f e
 foldExpM f p e@(EVar {}) = f p e
 foldExpM f p e@(EIndex _ ei) = foldExpM f p ei >>= flip f e
