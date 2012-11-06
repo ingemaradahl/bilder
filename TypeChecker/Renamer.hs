@@ -160,11 +160,17 @@ renameExp (ECall cid es) = do
 
   -- If the argument types match, whe have a clean application, otherwise it's
   -- either a partial application or the argument is uncurried
-  if Prelude.map varType (paramVars fun) == args
+  let funArgs = Prelude.map varType (paramVars fun)
+  if funArgs == args
     then return $ ECall (newCIdent cid alias') es'
-    else return $ EPartCall (newCIdent cid alias') es' -- TODO Uncurrying
+    else if curried funArgs args
+      then return $ ECurryCall (newCIdent cid alias') es'
+      else return $ EPartCall (newCIdent cid alias') es'
  where
   err = compileError (cIdentToPos cid) $ "Unable to find function" ++ cIdentToString cid
+  curried ∷ [Type] → [Type] → Bool
+  curried funArgs inferred = length inferred == 1 && isVec (head inferred) &&
+    length funArgs == vecLength (head inferred)
 renameExp e =  mapExpM renameExp e
 
 renameVariable ∷ Variable → TCM Variable
