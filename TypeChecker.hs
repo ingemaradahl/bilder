@@ -170,13 +170,11 @@ checkStatement s@(SDecl decl) = SType <$> checkDecl decl <*> pure s
 checkStatement (SIf tk@(TkIf (pos,_)) cond stm) = do
   condt ← inferExp cond >>= filterTDef
   unless (condt `elem` [TInt,TFloat,TBool]) $ badConditional condt pos
-  SType condt <$> SIf tk cond <$> checkStatement stm
+  SType condt <$> SIf tk cond <$> scopeCheckStatement stm
 checkStatement (SIfElse tkif@(TkIf (pos,_)) econd strue tkelse sfalse) = do
   tecond ← inferExp econd >>= filterTDef
   unless (tecond `elem` [TInt,TFloat,TBool]) $ badConditional tecond pos
-  strue' ← checkStatement strue
-  sfalse' ← checkStatement sfalse
-  return $ SType tecond $ SIfElse tkif econd strue' tkelse sfalse'
+  SType tecond <$> (SIfElse tkif econd <$> scopeCheckStatement strue <*> pure tkelse <*> scopeCheckStatement sfalse)
 checkStatement (SBlock stms) = do
   pushScope
   stms' ← checkStatements stms
@@ -186,18 +184,25 @@ checkStatement s@(SExp e) = SType <$> inferExp e <*> pure s
 checkStatement (SWhile tk e s) = do
   te ← inferExp e
   unless (te `elem` [TBool,TInt,TFloat]) $ badConditional te (tkpos tk)
-  SType te <$> SWhile tk e <$> checkStatement s
+  SType te <$> SWhile tk e <$> scopeCheckStatement s
 checkStatement (SDoWhile tkdo s tkwhile e) = do
   te ← inferExp e
   unless (te `elem` [TBool,TInt,TFloat]) $ badConditional te (tkpos tkwhile)
-  SType te <$> (SDoWhile tkdo <$> checkStatement s <*> pure tkwhile <*> pure e)
+  SType te <$> (SDoWhile tkdo <$> scopeCheckStatement s <*> pure tkwhile <*> pure e)
 checkStatement (SFor tk fdecls econs eloop stm) = do
   mapM_ checkForDecl fdecls
   tecons ← mapM inferExp econs
   sequence_ [ unless (t `elem` [TBool,TInt,TFloat]) $ badConditional t (tkpos tk) | t ← tecons ]
   mapM_ inferExp eloop
-  SFor tk fdecls econs eloop <$> checkStatement stm
+  SFor tk fdecls econs eloop <$> scopeCheckStatement stm
 checkStatement s = debugError $ show s ++ " NOT DEFINED"
+
+scopeCheckStatement ∷ Stm → TCM Stm
+scopeCheckStatement s = do
+  pushScope
+  s' ← checkStatement s
+  popScope
+  return s'
 -- }}}
 -- Declarations {{{
 checkDecl ∷ Decl → TCM Type
