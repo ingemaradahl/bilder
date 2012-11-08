@@ -104,7 +104,7 @@ foldExpM f p e@(EMember ei _) = foldExpM f p ei >>= flip f e
 foldExpM f p e@(EMemberCall ei _ es) = foldM (foldExpM f) p (ei:es) >>= flip f e
 foldExpM f p e@(ECall _ es) = foldM (foldExpM f) p es >>= flip f e
 foldExpM f p e@(EPartCall _ es) = foldM (foldExpM f) p es >>= flip f e
-foldExpM f p e@(ECurryCall _ es) = foldM (foldExpM f) p es >>= flip f e
+foldExpM f p e@(ECurryCall _ ei _) = foldExpM f p ei >>= flip f e
 foldExpM f p e@(ETypeCall _ es) = foldM (foldExpM f) p es >>= flip f e
 foldExpM f p e@(EVar {}) = f p e
 foldExpM f p e@(EIndex _ ei) = foldExpM f p ei >>= flip f e
@@ -182,7 +182,7 @@ mapExpM f (EMember e cid) = EMember <$> f e <*> pure cid
 mapExpM f (EMemberCall el cid es) = EMemberCall <$> f el <*> pure cid <*> mapM f es
 mapExpM f (ECall cid es) = ECall cid <$> mapM f es
 mapExpM f (EPartCall cid es) = EPartCall cid <$> mapM f es
-mapExpM f (ECurryCall cid es) = ECurryCall cid <$> mapM f es
+mapExpM f (ECurryCall cid e t) = ECurryCall cid <$> f e <*> pure t
 mapExpM f (ETypeCall t es) = ETypeCall t <$> mapM f es
 mapExpM f (EIndex cid e) = EIndex cid <$> f e
 mapExpM _ (EVar cid) = pure $ EVar cid

@@ -8,7 +8,7 @@ import Text.Printf
 import CompilerError
 import CompilerTypes
 import FrontEnd
-import Compiler
+import Compiler hiding (compile)
 import TypeChecker
 
 -- Compilation chain

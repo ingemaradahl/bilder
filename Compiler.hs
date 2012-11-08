@@ -8,6 +8,7 @@ import CompilerError
 import Compiler.Utils
 
 import qualified Compiler.Lifter as L
+import Compiler.Desugar (desugar)
 
 import TypeChecker.Types
 
@@ -17,14 +18,12 @@ data Options = Options {
   deriving (Show)
 
 data Environment = Env {
-  source ∷ Source,
   options ∷ Options,
   warnings ∷ [String]
 }
 
-buildEnv ∷ Options → Source → Environment
-buildEnv opts src = Env {
-  source = src,
+buildEnv ∷ Options → Environment
+buildEnv opts = Env {
   options = opts,
   warnings = []
 }
@@ -33,19 +32,15 @@ buildEnv opts src = Env {
 type CPM a = StateT Environment CError a
 
 compileTree ∷ Options → Source → CError [String]
-compileTree opts src = evalStateT compile' (buildEnv opts src)
+compileTree opts src = evalStateT (compile src) (buildEnv opts)
 
-lambdaLift ∷ CPM ()
-lambdaLift = do
-  src ← gets source
+lambdaLift ∷ Source → CPM Source
+lambdaLift src = do
   env ← liftCError $ execStateT L.lambdaLift (L.buildEnv src)
   modify (\s → s {
-      warnings = L.warnings env ++ warnings s,
-      source = L.source env
+      warnings = L.warnings env ++ warnings s
     })
+  return $ L.source env
 
-compile' ∷ CPM [String]
-compile' = do
-  lambdaLift
-  src ← gets source
-  return [show src]
+compile ∷ Source → CPM [String]
+compile src = liftM (return . show . desugar) $ lambdaLift src

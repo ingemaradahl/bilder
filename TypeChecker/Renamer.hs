@@ -164,7 +164,7 @@ renameExp (ECall cid es) = do
   if funArgs == args
     then return $ ECall (newCIdent cid alias') es'
     else if curried funArgs args
-      then return $ ECurryCall (newCIdent cid alias') es'
+      then return $ ECurryCall (newCIdent cid alias') (head es') (head args)
       else return $ EPartCall (newCIdent cid alias') es'
  where
   err = compileError (cIdentToPos cid) $ "Unable to find function" ++ cIdentToString cid

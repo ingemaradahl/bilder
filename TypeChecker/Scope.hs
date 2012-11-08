@@ -93,7 +93,7 @@ builtInFuns = fromList $ evalState (mapM buildFuns [
   param ∷ (String, Type) → Param
   param (n, _) = ParamDec [] (CIdent ((-1,-1), n))
   buildFuns ∷ (String, [(Type, [(String, Type)])]) → State [Int] (String, [Function])
-  buildFuns (n, ts) = mapM (buildFun n) ts >>= (\funs → return (n, funs))
+  buildFuns (n, ts) = liftM ((,) n) $ mapM (buildFun n) ts
   buildFun ∷ String → (Type, [(String, Type)]) → State [Int] Function
   buildFun n (rt, ts) = do
     i ← gets head
