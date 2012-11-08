@@ -3,7 +3,7 @@
 module Compiler.Lifter where
 
 import Data.Map (Map, toList, insert, lookup, empty, adjust, fromList)
-import Data.Maybe (fromJust, isNothing, isJust)
+import Data.Maybe (fromJust, isNothing, isJust, catMaybes)
 import Control.Monad.State
 import Control.Applicative ((<$>), (<*>), pure)
 
@@ -152,7 +152,6 @@ liftInnerFunVars (SFunDecl cid rt ps stms) = do
   -- Add the free variables as parameters and return type.
   (ps', renames) ← appendFreeVars ps frees
   rt' ← appendReturnTypes rt frees
-  --stms'' ← renameStmVars renames stms'
 
   -- Remember the expansion so that all calls can be expanded.
   addCallExpansion (cIdentToString cid) frees
@@ -298,6 +297,11 @@ liftStm s f = do
   return $ maybe Nothing (return . f) s'
 
 liftSFunDecl ∷ Stm → LM (Maybe Stm)
+liftSFunDecl (SBlock stms) = do
+  stms' ← liftM catMaybes $ mapM liftSFunDecl stms
+  case stms' of
+    [] → return Nothing
+    _  → return $ Just $ SBlock stms'
 liftSFunDecl (SWhile tk e s) = liftStm s (SWhile tk e)
 liftSFunDecl (SDoWhile tkd s tkw e) = liftStm s (\s' → SDoWhile tkd s' tkw e)
 liftSFunDecl (SFor tk fd econs eloop s) = liftStm s (SFor tk fd econs eloop)
