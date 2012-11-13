@@ -6,18 +6,22 @@ import qualified Simple.AbsSimple as S
 import Simple.Types
 
 import qualified FrontEnd.AbsGLSL as G
---import qualified FrontEnd.AbsGrammar as F
+import qualified FrontEnd.AbsGrammar as F
 
 
--- Simple to GLSL {{{
 -- | Translates Simple to GLSL tree.
-simpleToGLSL ∷ SimpleBlob → G.Tree
+simpleToGLSL ∷ SimpleSource → G.Tree
 simpleToGLSL blob = G.Tree $
   map structToGLSL (structs blob) ++
   map (G.TopDecl . varToGLSLDecl) (variables blob) ++
   map funToPrototype (functions blob) ++
   map funToGLSL (functions blob)
 
+-- | Translates FL tree to Simple.
+flToSimple ∷ F.AbsTree → SimpleSource
+flToSimple _ = undefined
+
+-- Simple to GLSL {{{
 funToPrototype ∷ S.Function → G.TopLevel
 funToPrototype fun = G.FunctionPrototype
   (typeToGLSL (S.returnType fun)) -- return type
@@ -149,12 +153,6 @@ varToGLSLDecl var = G.Declaration
   (typeToGLSL $ S.variableType var) -- type
   [G.Ident $ S.variableName var] -- names
 
-
--- }}}
--- FL to Simple {{{
--- | Translates FL tree to Simple.
---flToSimple ∷ F.AbsTree → S.AbsTree
---flToSimple _ = undefined
 
 -- }}}
 

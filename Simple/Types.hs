@@ -5,7 +5,7 @@ module Simple.Types where
 import qualified Simple.AbsSimple as S
 
 
-data SimpleBlob = SimpleBlob {
+data SimpleSource = SimpleSource {
     functions ∷ [S.Function]
   , variables ∷ [S.Variable]
   , structs ∷ [S.Struct]
