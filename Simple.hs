@@ -123,7 +123,7 @@ variableToGLSLParam var = G.ParamDec
 
 paramQualsGLSL ∷ S.Qualifier → G.ParamQualifiers
 paramQualsGLSL (S.Const) = G.PQStorage G.QConst
-paramQualsGLSL (S.External) = undefined
+paramQualsGLSL (S.External) = error "compiler error - parameters are not allowed to have external qualifier."
 
 typeToGLSL ∷ S.Type → G.Type
 typeToGLSL (S.TVoid) = G.TVoid
@@ -140,7 +140,7 @@ typeToGLSL (S.TStruct i) = G.TStruct (G.Ident i)
 
 declQualsGLSL ∷ S.Qualifier → G.DeclQualifiers
 declQualsGLSL (S.Const) = G.DQStorage G.QConst
-declQualsGLSL (S.External) = undefined
+declQualsGLSL (S.External) = G.DQStorage G.QUniform
 
 structToGLSL ∷ S.Struct → G.TopLevel
 structToGLSL s = G.TopDecl $ G.Struct
