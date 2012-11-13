@@ -150,8 +150,8 @@ liftInnerFunVars (SFunDecl cid rt ps stms) = do
   let frees = freeFunctionVars globals (cIdentToString cid, ps, stms')
 
   -- Add the free variables as parameters and return type.
-  (ps', renames) ← appendFreeVars ps frees
-  rt' ← appendReturnTypes rt frees
+  (ps', renames) ← prependFreeVars ps frees
+  rt' ← prependReturnTypes rt frees
 
   -- Remember the expansion so that all calls can be expanded.
   addCallExpansion (cIdentToString cid) frees
@@ -204,26 +204,26 @@ expandECallDeclPost dp@(Vars {}) = return dp
 expandECallDeclPost (DecAss cid tk e) = DecAss cid tk <$> expandECall e
 --expandECallDeclPost (DecFun {}) = undefined -- DecFun -> SFunDecl in typechecker.
 
--- | Appends free variables to the end of parameter list.
+-- | Prepends free variables to the end of parameter list.
 --   Returns the new list of parameters and a map of all renames.
-appendFreeVars ∷ [Param] → [String] → LM ([Param], Map String String)
-appendFreeVars ps fs = do
+prependFreeVars ∷ [Param] → [String] → LM ([Param], Map String String)
+prependFreeVars ps fs = do
   ps' ← sequence [ do
       t ← varType n
       n' ← renameFreeVar n
       return (varTypeToParam n' t, (n, n'))
     | n ← fs
     ]
-  return (ps ++ map fst ps', fromList (map snd ps'))
+  return (map fst ps' ++ ps, fromList (map snd ps'))
 
 renameFreeVar ∷ String → LM String
 renameFreeVar s = nextRenameIndex >>= (\i → return $ printf "_f%0.3i%s" i s)
 
--- | Appends free variables types to a functions return type.
-appendReturnTypes ∷ Type → [String] → LM Type
-appendReturnTypes (TFun t ps) fs = do
+-- | Prepends free variables types to a functions return type.
+prependReturnTypes ∷ Type → [String] → LM Type
+prependReturnTypes (TFun t ps) fs = do
   ts ← mapM varType fs
-  return $ TFun t (ps ++ ts)
+  return $ TFun t (ts ++ ps)
 --appendReturnTypes t _ = error $ "only functions are supported " ++ show t
 -- }}}
 -- Function lifting {{{
