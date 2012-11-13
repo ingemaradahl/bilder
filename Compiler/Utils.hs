@@ -13,6 +13,8 @@ import FrontEnd.AbsGrammar
 import TypeChecker.Utils (cIdentToString, cIdentToPos, paramToString)
 import qualified TypeChecker.Types as T
 
+import Data.List (nub)
+
 
 liftCError ∷ CError a → StateT b CError a
 liftCError m = StateT (\s → case m of { Fail f → Fail f; Pass a → return (a,s) })
@@ -256,7 +258,7 @@ type AbsFun = (String, [Param], [Stm])
 
 -- | Find all free variables in a function.
 freeFunctionVars ∷ [String] → AbsFun → [String]
-freeFunctionVars global (_, ps, stms) = snd $ foldl stmVars (bound, []) stms
+freeFunctionVars global (_, ps, stms) = nub . snd $ foldl stmVars (bound, []) stms
  where
   bound = global ++ map paramToString ps
 
