@@ -2,47 +2,12 @@
 
 module Simple where
 
-import qualified AbsSimple as S
+import qualified Simple.AbsSimple as S
+import Simple.Types
+
 import qualified FrontEnd.AbsGLSL as G
 --import qualified FrontEnd.AbsGrammar as F
 
-import qualified FrontEnd.PrintGLSL as PG
-
-
-data SimpleBlob = SimpleBlob {
-    functions ∷ [S.Function]
-  , variables ∷ [S.Variable] -- TODO: Default value?
-  , structs ∷ [S.Struct]
-}
- deriving (Show)
-
-
-test ∷ SimpleBlob
-test = SimpleBlob {
-    functions = [
-      S.Function "main" S.TFloat
-        [S.Variable "x" S.TFloat [S.Const], S.Variable "y" S.TFloat []]
-        [S.SDeclAss (S.Variable "x" S.TFloat [S.Const]) (S.EFloat 0.0),
-        S.SReturn (S.EFloat 0.0)],
-      S.Function "twist" S.TFloat
-        []
-        [S.SStruct $ S.Struct "struct" [S.Variable "x" S.TFloat []],
-        S.SExp $ S.EIndex "array" (S.EInt 5),
-        S.SReturn (S.EFloat 5.0)
-        ]
-      ]
-  , variables = [
-        S.Variable "aoeu" S.TVec2 []
-      , S.Variable "hejsan" S.TFloat []
-   ]
-  , structs = [
-      S.Struct "structure"
-      [S.Variable "apa" S.TInt [], S.Variable "bepa" S.TFloat []]
-    ]
-}
-
-testP ∷ IO ()
-testP = putStrLn $ PG.printTree $ simpleToGLSL test
 
 -- Simple to GLSL {{{
 -- | Translates Simple to GLSL tree.

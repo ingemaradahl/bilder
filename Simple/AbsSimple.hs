@@ -1,6 +1,6 @@
 {-# LANGUAGE UnicodeSyntax  #-}
 
-module AbsSimple where
+module Simple.AbsSimple where
 
 type Ident = String
 
