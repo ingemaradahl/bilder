@@ -1,6 +1,6 @@
 {-# LANGUAGE UnicodeSyntax  #-}
 
-module AbsSimple where
+module Simple.AbsSimple where
 
 type Ident = String
 
@@ -31,13 +31,13 @@ data Qualifier =
   deriving (Eq,Ord,Show)
 
 data Stm =
-   SDec Variable
- | SDecAss Variable Exp
+   SDecl Variable
+ | SDeclAss Variable Exp
  | SStruct Struct
  | SExp Exp
  | SWhile Exp [Stm]
  | SDoWhile [Stm] Exp
- | SFor [Stm] [Exp] [Exp] [Stm] -- First Stm must be SDecAss
+ | SFor [Stm] [Exp] [Exp] [Stm] -- First Stm must be SDeclAss or SExp.
  | SReturn Exp
  | SVoidReturn
  | SIf Exp [Stm]

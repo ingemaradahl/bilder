@@ -14,8 +14,8 @@ separator StructVarDecl "" ;
 
 
 -- Parameter --------------------------------------------------------
-ParamDec.            Param  ::= [ParamQualifiers] Ident ;
-ParamDecDef.         Param  ::= [ParamQualifiers] Ident "=" Exp2 ;
+ParamDec.            Param  ::= [ParamQualifiers] Type Ident ;
+ParamDecDef.         Param  ::= [ParamQualifiers] Type Ident "=" Exp2 ;
 separator Param "," ;
 
 
@@ -25,8 +25,8 @@ separator Param "," ;
 PQStorage.   ParamQualifiers  ::= StorageQualifier ;
 PQParam.     ParamQualifiers  ::= ParamQualifier ;
 PQPrecision. ParamQualifiers  ::= PrecisionQualifier ;
-PQType.      ParamQualifiers  ::= Type ;
-separator nonempty ParamQualifiers "" ;
+--PQType.      ParamQualifiers  ::= Type ;
+separator ParamQualifiers "" ;
 
 
 -- Allowed order for DeclQualifiers:
@@ -34,8 +34,8 @@ separator nonempty ParamQualifiers "" ;
 DQStorage.   DeclQualifiers   ::= StorageQualifier ;
 DQPrecision. DeclQualifiers   ::= PrecisionQualifier ;
 DQInvariant. DeclQualifiers   ::= InvariantQualifier ;
-DQType.      DeclQualifiers   ::= Type ;
-separator nonempty DeclQualifiers "" ;
+--DQType.      DeclQualifiers   ::= Type ;
+separator DeclQualifiers "" ;
 
 
 QConst.       StorageQualifier    ::= "const" ;
@@ -54,8 +54,8 @@ QLowP.     PrecisionQualifier ::= "lowp" ;
 QInvariant. InvariantQualifier ::= "invariant" ;
 
 -- Declarations -----------------------------------------------------
-Declaration.             Decl  ::= [DeclQualifiers] [Ident] ;
-DefaultDeclaration.      Decl  ::= [DeclQualifiers] [Ident] "=" Exp ;
+Declaration.             Decl  ::= [DeclQualifiers] Type [Ident] ;
+DefaultDeclaration.      Decl  ::= [DeclQualifiers] Type [Ident] "=" Exp ;
 InvariantRedecl.         Decl  ::= "invariant" [Ident] ;
 PrecisionDecl.           Decl  ::= "precision" PrecisionQualifier Type ;
 Struct.                  Decl  ::= "struct" Ident "{" [StructVarDecl] "}" ;
@@ -154,6 +154,8 @@ ECall.         Exp16 ::= Ident "(" [Exp] ")" ;
 ETypeCall.     Exp17 ::= Type "(" [Exp] ")" ;
 
 EVar.          Exp19 ::= Ident ;
+EIndex.        Exp19 ::= Ident "[" Exp "]" ;
+
 EFloat.        Exp19 ::= CFloat ;
 EStr.          Exp19 ::= String ;
 EInt.          Exp19 ::= Integer ;
@@ -189,7 +191,7 @@ TMat4.        Type ::= "mat4" ;
 TSampler2D.   Type ::= "sampler2D" ;
 TSamplerCube. Type ::= "samplerCube" ;
 TEmptyArray.  Type ::= Type "[" "]";
-TScruct.      Type ::= "struct" Ident ;
+TStruct.      Type ::= "struct" Ident ;
 TArray.       Type ::= Type "[" Exp "]";
 
 token CFloat (((digit+ '.' digit+)|(digit+ '.')|('.' digit+)) (('e'|'E')('-')? digit+)?
