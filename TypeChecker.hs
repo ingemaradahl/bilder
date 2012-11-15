@@ -140,6 +140,7 @@ checkStatements [] = return []
 
 
 checkStatement ∷ Stm → TCM Stm
+checkStatement s@(SVoidReturn {}) = return $ SType TVoid s
 checkStatement s@(SReturn (TkReturn (pos,_)) e) = do
   fun ← gets currentFunction
   t ← inferExp e
