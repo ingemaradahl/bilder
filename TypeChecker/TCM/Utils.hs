@@ -197,7 +197,7 @@ paramExp p = compileError (paramToPos p)
   "Trying to find expression on non-expression parameter declaration"
 
 paramType ∷ Param → TCM Type
-paramType p = verifyQuals qs >> maybe (paramNoTypeGiven p) return (qualType qs)
+paramType p = verifyQuals qs >> maybe (paramNoTypeGiven p) (return . uncurryType) (qualType qs)
  where
   qs = paramToQuals p
 
