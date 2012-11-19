@@ -80,9 +80,9 @@ builtInFuns = fromList $ evalState (mapM buildFuns [
     ("min", map (\t → (t, [("a", t), ("b", t)])) vecnums ),
     ("sin", [(TFloat, [("phi", TFloat)])]),
     ("cos", [(TFloat, [("phi", TFloat)])]),
-    ("dot", [(TVec4, [("x", TVec4), ("y", TVec4)])
-            ,(TVec3, [("x", TVec3), ("y", TVec3)])
-            ,(TVec2, [("x", TVec2), ("y", TVec2)])
+    ("dot", [(TFloat, [("x", TVec4), ("y", TVec4)])
+            ,(TFloat, [("x", TVec3), ("y", TVec3)])
+            ,(TFloat, [("x", TVec2), ("y", TVec2)])
             ])
   ]) [1..]
  where
