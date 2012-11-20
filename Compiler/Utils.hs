@@ -103,7 +103,7 @@ foldExpM f p e@(EPostDec ei _) = foldExpM f p ei >>= flip f e
 foldExpM f p e@(EMember ei _) = foldExpM f p ei >>= flip f e
 foldExpM f p e@(EMemberCall ei _ es) = foldM (foldExpM f) p (ei:es) >>= flip f e
 foldExpM f p e@(ECall _ es) = foldM (foldExpM f) p es >>= flip f e
-foldExpM f p e@(EPartCall _ es) = foldM (foldExpM f) p es >>= flip f e
+foldExpM f p e@(EPartCall _ es _) = foldM (foldExpM f) p es >>= flip f e
 foldExpM f p e@(ECurryCall _ ei _) = foldExpM f p ei >>= flip f e
 foldExpM f p e@(ETypeCall _ es) = foldM (foldExpM f) p es >>= flip f e
 foldExpM f p e@(EVar {}) = f p e
@@ -181,7 +181,7 @@ mapExpM f (EPostDec e tk) = EPostDec <$> f e <*> pure tk
 mapExpM f (EMember e cid) = EMember <$> f e <*> pure cid
 mapExpM f (EMemberCall el cid es) = EMemberCall <$> f el <*> pure cid <*> mapM f es
 mapExpM f (ECall cid es) = ECall cid <$> mapM f es
-mapExpM f (EPartCall cid es) = EPartCall cid <$> mapM f es
+mapExpM f (EPartCall cid es ts) = EPartCall cid <$> mapM f es <*> pure ts
 mapExpM f (ECurryCall cid e t) = ECurryCall cid <$> f e <*> pure t
 mapExpM f (ETypeCall t es) = ETypeCall t <$> mapM f es
 mapExpM f (EIndex cid e) = EIndex cid <$> f e
@@ -248,6 +248,40 @@ mapStmExp f s = runIdentity $ mapStmExpM f' s
  where
   f' ∷ Exp → Identity Exp
   f' e = return $ f e
+
+-- Expands statements, useful for rewriting code
+expandStmM ∷ (Monad m, Applicative m) => ([Stm] → m [Stm]) → [Stm] → m [Stm]
+expandStmM f (SBlock stms:ss) = (:) <$> (SBlock <$> f stms) <*> f ss
+expandStmM f (SWhile tkw e s:ss) = do
+  s' ← liftM makeBlock $ f [s]
+  ss' ← f ss
+  return $ SWhile tkw e s':ss'
+expandStmM f (SDoWhile tkd s tkw e:ss) = do
+  s' ← liftM makeBlock $ f [s]
+  ss' ← f ss
+  return $ SDoWhile tkd s' tkw e:ss'
+expandStmM f (SFor tkf fdec es es' s:ss) =
+  (:) <$> (SFor tkf fdec es es' <$> liftM makeBlock (f [s])) <*> f ss
+expandStmM f (SIf tkif e s:ss) = (:)
+  <$> (SIf tkif e <$> liftM makeBlock (f [s]))
+  <*> f ss
+expandStmM f (SIfElse tkif e st tke sf:ss) = do
+  st' ← liftM makeBlock (f [st])
+  sf' ← liftM makeBlock (f [sf])
+  ss' ← f ss
+  return $ SIfElse tkif e st' tke sf':ss'
+expandStmM f (SType t s:ss) = (++) <$> liftM (map (SType t)) (f [s]) <*> f ss
+expandStmM f (s:ss) = (:) <$> pure s <*> expandStmM f ss
+expandStmM _ [] = return []
+
+makeBlock ∷ [Stm] → Stm
+makeBlock ss = if length ss == 1 then head ss else SBlock ss
+
+expandStm ∷ ([Stm] → [Stm]) → [Stm] → [Stm]
+expandStm f s = runIdentity $ expandStmM f' s
+ where
+  f' ∷ [Stm] → Identity [Stm]
+  f' s' = return $ f s'
 
 -- }}}
 -- Free Variables {{{
