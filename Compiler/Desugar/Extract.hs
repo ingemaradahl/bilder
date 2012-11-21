@@ -2,6 +2,7 @@
 
 module Compiler.Desugar.Extract  where
 
+import Control.Applicative
 import Control.Monad.State
 
 import Data.Maybe
@@ -52,9 +53,17 @@ expandFun fun = do
   return $ fun { statements = stms}
 
 expand ∷ [Stm] → State Ids [Stm]
+expand (SDecl (Dec qs (DecAss cids tk e)):ss) = do
+  (e', sdecs) ← case e of
+    (EPartCall cid es ts) → do
+      exs ← mapM expandExp es
+      let (es', sds) = foldr (\(x,ds) (px,pds) → (x:px,ds++pds)) ([],[]) exs
+      return (EPartCall cid es' ts, sds)
+    ex → expandExp ex
+  ss' ← expand ss
+  return $ sdecs ++ [SDecl (Dec qs (DecAss cids tk e'))] ++ ss'
 expand (SExp e:ss) = do
-  e' ← extractCalls e
-  sdecs ← getPendings
+  (e', sdecs) ← expandExp e
   ss' ← expand ss
   return $ sdecs ++ [SExp e'] ++ ss'
 expand (SWhile tkw e stm:ss) = do
@@ -73,11 +82,13 @@ expand (SDoWhile tkd stm tkw e:ss) = do
 --expand SFor ...
 --expand SIf|SIfElse..
 expand (SReturn tkr e:ss) = do
-  e' ← extractCalls e
-  sdecs ← getPendings
+  (e',sdecs) ← expandExp e
   ss' ← expand ss
   return $ sdecs ++ [SReturn tkr e'] ++ ss'
 expand ss = expandStmM expand ss
+
+expandExp ∷ Exp → State Ids (Exp,[Stm])
+expandExp e = (,) <$> extractCalls e <*> getPendings
 
 extractCalls ∷ Exp → State Ids Exp
 extractCalls (EPartCall cid es ts) = do
