@@ -206,7 +206,7 @@ coercions Exp 19 ;
 separator Exp "," ;
 
 -- Decorations help the pretty printer
-internal EPartCall.     Exp16 ::= CIdent "<{(" [Exp] ")}>" ;
+internal EPartCall.     Exp16 ::= CIdent "<{(" [Exp] "::" [Type] ")}>" ;
 internal ECurryCall.    Exp16 ::= CIdent "<C(" Exp "::" Type ")>" ;
 
 -- Types ------------------------------------------------------------
