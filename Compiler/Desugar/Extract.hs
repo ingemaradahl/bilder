@@ -91,6 +91,9 @@ expandExp ∷ Exp → State Ids (Exp,[Stm])
 expandExp e = (,) <$> extractCalls e <*> getPendings
 
 extractCalls ∷ Exp → State Ids Exp
+extractCalls (EAss el tk (EPartCall cid es ts)) = do
+  es' ← mapM extractCalls es
+  return $ EAss el tk (EPartCall cid es' ts)
 extractCalls (EPartCall cid es ts) = do
   es' ← mapM extractCalls es
   var@(EVar varCid) ← newVar
