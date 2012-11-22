@@ -198,6 +198,7 @@ compAssType TFloat TFloat = Just TFloat
 compAssType TFloat TInt = Just TFloat
 compAssType TInt TFloat = Just TFloat
 compAssType TInt TInt = Just TInt
+compAssType tl@(TFun {}) tr@(TFun {}) = mayhaps (tl == tr) tl
 compAssType tl tr = mayhaps (isVec tl && (tl == tr || tr == TFloat)) tl
 
 compNumType ∷ Type → Type → Maybe Type
