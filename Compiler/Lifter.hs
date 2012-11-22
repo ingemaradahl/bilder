@@ -117,6 +117,7 @@ lambdaLift = do
 liftFunVars ∷ T.Function → LM T.Function
 liftFunVars f = do
   clearVarTypes
+  sequence_ [ addVarType (paramToString p) ((qualsToType . paramToQuals) p) | p ← T.parameters f ]
   stms ← mapM liftInnerFunVars (T.statements f)
   return f { T.statements = stms }
 
@@ -236,6 +237,7 @@ liftFuns = do
   liftInnerFuns ∷ T.Function → LM T.Function
   liftInnerFuns f = do
     setCurrentFile (fst $ T.functionLocation f)
+    sequence_ [ addVarType (paramToString p) ((qualsToType . paramToQuals) p) | p ← T.parameters f ]
     stms' ← funLifter (T.statements f)
     return $ f { T.statements = stms' }
 
@@ -265,6 +267,12 @@ unusedFunDecl stm =
     (show col)
  where
   (line, col) = sFunDeclToPos stm
+  sFunDeclToPos ∷ Stm → Position
+  sFunDeclToPos (SFunDecl cid _ _ _) = cIdentToPos cid
+  sFunDeclToPos s = maybe (0,0) sFunDeclToPos (findSFunDecl s)
+  sFunDeclToName ∷ Stm → String
+  sFunDeclToName (SFunDecl cid _ _ _) = cIdentToString cid
+  sFunDeclToName s = maybe "N/A" sFunDeclToName (findSFunDecl s)
 
 findSFunDecl ∷ Stm → Maybe Stm
 findSFunDecl (SBlock ss) =
@@ -282,13 +290,6 @@ findSFunDecl (SIfElse _ _ st _ sf) =
 findSFunDecl (SType _ s) = findSFunDecl s
 findSFunDecl s@(SFunDecl {}) = Just s
 
-sFunDeclToPos ∷ Stm → Position
-sFunDeclToPos (SFunDecl cid _ _ _) = cIdentToPos cid
-sFunDeclToPos s = maybe (0,0) sFunDeclToPos (findSFunDecl s)
-
-sFunDeclToName ∷ Stm → String
-sFunDeclToName (SFunDecl cid _ _ _) = cIdentToString cid
-sFunDeclToName s = maybe "N/A" sFunDeclToName (findSFunDecl s)
 
 liftStm ∷ Stm → (Stm → Stm) → LM (Maybe Stm)
 liftStm s f = do
