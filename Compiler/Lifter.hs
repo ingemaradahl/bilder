@@ -128,7 +128,7 @@ liftInnerFunVars (SDecl d) = do
   -- Add all declared variables.
   let ts = declToTypeAndName d
   mapM_ (uncurry $ flip addVarType) ts
-  return $ SDecl d
+  SDecl <$> expandECallDecl d
 liftInnerFunVars (SExp e) = SExp <$> expandECall e
 liftInnerFunVars (SBlock stms) = SBlock <$> mapM liftInnerFunVars stms
 liftInnerFunVars (SWhile t e stm) =
@@ -185,7 +185,16 @@ expandECall (ECall cid es) = do
   es' ← mapM (mapExpM expandECall) es
   case Data.Map.lookup (cIdentToString cid) eps of
     Nothing → return $ ECall cid es'
-    Just vs  → return $ ECall cid (es' ++ map nameToVar vs)
+    Just vs  → return $ ECall cid (map nameToVar vs ++ es')
+ where
+  nameToVar ∷ String → Exp
+  nameToVar s = EVar (CIdent ((-1,-1), s))
+expandECall (EPartCall cid es ts) = do
+  eps ← gets callExpansions
+  es' ← mapM (mapExpM expandECall) es
+  case Data.Map.lookup (cIdentToString cid) eps of
+    Nothing → return $ EPartCall cid es' ts
+    Just vs  → EPartCall cid (map nameToVar vs ++ es') <$> ((++) ts <$> mapM varType vs)
  where
   nameToVar ∷ String → Exp
   nameToVar s = EVar (CIdent ((-1,-1), s))
