@@ -152,12 +152,17 @@ liftInnerFunVars (SFunDecl cid rt ps stms) = do
 
   -- Add the free variables as parameters and return type.
   (ps', renames) ← prependFreeVars ps frees
-  rt' ← prependReturnTypes rt frees
+
+  -- Add all renamed variables as types aswell
+  sequence_ [varType old >>= addVarType new | (old,new) ← toList renames]
 
   -- Remember the expansion so that all calls can be expanded.
   addCallExpansion (cIdentToString cid) frees
 
-  return $ SFunDecl cid rt' ps' (map (mapStmExp (renameExpVars renames)) stms')
+  pst ← mapM (varType . paramToString) ps'
+  addVarType (cIdentToString cid) (TFun rt pst)
+
+  return $ SFunDecl cid rt ps' (map (mapStmExp (renameExpVars renames)) stms')
 liftInnerFunVars x = return x -- The rest: SBreak, SContinue, SDiscard
 
 -- | Renames all variables in an expression according to the Map.
@@ -185,7 +190,7 @@ expandECall (ECall cid es) = do
   es' ← mapM (mapExpM expandECall) es
   case Data.Map.lookup (cIdentToString cid) eps of
     Nothing → return $ ECall cid es'
-    Just vs  → return $ ECall cid (map nameToVar vs ++ es')
+    Just vs → return $ ECall cid (map nameToVar vs ++ es')
  where
   nameToVar ∷ String → Exp
   nameToVar s = EVar (CIdent ((-1,-1), s))
@@ -194,7 +199,15 @@ expandECall (EPartCall cid es ts) = do
   es' ← mapM (mapExpM expandECall) es
   case Data.Map.lookup (cIdentToString cid) eps of
     Nothing → return $ EPartCall cid es' ts
-    Just vs  → EPartCall cid (map nameToVar vs ++ es') <$> ((++) ts <$> mapM varType vs)
+    Just vs → EPartCall cid (map nameToVar vs ++ es') <$> ((++) ts <$> mapM varType vs)
+ where
+  nameToVar ∷ String → Exp
+  nameToVar s = EVar (CIdent ((-1,-1), s))
+expandECall (EVar cid) = do
+  eps ← gets callExpansions
+  case Data.Map.lookup (cIdentToString cid) eps of
+    Nothing → return $ EVar cid
+    Just vs → EPartCall cid (map nameToVar vs) <$> mapM varType vs
  where
   nameToVar ∷ String → Exp
   nameToVar s = EVar (CIdent ((-1,-1), s))
