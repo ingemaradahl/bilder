@@ -107,6 +107,21 @@ lookupVar cid = do
  where
   name = cIdentToString cid
 
+-- | Lookup the possible types of a variable (or a function)
+--   Never returns [] - instead it throws noVarFound.
+lookupVarTypes ∷ CIdent → TCM [Type]
+lookupVarTypes cid = do
+  scs ← gets scopes
+  -- check for a Variable with that name.
+  case Scope.lookupVar name scs of
+    Just v  → return [varType v]
+    Nothing → case Scope.lookupFunction name scs of
+      Just f  → return $ Prelude.map funType f
+      Nothing → noVarFound cid
+ where
+  name = cIdentToString cid
+  funType f = TFun (retType f) (Prelude.map varType $ paramVars f)
+
 -- | Sets which file is currently checked
 updateFile ∷ FilePath → TCM ()
 updateFile f = modify (\st → st { currentFile = f })

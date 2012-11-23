@@ -16,7 +16,7 @@ import CompilerTypes
 import Text.Printf
 
 import TypeChecker.Utils (cIdentToString, cIdentToPos, paramToString, paramToQuals)
-import TypeChecker.Types (Source, functions, variables)
+import TypeChecker.Types (Source, functions, variables, paramVars)
 import qualified TypeChecker.Types as T
 
 -- Lifter monad - keeps source and lifting environment in State with CError
@@ -190,28 +190,32 @@ expandECall (ECall cid es) = do
   es' ← mapM (mapExpM expandECall) es
   case Data.Map.lookup (cIdentToString cid) eps of
     Nothing → return $ ECall cid es'
-    Just vs → return $ ECall cid (map nameToVar vs ++ es')
- where
-  nameToVar ∷ String → Exp
-  nameToVar s = EVar (CIdent ((-1,-1), s))
+    Just vs → return $ ECall cid (map nameToEVar vs ++ es')
 expandECall (EPartCall cid es ts) = do
   eps ← gets callExpansions
   es' ← mapM (mapExpM expandECall) es
   case Data.Map.lookup (cIdentToString cid) eps of
     Nothing → return $ EPartCall cid es' ts
-    Just vs → EPartCall cid (map nameToVar vs ++ es') <$> ((++) ts <$> mapM varType vs)
- where
-  nameToVar ∷ String → Exp
-  nameToVar s = EVar (CIdent ((-1,-1), s))
-expandECall (EVar cid) = do
+    Just vs → EPartCall cid (map nameToEVar vs ++ es') <$> ((++) ts <$> mapM varType vs)
+expandECall e@(EVar cid) = do
   eps ← gets callExpansions
-  case Data.Map.lookup (cIdentToString cid) eps of
-    Nothing → return $ EVar cid
-    Just vs → EPartCall cid (map nameToVar vs) <$> mapM varType vs
+  case Data.Map.lookup name eps of
+    Nothing → do
+      -- just a regular EVar... however
+      -- if it's a function it should be replaced with ECall or EPartCall.
+      funs ← sourceFunctions
+      case Data.Map.lookup name funs of
+        Nothing  → return e
+        Just fun → if null $ paramVars fun
+          then return $ ECall cid []
+          else return $ EPartCall cid [] []
+    Just vs → EPartCall cid (map nameToEVar vs) <$> mapM varType vs
  where
-  nameToVar ∷ String → Exp
-  nameToVar s = EVar (CIdent ((-1,-1), s))
+  name = cIdentToString cid
 expandECall e = mapExpM expandECall e
+
+nameToEVar ∷ String → Exp
+nameToEVar s = EVar (CIdent ((-1,-1), s))
 
 expandECallForDecl ∷ ForDecl → LM ForDecl
 expandECallForDecl (FDecl d) = FDecl <$> expandECallDecl d

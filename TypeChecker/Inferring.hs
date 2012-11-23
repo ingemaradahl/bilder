@@ -12,10 +12,11 @@ import TypeChecker.TCM.Errors
 import TypeChecker.TCM.Utils
 
 import TypeChecker.Utils
-import TypeChecker.Types as Types
 
 import FrontEnd.AbsGrammar
 import FrontEnd.Instances
+
+import Text.Printf (printf)
 -- }}}
 
 inferExp ∷ Exp → TCM Type
@@ -23,7 +24,10 @@ inferExp (EFloat _) = return TFloat
 inferExp (EInt _) = return TInt
 inferExp ETrue = return TBool
 inferExp EFalse = return TBool
-inferExp (EVar cid) = liftM varType $ lookupVar cid
+inferExp (EVar cid) = do
+  types ← lookupVarTypes cid
+  when (length types > 1) $ warning (cIdentToPos cid) $ printf "more than one function/variable by the name \"%s\" - using the one declared last." (cIdentToString cid)
+  return (head types)
 inferExp (ECond ec tkq etrue tkc efalse) = do
   t ← inferExp ec
   unless (t `elem` [TInt,TFloat,TBool]) $ badConditional t (tkpos tkq)
