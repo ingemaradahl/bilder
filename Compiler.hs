@@ -9,6 +9,7 @@ import Compiler.Utils
 
 import qualified Compiler.Lifter as L
 import Compiler.Desugar (desugar)
+import Compiler.Split (splitSource)
 
 import TypeChecker.Types
 

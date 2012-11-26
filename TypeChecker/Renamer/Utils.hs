@@ -80,7 +80,7 @@ addSource src = do
 
 annotateFunction ∷ Function → TCM Function
 annotateFunction f = do
-  ident' ← newAlias (ident f)
+  ident' ← if ident f == "main" then return "main" else newAlias (ident f)
   return $ f { alias = ident' }
 
 flushAliases ∷ TCM ()
