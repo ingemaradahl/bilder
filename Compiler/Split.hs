@@ -3,6 +3,7 @@
 module Compiler.Split where
 
 import Control.Monad.State
+import Control.Monad.Writer
 
 import Data.Maybe
 import qualified Data.Map as Map
@@ -10,32 +11,40 @@ import qualified Data.Map as Map
 import Compiler.Utils
 import TypeChecker.Utils
 
-import TypeChecker.Types (Function, Function(Null), Variable, Source, statements)
+import TypeChecker.Types (Function, Function(Null), Variable, Source, statements, paramVars, ident)
 import qualified TypeChecker.Types as Source (Source(functions), Source(variables))
 import FrontEnd.AbsGrammar
 
 import Text.Printf
 
-type Chunk = (Function, [[Stm]], String)
+type Chunk = ([(Function, [Stm])], String)
+
+data Shader = Shader {
+    funs ∷ Map.Map String Function
+  , vars ∷ Map.Map String Variable
+  , output ∷ String
+  , inputs ∷ [String]
+}
 
 data St = St {
     functions ∷ Map.Map String Function
   , variables ∷ Map.Map String Variable
   , currentFun ∷ Function
-  , gobbled ∷ [[Stm]]
+  , gobbled ∷ [(Function, [Stm])]
   , freeRefs ∷ [Int]
   , chunks ∷ [Chunk]
 }
 
-pushFun ∷ State St ()
-pushFun = modify (\st → st { gobbled = []:gobbled st})
+pushFun ∷ Function → State St ()
+pushFun f = modify (\st → st { gobbled = (f,[]):gobbled st})
 
 popFun ∷ State St ()
 popFun = modify (\st → st { gobbled = tail (gobbled st)})
 
 addStm ∷ Stm → State St ()
-addStm stm = modify (\st → st {
-  gobbled = (stm:head (gobbled st)):tail (gobbled st)})
+addStm stm = do
+  (f, gobs) ← gets (head . gobbled)
+  modify (\st → st { gobbled = (f, stm:gobs):tail (gobbled st)})
 
 getFun ∷ String → State St Function
 getFun s = liftM (fromJust . Map.lookup s) $ gets functions
@@ -65,9 +74,29 @@ split fun = do
   collectRewrite fun
   return undefined
 
+buildShader ∷ Chunk → State St Shader
+buildShader = undefined
+
+
+buildFun ∷ (Function, [Stm]) → Function
+buildFun (f, ss) = stripArgs $ f { statements = ss }
+
+-- Strips arguments not needed
+stripArgs ∷ Function → Function
+stripArgs f = f { paramVars = filter (\v → ident v `notElem` usedVars) (paramVars f) }
+ where
+  usedVars ∷ [String]
+  usedVars = execWriter (mapM_ (mapStmExpM collect) (statements f))
+  collect ∷ Exp → Writer [String] Exp
+  collect e@(EVar cid) = tell [cIdentToString cid] >> return e
+  collect e = return e
+
+
+
+
 collectRewrite ∷ Function → State St ()
 collectRewrite fun = do
-  pushFun
+  pushFun fun
   mapM_ gobbleStm (statements fun)
   popFun
 
@@ -76,18 +105,15 @@ gobbleStm stm = mapStmExpM gobble stm >>= addStm
 
 gobble ∷ Exp → State St Exp
 gobble (EPartCall cid es _) = do
-  f ← getFun (cIdentToString cid)
+  --f ← getFun (cIdentToString cid)
   d ← deps es
   r ← newRef (cIdentToString cid)
-  addChunk (f,d,r)
+  addChunk (d,r)
   return (EVar (CIdent ((0,0),r)))
-gobble e@(ECall cid _) = do
-  f ← getFun (cIdentToString cid)
-  collectRewrite f
-  return e
+gobble e@(ECall cid _) = getFun (cIdentToString cid) >>= collectRewrite >> return e
 gobble e = return e
 
-deps ∷ [Exp] → State St [[Stm]]
+deps ∷ [Exp] → State St [(Function, [Stm])]
 deps = undefined
 
 addChunk ∷ Chunk → State St ()
