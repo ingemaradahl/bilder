@@ -27,6 +27,7 @@ data Shader = Shader {
   , output ∷ String
   , inputs ∷ [String]
 }
+ deriving (Show)
 
 data Dep =
     Var String
@@ -60,7 +61,7 @@ addStm stm = do
 getFun ∷ String → State St Function
 getFun s = liftM (fromJust . Map.lookup s) $ gets functions
 
-splitSource ∷ Source → [Source]
+splitSource ∷ Source → [Shader]
 splitSource src = evalState (split mainFun)
   St {
       functions = Source.functions src
@@ -81,13 +82,22 @@ newRef s = do
   modify (\st → st { freeRefs = tail (freeRefs st)})
   return $ printf "img%03d%s" newId s
 
-split ∷ Function → State St [Source]
-split fun = do
-  collectRewrite fun
-  return undefined
+split ∷ Function → State St [Shader]
+split fun = collectRewrite fun >> gets chunks >>= mapM buildShader >>= repeatSplit
+
+repeatSplit ∷ [Shader] → State St [Shader]
+repeatSplit = return -- TODO check for additional partial applications..
 
 buildShader ∷ Chunk → State St Shader
-buildShader = undefined
+buildShader (stms,ref) = do
+  let fs = map buildFun stms
+  -- fetch missing stuff from state
+  return Shader {
+      funs = Map.fromList $ map (\f → (ident f,f)) fs
+    , vars = Map.empty --TODO
+    , output = ref
+    , inputs = [] -- TODO
+  }
 
 
 buildFun ∷ (Function, [Stm]) → Function
