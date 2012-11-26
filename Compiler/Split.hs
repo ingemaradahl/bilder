@@ -4,9 +4,11 @@ module Compiler.Split where
 
 import Control.Monad.State
 import Control.Monad.Writer
+import Control.Applicative
 
 import Data.Maybe
 import qualified Data.Map as Map
+import Data.List (nub)
 
 import Compiler.Utils
 import TypeChecker.Utils
@@ -26,6 +28,14 @@ data Shader = Shader {
   , inputs ∷ [String]
 }
 
+data Dep =
+    Var String
+  | Fun String
+  | None
+ deriving (Ord,Eq,Show)
+
+type DepList = [(Dep, [Dep])]
+
 data St = St {
     functions ∷ Map.Map String Function
   , variables ∷ Map.Map String Variable
@@ -33,6 +43,7 @@ data St = St {
   , gobbled ∷ [(Function, [Stm])]
   , freeRefs ∷ [Int]
   , chunks ∷ [Chunk]
+  , dependencies ∷ [Dep]
 }
 
 pushFun ∷ Function → State St ()
@@ -58,6 +69,7 @@ splitSource src = evalState (split mainFun)
     , gobbled = []
     , freeRefs = [1..]
     , chunks = []
+    , dependencies = []
   }
  where
   mainFun ∷ Function
@@ -106,22 +118,15 @@ gobbleStm stm = mapStmExpM gobble stm >>= addStm
 gobble ∷ Exp → State St Exp
 gobble (EPartCall cid es _) = do
   --f ← getFun (cIdentToString cid)
-  d ← deps es
+  d ← depends es
   r ← newRef (cIdentToString cid)
   addChunk (d,r)
   return (EVar (CIdent ((0,0),r)))
 gobble e@(ECall cid _) = getFun (cIdentToString cid) >>= collectRewrite >> return e
 gobble e = return e
 
-deps ∷ [Exp] → State St [(Function, [Stm])]
-deps = undefined
-
 addChunk ∷ Chunk → State St ()
 addChunk c = modify (\st → st { chunks = c:chunks st })
-
-
-
-
 
 createsImg ∷ Stm → Bool
 createsImg (SDecl (Dec qs (DecAss _ _ (EPartCall {})))) = qualsToType qs == imgType
@@ -142,3 +147,74 @@ branchTarget = foldExp f Nothing
 imgType ∷ Type
 imgType = TFun TVec4 [TFloat, TFloat]
 
+-- Dependency helpers {{{
+depends ∷ [Exp] → State St [(Function, [Stm])]
+depends es = do
+  -- add all initial dependencies.
+  mapM_ (mapM_ (uncurry addDeps) . expDeps) es
+
+  -- find all needed dependencies
+  gb ← gets gobbled
+  mapM (\(f,stms) → (,) <$> pure f <*> foldM isNeeded [] stms) gb
+
+addDeps ∷ Dep → [Dep] → State St ()
+addDeps _ = mapM_ add
+
+addAss ∷ Dep → [Dep] → State St ()
+addAss d _ = add d
+
+addBoth ∷ Dep → [Dep] → State St ()
+addBoth d ds = mapM_ add (d : ds)
+
+add ∷ Dep → State St ()
+add d = do
+  deps ← gets dependencies
+  modify (\s → s { dependencies = nub $ d : deps })
+
+isNeeded ∷ [Stm] → Stm → State St [Stm]
+isNeeded p stm = do
+  let stmdeps = stmDeps stm
+  mapM_ (uncurry addBoth) stmdeps
+
+  deps ← gets dependencies
+  if True `elem` [a `elem` deps | a ← affected stmdeps]
+    then return $ stm:p
+    else return p
+
+affected ∷ DepList → [Dep]
+affected = map fst
+
+-- | Returns a list of all affected variables and their dependencies.
+stmDeps ∷ Stm → DepList
+stmDeps (SDecl decl) = declDeps decl
+stmDeps (SExp e) = expDeps e
+stmDeps (SReturn _ e) = expDeps e
+stmDeps s = error $ "stmDeps: not implemented: " ++ show s
+
+declDeps ∷ Decl → DepList
+declDeps (Dec _ dp) = declPostDeps dp
+declDeps d = error $ "not implemented (structs :/): " ++ show d
+
+declPostDeps ∷ DeclPost → DepList
+declPostDeps (Vars cids) = [(Var n,[]) | n ← map cIdentToString cids]
+declPostDeps (DecAss cids _ e) =
+  [(Var n, concatMap snd expdeps) | n ← map cIdentToString cids] ++ onlyAssDeps expdeps
+ where
+  expdeps = expDeps e
+declPostDeps (DecFun {}) = error "inner function declarations not allowed."
+
+expDeps ∷ Exp → DepList
+expDeps (EVar cid) = [(None, [Var (cIdentToString cid)])]
+expDeps (EAss (EVar cid) _ e) =
+  (Var (cIdentToString cid), concatMap snd expdeps) : onlyAssDeps expdeps
+ where
+  expdeps = expDeps e
+expDeps (EFloat {}) = []
+expDeps e = error $ "expDeps: not implemented " ++ show e
+
+
+onlyAssDeps ∷ DepList → DepList
+onlyAssDeps = filter ((/=) None. fst)
+-- }}}
+
+-- vi:fdm=marker
