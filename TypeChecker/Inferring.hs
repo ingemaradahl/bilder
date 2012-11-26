@@ -12,6 +12,7 @@ import TypeChecker.TCM.Errors
 import TypeChecker.TCM.Utils
 
 import TypeChecker.Utils
+import TypeChecker.Types (varType)
 
 import FrontEnd.AbsGrammar
 import FrontEnd.Instances
@@ -35,8 +36,8 @@ inferExp (ECond ec tkq etrue tkc efalse) = do
   tefalse ← inferExp efalse
   unless (tetrue == tefalse) $ typeMismatch (tkpos tkc) tetrue tefalse
   return tetrue
-inferExp (EAss v@(EVar {}) tk e) = do
-  targetType ← inferExp v
+inferExp (EAss (EVar cid) tk e) = do
+  targetType ← liftM varType $ lookupVar cid
   valueType ← inferExp e
   case compAssType targetType valueType of
     Just _ → return targetType
@@ -47,8 +48,8 @@ inferExp (EAss m@(EMember {}) tk e) = do
   unless (memType == valueType) $ expTypeMismatch tk memType valueType
   return valueType
 -- TODO: Copy paste technology (.js), generalize cases like this
-inferExp (EAssAdd v@(EVar {}) tk e) = do
-  targetType ← inferExp v
+inferExp (EAssAdd (EVar cid) tk e) = do
+  targetType ← liftM varType $ lookupVar cid
   valueType ← inferExp e
   case compAssType targetType valueType of
     Just _ → return targetType
