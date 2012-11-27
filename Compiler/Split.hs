@@ -9,10 +9,14 @@ import Control.Arrow
 
 import Data.Maybe
 import qualified Data.Map as Map
-import Data.List (nub)
+import Data.List (nub, intercalate)
 
 import Compiler.Utils
 import TypeChecker.Utils
+
+import FrontEnd.PrintGrammar
+
+
 
 import TypeChecker.Types as Types hiding (
     functionName
@@ -43,7 +47,14 @@ data SlimFun = SlimFun {
   , args ∷ [SlimVar]
   , statements ∷ [Stm]
 }
- deriving (Show, Eq)
+ deriving (Eq)
+
+instance Show SlimFun where
+ show (SlimFun name ret params stms) = printf "%s %s(%s)\n{%s\n}"
+  (show ret)
+  name
+  (show params)
+  (concatMap printTree stms)
 
 data SlimVar = SlimVar {
     varName ∷ String
@@ -81,15 +92,19 @@ pushFun ∷ SlimFun → State St ()
 pushFun f = modify (\st → st { gobbled = (f,[]):gobbled st, currentFun = f})
 
 popFun ∷ State St ()
-popFun = modify (\st → st { gobbled = tail (gobbled st)})
+popFun = do
+  modify (\st → st { gobbled = tail (gobbled st)})
+  -- i don't even
+  modify (\st → st { currentFun = fst (head (gobbled st)) })
 
 addStm ∷ Stm → State St ()
 addStm stm = do
   gobs ← gets gobbled
   f ← gets currentFun
+  stejt ← gets gobbled
   if null gobs
     then modify (\st → st { gobbled = [(f, [stm])]})
-    else --when (f == fst (head gobs)) (error "TRIST FEL VA? ⊃:") >> 
+    else unless (f == fst (head gobs)) (error $ printf "TRIST FEL VA? ⊃:\nska lägga till:%s \n\ncurrentFun\n%s\n\ngobblefun:\n%s\n\nstate:\n%s" (show stm) (show f) (show (fst (head gobs))) (intercalate "\n" (map (show . first functionName) stejt))) >> 
           modify (\st → st { gobbled = (f, stm:snd (head gobs)):tail (gobbled st)})
 
 getFun ∷ String → State St SlimFun
@@ -189,7 +204,7 @@ buildFun (f, ss) = f { statements = ss }
 
 collectMain ∷ SlimFun → State St Shader
 collectMain fun = do
-  modify (\st → st { gobbled = [], currentFun = fun })
+  modify (\st → st { gobbled = [(fun,[])], currentFun = fun })
   mapM_ gobbleStm (statements fun)
   gets (snd . head . gobbled) >>= buildMain
 
