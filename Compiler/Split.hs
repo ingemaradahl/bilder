@@ -216,7 +216,7 @@ buildMain stms = do
       functionName = "main"
     , retType = TVec4
     , args = [SlimVar "x" TFloat, SlimVar "x" TFloat]
-    , statements = stms
+    , statements = reverse stms
   }
 
   -- Functions needed in main TODO: search functions for calls as well..
