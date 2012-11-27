@@ -16,7 +16,7 @@ import CompilerTypes
 import Text.Printf
 
 import TypeChecker.Utils (cIdentToString, cIdentToPos, paramToString, paramToQuals)
-import TypeChecker.Types (Source, functions, variables)
+import TypeChecker.Types (Source, functions, variables, paramVars)
 import qualified TypeChecker.Types as T
 
 -- Lifter monad - keeps source and lifting environment in State with CError
@@ -117,6 +117,7 @@ lambdaLift = do
 liftFunVars ∷ T.Function → LM T.Function
 liftFunVars f = do
   clearVarTypes
+  sequence_ [ addVarType (paramToString p) ((qualsToType . paramToQuals) p) | p ← T.parameters f ]
   stms ← mapM liftInnerFunVars (T.statements f)
   return f { T.statements = stms }
 
@@ -127,7 +128,7 @@ liftInnerFunVars (SDecl d) = do
   -- Add all declared variables.
   let ts = declToTypeAndName d
   mapM_ (uncurry $ flip addVarType) ts
-  return $ SDecl d
+  SDecl <$> expandECallDecl d
 liftInnerFunVars (SExp e) = SExp <$> expandECall e
 liftInnerFunVars (SBlock stms) = SBlock <$> mapM liftInnerFunVars stms
 liftInnerFunVars (SWhile t e stm) =
@@ -151,12 +152,17 @@ liftInnerFunVars (SFunDecl cid rt ps stms) = do
 
   -- Add the free variables as parameters and return type.
   (ps', renames) ← prependFreeVars ps frees
-  rt' ← prependReturnTypes rt frees
+
+  -- Add all renamed variables as types aswell
+  sequence_ [varType old >>= addVarType new | (old,new) ← toList renames]
 
   -- Remember the expansion so that all calls can be expanded.
   addCallExpansion (cIdentToString cid) frees
 
-  return $ SFunDecl cid rt' ps' (map (mapStmExp (renameExpVars renames)) stms')
+  pst ← mapM (varType . paramToString) ps'
+  addVarType (cIdentToString cid) (TFun rt pst)
+
+  return $ SFunDecl cid rt ps' (map (mapStmExp (renameExpVars renames)) stms')
 liftInnerFunVars x = return x -- The rest: SBreak, SContinue, SDiscard
 
 -- | Renames all variables in an expression according to the Map.
@@ -184,11 +190,32 @@ expandECall (ECall cid es) = do
   es' ← mapM (mapExpM expandECall) es
   case Data.Map.lookup (cIdentToString cid) eps of
     Nothing → return $ ECall cid es'
-    Just vs  → return $ ECall cid (es' ++ map nameToVar vs)
+    Just vs → return $ ECall cid (map nameToEVar vs ++ es')
+expandECall (EPartCall cid es ts) = do
+  eps ← gets callExpansions
+  es' ← mapM (mapExpM expandECall) es
+  case Data.Map.lookup (cIdentToString cid) eps of
+    Nothing → return $ EPartCall cid es' ts
+    Just vs → EPartCall cid (map nameToEVar vs ++ es') <$> ((++) ts <$> mapM varType vs)
+expandECall e@(EVar cid) = do
+  eps ← gets callExpansions
+  case Data.Map.lookup name eps of
+    Nothing → do
+      -- just a regular EVar... however
+      -- if it's a function it should be replaced with ECall or EPartCall.
+      funs ← sourceFunctions
+      case Data.Map.lookup name funs of
+        Nothing  → return e
+        Just fun → if null $ paramVars fun
+          then return $ ECall cid []
+          else return $ EPartCall cid [] []
+    Just vs → EPartCall cid (map nameToEVar vs) <$> mapM varType vs
  where
-  nameToVar ∷ String → Exp
-  nameToVar s = EVar (CIdent ((-1,-1), s))
+  name = cIdentToString cid
 expandECall e = mapExpM expandECall e
+
+nameToEVar ∷ String → Exp
+nameToEVar s = EVar (CIdent ((-1,-1), s))
 
 expandECallForDecl ∷ ForDecl → LM ForDecl
 expandECallForDecl (FDecl d) = FDecl <$> expandECallDecl d
@@ -236,6 +263,7 @@ liftFuns = do
   liftInnerFuns ∷ T.Function → LM T.Function
   liftInnerFuns f = do
     setCurrentFile (fst $ T.functionLocation f)
+    sequence_ [ addVarType (paramToString p) ((qualsToType . paramToQuals) p) | p ← T.parameters f ]
     stms' ← funLifter (T.statements f)
     return $ f { T.statements = stms' }
 
@@ -265,6 +293,12 @@ unusedFunDecl stm =
     (show col)
  where
   (line, col) = sFunDeclToPos stm
+  sFunDeclToPos ∷ Stm → Position
+  sFunDeclToPos (SFunDecl cid _ _ _) = cIdentToPos cid
+  sFunDeclToPos s = maybe (0,0) sFunDeclToPos (findSFunDecl s)
+  sFunDeclToName ∷ Stm → String
+  sFunDeclToName (SFunDecl cid _ _ _) = cIdentToString cid
+  sFunDeclToName s = maybe "N/A" sFunDeclToName (findSFunDecl s)
 
 findSFunDecl ∷ Stm → Maybe Stm
 findSFunDecl (SBlock ss) =
@@ -282,13 +316,6 @@ findSFunDecl (SIfElse _ _ st _ sf) =
 findSFunDecl (SType _ s) = findSFunDecl s
 findSFunDecl s@(SFunDecl {}) = Just s
 
-sFunDeclToPos ∷ Stm → Position
-sFunDeclToPos (SFunDecl cid _ _ _) = cIdentToPos cid
-sFunDeclToPos s = maybe (0,0) sFunDeclToPos (findSFunDecl s)
-
-sFunDeclToName ∷ Stm → String
-sFunDeclToName (SFunDecl cid _ _ _) = cIdentToString cid
-sFunDeclToName s = maybe "N/A" sFunDeclToName (findSFunDecl s)
 
 liftStm ∷ Stm → (Stm → Stm) → LM (Maybe Stm)
 liftStm s f = do

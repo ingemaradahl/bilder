@@ -226,3 +226,10 @@ showParamType p = case paramType p of
   paramType (ParamDec qs _) = qualType qs
   paramType (ParamDefault qs _ _ _) = qualType qs
 
+warning ∷ Position → String → TCM ()
+warning p m = do
+  file ← gets currentFile
+  let loc = (file, p)
+  modify (\st → st { warnings = (loc,m) : warnings st })
+
+-- adjust :: Ord k => (a -> a) -> k -> Map k a -> Map k a

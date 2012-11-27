@@ -12,10 +12,12 @@ import TypeChecker.TCM.Errors
 import TypeChecker.TCM.Utils
 
 import TypeChecker.Utils
-import TypeChecker.Types as Types
+import TypeChecker.Types (varType)
 
 import FrontEnd.AbsGrammar
 import FrontEnd.Instances
+
+import Text.Printf (printf)
 -- }}}
 
 inferExp ∷ Exp → TCM Type
@@ -23,7 +25,10 @@ inferExp (EFloat _) = return TFloat
 inferExp (EInt _) = return TInt
 inferExp ETrue = return TBool
 inferExp EFalse = return TBool
-inferExp (EVar cid) = liftM varType $ lookupVar cid
+inferExp (EVar cid) = do
+  types ← lookupVarTypes cid
+  when (length types > 1) $ warning (cIdentToPos cid) $ printf "more than one function/variable by the name \"%s\" - using the one declared last." (cIdentToString cid)
+  return (head types)
 inferExp (ECond ec tkq etrue tkc efalse) = do
   t ← inferExp ec
   unless (t `elem` [TInt,TFloat,TBool]) $ badConditional t (tkpos tkq)
@@ -31,8 +36,8 @@ inferExp (ECond ec tkq etrue tkc efalse) = do
   tefalse ← inferExp efalse
   unless (tetrue == tefalse) $ typeMismatch (tkpos tkc) tetrue tefalse
   return tetrue
-inferExp (EAss v@(EVar {}) tk e) = do
-  targetType ← inferExp v
+inferExp (EAss (EVar cid) tk e) = do
+  targetType ← liftM varType $ lookupVar cid
   valueType ← inferExp e
   case compAssType targetType valueType of
     Just _ → return targetType
@@ -43,8 +48,8 @@ inferExp (EAss m@(EMember {}) tk e) = do
   unless (memType == valueType) $ expTypeMismatch tk memType valueType
   return valueType
 -- TODO: Copy paste technology (.js), generalize cases like this
-inferExp (EAssAdd v@(EVar {}) tk e) = do
-  targetType ← inferExp v
+inferExp (EAssAdd (EVar cid) tk e) = do
+  targetType ← liftM varType $ lookupVar cid
   valueType ← inferExp e
   case compAssType targetType valueType of
     Just _ → return targetType

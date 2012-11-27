@@ -224,14 +224,15 @@ mapStm f s = runIdentity $ mapStmM f' s
 
 -- | Mapping over all Exp in Stm.
 mapStmExpM ∷ (Monad m, Applicative m) => (Exp → m Exp) → Stm → m Stm
+mapStmExpM f (SDecl (Dec qs (DecAss cids tk e))) =
+  SDecl <$> Dec qs <$> DecAss cids tk <$> f e
 mapStmExpM f (SExp e) = SExp <$> f e
 mapStmExpM f (SDoWhile tkd s tkw e) =
   SDoWhile tkd <$> mapStmExpM f s <*> pure tkw <*> f e
 mapStmExpM f (SWhile tk e s) =
   SWhile tk <$> f e <*> mapStmExpM f s
 mapStmExpM f (SFor tk fds ecs els s) =
-  -- TODO: fds
-  SFor tk fds <$> mapM f ecs <*> mapM f els <*> mapStmExpM f s
+  SFor tk <$> mapM (mapForDeclExpM f) fds <*> mapM f ecs <*> mapM f els <*> mapStmExpM f s
 mapStmExpM f (SReturn tk e) = SReturn tk <$> f e
 mapStmExpM f (SIf tk e s) = SIf tk <$> f e <*> mapStmExpM f s
 mapStmExpM f (SIfElse tki e st tke stf) =
