@@ -17,7 +17,7 @@ compile o = do
   p ← parseHead o
   let warnBlobs = p >>= typeCheck o
   case warnBlobs of
-    Pass (warnings, blobs) → printWarnings warnings >> printResult (compileTree o blobs)
+    Pass (warns, blobs) → printWarnings warns >> printResult (compileTree o blobs)
     Fail e → print e
 
 printWarnings ∷ [Warning] → IO ()
@@ -31,9 +31,12 @@ parseArgs s  = Just $ Options $ head s
 printHelp ∷ IO ()
 printHelp = putStrLn "HELP"
 
-printResult ∷ CError [String] → IO ()
+printResult ∷ CError [[String]] → IO ()
 printResult r = case r of
-  Pass s → putStrLn $ intercalate "\n" s
+  Pass ss → sequence_ [ do
+      putStrLn $ intercalate "\n" s
+      putStrLn "--------------------\n"
+    | s ← ss ]
   Fail e → putStrLn $ "FAIL:\n" ++ show e
 
 main ∷ IO ()

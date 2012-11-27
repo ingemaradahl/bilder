@@ -29,6 +29,8 @@ import qualified TypeChecker.Types as Function (
   , retType
   , paramVars
   )
+import TypeChecker.Scope (builtInFuns)
+
 import FrontEnd.AbsGrammar
 
 import Text.Printf
@@ -87,7 +89,7 @@ addStm stm = do
   f ← gets currentFun
   if null gobs
     then modify (\st → st { gobbled = [(f, [stm])]})
-    else unless (f == fst (head gobs)) (error "TRIST FEL VA? ⊃:") >> 
+    else --when (f == fst (head gobs)) (error "TRIST FEL VA? ⊃:") >> 
           modify (\st → st { gobbled = (f, stm:snd (head gobs)):tail (gobbled st)})
 
 getFun ∷ String → State St SlimFun
@@ -263,13 +265,27 @@ depends es = do
 
   -- find all needed dependencies
   gb ← gets gobbled
-  mapM (\(f,stms) → (,) <$> pure f <*> foldM isNeeded [] stms) gb
+  deps ← mapM (\(f,stms) → (,) <$> pure f <*> foldM isNeeded [] stms) gb
+  (deps ++) <$> neededFuns
+
+-- | Returns all the functions that the state depends on.
+neededFuns ∷ State St [(SlimFun, [Stm])]
+neededFuns = do
+  deps ← gets dependencies
+  sequence [
+    getFun f >>= (\fun → return (fun, statements fun))
+    | (Fun f) ← filter isFun deps
+    ]
+ where
+  isFun ∷ Dep → Bool
+  isFun (Fun name) = name `notElem` Map.keys builtInFuns
+  isFun _ = False
 
 addDeps ∷ Dep → [Dep] → State St ()
 addDeps _ = mapM_ add
 
-addAss ∷ Dep → [Dep] → State St ()
-addAss d _ = add d
+addAffected ∷ Dep → [Dep] → State St ()
+addAffected d _ = add d
 
 addBoth ∷ Dep → [Dep] → State St ()
 addBoth d ds = mapM_ add (d : ds)
@@ -282,11 +298,11 @@ add d = do
 isNeeded ∷ [Stm] → Stm → State St [Stm]
 isNeeded p stm = do
   let stmdeps = stmDeps stm
-  mapM_ (uncurry addBoth) stmdeps
-
   deps ← gets dependencies
   if True `elem` [a `elem` deps | a ← affected stmdeps]
-    then return $ stm:p
+    then do
+      mapM_ (uncurry addDeps) stmdeps
+      return $ stm:p
     else return p
 
 affected ∷ DepList → [Dep]
@@ -297,6 +313,7 @@ stmDeps ∷ Stm → DepList
 stmDeps (SDecl decl) = declDeps decl
 stmDeps (SExp e) = expDeps e
 stmDeps (SReturn _ e) = expDeps e
+stmDeps (SType _ s) = stmDeps s
 stmDeps s = error $ "stmDeps: not implemented: " ++ show s
 
 declDeps ∷ Decl → DepList
@@ -306,9 +323,7 @@ declDeps d = error $ "not implemented (structs :/): " ++ show d
 declPostDeps ∷ DeclPost → DepList
 declPostDeps (Vars cids) = [(Var n,[]) | n ← map cIdentToString cids]
 declPostDeps (DecAss cids _ e) =
-  [(Var n, concatMap snd expdeps) | n ← map cIdentToString cids] ++ onlyAssDeps expdeps
- where
-  expdeps = expDeps e
+  [(Var n, concatMap snd (expDeps e)) | n ← map cIdentToString cids] ++ onlyAssDeps (expDeps e)
 declPostDeps (DecFun {}) = error "inner function declarations not allowed."
 
 expDeps ∷ Exp → DepList
@@ -317,12 +332,13 @@ expDeps (EAss (EVar cid) _ e) =
   (Var (cIdentToString cid), concatMap snd expdeps) : onlyAssDeps expdeps
  where
   expdeps = expDeps e
+expDeps (ECall cid es) = (None, Fun (cIdentToString cid) : concatMap (concatMap snd . expDeps) es) : concatMap (onlyAssDeps . expDeps) es
 expDeps (EFloat {}) = []
 expDeps e = error $ "expDeps: not implemented " ++ show e
 
-
 onlyAssDeps ∷ DepList → DepList
 onlyAssDeps = filter ((/=) None. fst)
+
 -- }}}
 
 -- vi:fdm=marker
