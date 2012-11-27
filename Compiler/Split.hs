@@ -13,7 +13,7 @@ import Data.List (nub)
 import Compiler.Utils
 import TypeChecker.Utils
 
-import TypeChecker.Types (Function, Function(Null), Variable, Source, statements, paramVars, ident)
+import TypeChecker.Types as Types hiding (functions, variables)
 import qualified TypeChecker.Types as Source (Source(functions), Source(variables))
 import FrontEnd.AbsGrammar
 
@@ -48,7 +48,7 @@ data St = St {
 }
 
 pushFun ∷ Function → State St ()
-pushFun f = modify (\st → st { gobbled = (f,[]):gobbled st})
+pushFun f = modify (\st → st { gobbled = (f,[]):gobbled st, currentFun = f})
 
 popFun ∷ State St ()
 popFun = modify (\st → st { gobbled = tail (gobbled st)})
@@ -83,17 +83,21 @@ newRef s = do
   return $ printf "img%03d%s" newId s
 
 split ∷ Function → State St [Shader]
-split fun = collectRewrite fun >> gets chunks >>= mapM buildShader >>= repeatSplit
+split fun = do
+  mainShd ← collectMain fun
+  shaders ← gets chunks >>= mapM buildShader
+
+  repeatSplit $ mainShd:shaders
 
 repeatSplit ∷ [Shader] → State St [Shader]
 repeatSplit = return -- TODO check for additional partial applications..
 
 buildShader ∷ Chunk → State St Shader
 buildShader (stms,ref) = do
-  let fs = map buildFun stms
+  let fs = Map.fromList $ map ((\f → (ident f, f)) . buildFun) stms
   -- fetch missing stuff from state
   return Shader {
-      funs = Map.fromList $ map (\f → (ident f,f)) fs
+      funs = fs
     , vars = Map.empty --TODO
     , output = ref
     , inputs = [] -- TODO
@@ -115,6 +119,44 @@ stripArgs f = f { paramVars = filter (\v → ident v `notElem` usedVars) (paramV
 
 
 
+collectMain ∷ Function → State St Shader
+collectMain fun = do
+  modify (\st → st { gobbled = [], currentFun = fun })
+  mapM_ gobbleStm (statements fun)
+  gets (snd . head . gobbled) >>= buildMain
+
+buildMain ∷ [Stm] → State St Shader
+buildMain stms = do
+  fs ← gets functions
+
+  let mainFun = Types.Function {
+      functionName = "main"
+    , alias = "main"
+    , functionLocation = ("XX",(0,0))
+    , retType = TVec4
+    , paramVars = [Variable "x" ("X",(0,0)) TFloat, Variable "x" ("X",(0,0)) TFloat]
+    , parameters = [] -- Not used
+    , statements = stms
+  }
+
+  -- Functions needed in main TODO: search functions for calls as well..
+  let fs' = Map.insert "main" mainFun $
+              Map.fromList $ map (\f → (ident f, f)) $
+              mapMaybe (`Map.lookup` fs) (calls stms)
+
+  return Shader {
+      funs = fs'
+    , vars = Map.empty
+    , inputs = []
+    , output = "TODO"
+  }
+
+calls ∷ [Stm] → [String]
+calls s = nub $ execWriter (mapM_ (mapStmExpM collect) s)
+ where
+  collect ∷ Exp → Writer [String] Exp
+  collect e@(ECall cid _) = tell [cIdentToString cid] >> return e
+  collect e = return e
 
 collectRewrite ∷ Function → State St ()
 collectRewrite fun = do
