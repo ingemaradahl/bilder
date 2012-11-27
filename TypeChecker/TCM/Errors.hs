@@ -198,6 +198,11 @@ noFunctionQualifiers cid =
   typeError (cIdentToPos cid) $
     printf "Function declarations can't take any qualifiers other than types."
 
+notAssigned ∷ CIdent → TCM a
+notAssigned cid =
+  compileError (cIdentToPos cid) $
+    printf "Variable \"%s\" used before assignment." (cIdentToString cid)
+
 -- | Throw a type error
 typeError ∷ Position → String → TCM a
 typeError = absError TypeError

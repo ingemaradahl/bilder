@@ -229,3 +229,15 @@ filterTDef (TFunc tl arr tr) = TFunc <$> filterTDef tl <*> pure arr <*> filterTD
 filterTDef (TArray t) = TArray <$> filterTDef t
 filterTDef (TConst t) = TConst <$> filterTDef t
 filterTDef t = pure t
+
+isAssigned ∷ CIdent → TCM Bool
+isAssigned cid = Scope.isAssigned name <$> gets scopes
+ where
+  name = cIdentToString cid
+
+setAssigned ∷ CIdent → TCM ()
+setAssigned cid = do
+  scs ← Scope.setAssigned name <$> gets scopes
+  modify (\s → s { scopes = scs })
+ where
+  name = cIdentToString cid

@@ -16,25 +16,27 @@ import Text.Printf
 data Scope = Scope {
   functions ∷ Map String [Function],
   typedefs ∷ Map String Typedef,
-  variables ∷ Map String Variable
+  variables ∷ Map String Variable,
+  assigned ∷ [String]
 }
  deriving (Show)
 
 emptyScope ∷ Scope
-emptyScope = Scope { functions = empty, typedefs = empty, variables = empty }
+emptyScope = Scope { functions = empty, typedefs = empty, variables = empty, assigned = [] }
 
 builtInScope ∷ Scope
-builtInScope = Scope { functions = builtInFuns, typedefs = empty, variables = empty }
+builtInScope = emptyScope { functions = builtInFuns }
 
 -- | Add a function to a scope
 addFunction ∷ Function → Scope → Scope
-addFunction fun scope = scope { functions = fs' }
+addFunction fun scope = scope { functions = fs', assigned = as}
  where
   name = ident fun
   fs = functions scope
   fs' = if member name fs
           then adjust (fun:) name fs
           else insert name [fun] fs
+  as = map variableName (paramVars fun) ++ assigned scope
 
 lookupFunction ∷ String → [Scope] → Maybe [Function]
 lookupFunction fun (s:ss) = lookup fun (functions s) `mplus` lookupFunction fun ss
@@ -69,6 +71,18 @@ lookupTypedef n (s:ss) =
     Just t  → Just t
     Nothing → lookupTypedef n ss
 lookupTypedef _ [] = Nothing
+
+isAssigned ∷ String → [Scope] → Bool
+isAssigned _ [] = False
+isAssigned n (s:ss)
+  | n `elem` assigned s = True
+  | otherwise           = isAssigned n ss
+
+setAssigned ∷ String → [Scope] → [Scope]
+setAssigned _ [] = []
+setAssigned n (s:ss)
+  | n `elem` (keys . variables) s = s { assigned = n : assigned s } : ss
+  | otherwise = s : setAssigned n ss
 
 -- | Creates a Map of built in functions
 builtInFuns ∷ Map String [Function]
