@@ -39,7 +39,7 @@ import FrontEnd.AbsGrammar
 
 import Text.Printf
 
-type Chunk = ([(SlimFun, [Stm])], String)
+type Chunk = ([(SlimFun, [Stm])], String, SlimFun)
 
 data SlimFun = SlimFun {
     functionName ∷ String
@@ -68,7 +68,14 @@ data Shader = Shader {
   , output ∷ String
   , inputs ∷ [String]
 }
- deriving (Show)
+
+instance Show Shader where
+  show (Shader fs vs o is) =
+    printf "-x- Shader (in %s) (out %s)\n -- Variables -------------\n%s\n -- Functions ----------\n%s\n"
+      (show is)
+      (show o)
+      (show vs)
+      (show fs)
 
 data Dep =
     Var String
@@ -189,8 +196,8 @@ repeatSplit ∷ [Shader] → State St [Shader]
 repeatSplit = return -- TODO check for additional partial applications..
 
 buildShader ∷ Chunk → State St Shader
-buildShader (stms,ref) = do
-  let fs = Map.fromList $ map ((functionName &&& stripArgs) . buildFun) stms
+buildShader (stms,ref,fun) = do
+  let fs = Map.fromList $ (functionName fun, fun) : map ((functionName &&& stripArgs) . buildFun) stms
   -- fetch missing stuff from state
   return Shader {
       funs = fs
@@ -242,10 +249,10 @@ gobbleStm stm = mapStmExpM gobble stm >>= addStm
 
 gobble ∷ Exp → State St Exp
 gobble (EPartCall cid es _) = do
-  --f ← getFun (cIdentToString cid)
+  f ← getFun (cIdentToString cid)
   d ← depends es
   r ← newRef (cIdentToString cid)
-  addChunk (d,r)
+  addChunk (d,r,f)
   return (EVarType (CIdent ((0,0),r)) TImage)
 gobble e@(ECall cid _) = getFun (cIdentToString cid) >>= collectRewrite >> return e
 gobble e = return e
@@ -319,9 +326,9 @@ isNeeded p stm = do
       mapM_ (uncurry addDeps) stmdeps
       return $ stm:p
     else return p
-
-affected ∷ DepList → [Dep]
-affected = map fst
+ where
+  affected ∷ DepList → [Dep]
+  affected = map fst
 
 -- | Returns a list of all affected variables and their dependencies.
 stmDeps ∷ Stm → DepList
@@ -343,6 +350,7 @@ declPostDeps (DecFun {}) = error "inner function declarations not allowed."
 
 expDeps ∷ Exp → DepList
 expDeps (EVar cid) = [(None, [Var (cIdentToString cid)])]
+expDeps (EVarType cid _) = [(None, [Var (cIdentToString cid)])]
 expDeps (EAss (EVar cid) _ e) =
   (Var (cIdentToString cid), concatMap snd expdeps) : onlyAssDeps expdeps
  where
