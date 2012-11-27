@@ -165,7 +165,21 @@ depends es = do
 
   -- find all needed dependencies
   gb ← gets gobbled
-  mapM (\(f,stms) → (,) <$> pure f <*> foldM isNeeded [] stms) gb
+  deps ← mapM (\(f,stms) → (,) <$> pure f <*> foldM isNeeded [] stms) gb
+  (deps ++) <$> neededFuns
+
+-- | Returns all the functions that the state depends on.
+neededFuns ∷ State St [(Function, [Stm])]
+neededFuns = do
+  deps ← gets dependencies
+  sequence [
+    getFun f >>= (\fun → return (fun, statements fun))
+    | (Fun f) ← filter isFun deps
+    ]
+ where
+  isFun ∷ Dep → Bool
+  isFun (Fun {}) = True
+  isFun _ = False
 
 addDeps ∷ Dep → [Dep] → State St ()
 addDeps _ = mapM_ add
@@ -184,11 +198,12 @@ add d = do
 isNeeded ∷ [Stm] → Stm → State St [Stm]
 isNeeded p stm = do
   let stmdeps = stmDeps stm
-  mapM_ (uncurry addBoth) stmdeps
 
   deps ← gets dependencies
   if True `elem` [a `elem` deps | a ← affected stmdeps]
-    then return $ stm:p
+    then do
+      mapM_ (uncurry addDeps) stmdeps
+      return $ stm:p
     else return p
 
 affected ∷ DepList → [Dep]
@@ -199,6 +214,7 @@ stmDeps ∷ Stm → DepList
 stmDeps (SDecl decl) = declDeps decl
 stmDeps (SExp e) = expDeps e
 stmDeps (SReturn _ e) = expDeps e
+stmDeps (SType _ s) = stmDeps s
 stmDeps s = error $ "stmDeps: not implemented: " ++ show s
 
 declDeps ∷ Decl → DepList
@@ -219,6 +235,7 @@ expDeps (EAss (EVar cid) _ e) =
   (Var (cIdentToString cid), concatMap snd expdeps) : onlyAssDeps expdeps
  where
   expdeps = expDeps e
+expDeps (ECall cid es) = (None, Fun (cIdentToString cid) : concatMap (concatMap snd . expDeps) es) : concatMap (onlyAssDeps . expDeps) es
 expDeps (EFloat {}) = []
 expDeps e = error $ "expDeps: not implemented " ++ show e
 
