@@ -15,6 +15,7 @@ import TypeChecker.Utils
 
 import TypeChecker.Types as Types hiding (functions, variables)
 import qualified TypeChecker.Types as Source (Source(functions), Source(variables))
+import TypeChecker.Scope (builtInFuns)
 import FrontEnd.AbsGrammar
 
 import Text.Printf
@@ -220,14 +221,14 @@ neededFuns = do
     ]
  where
   isFun ∷ Dep → Bool
-  isFun (Fun {}) = True
+  isFun (Fun name) = name `notElem` Map.keys builtInFuns
   isFun _ = False
 
 addDeps ∷ Dep → [Dep] → State St ()
 addDeps _ = mapM_ add
 
-addAss ∷ Dep → [Dep] → State St ()
-addAss d _ = add d
+addAffected ∷ Dep → [Dep] → State St ()
+addAffected d _ = add d
 
 addBoth ∷ Dep → [Dep] → State St ()
 addBoth d ds = mapM_ add (d : ds)
@@ -240,7 +241,6 @@ add d = do
 isNeeded ∷ [Stm] → Stm → State St [Stm]
 isNeeded p stm = do
   let stmdeps = stmDeps stm
-
   deps ← gets dependencies
   if True `elem` [a `elem` deps | a ← affected stmdeps]
     then do
@@ -266,9 +266,7 @@ declDeps d = error $ "not implemented (structs :/): " ++ show d
 declPostDeps ∷ DeclPost → DepList
 declPostDeps (Vars cids) = [(Var n,[]) | n ← map cIdentToString cids]
 declPostDeps (DecAss cids _ e) =
-  [(Var n, concatMap snd expdeps) | n ← map cIdentToString cids] ++ onlyAssDeps expdeps
- where
-  expdeps = expDeps e
+  [(Var n, concatMap snd (expDeps e)) | n ← map cIdentToString cids] ++ onlyAssDeps (expDeps e)
 declPostDeps (DecFun {}) = error "inner function declarations not allowed."
 
 expDeps ∷ Exp → DepList
@@ -281,9 +279,9 @@ expDeps (ECall cid es) = (None, Fun (cIdentToString cid) : concatMap (concatMap 
 expDeps (EFloat {}) = []
 expDeps e = error $ "expDeps: not implemented " ++ show e
 
-
 onlyAssDeps ∷ DepList → DepList
 onlyAssDeps = filter ((/=) None. fst)
+
 -- }}}
 
 -- vi:fdm=marker
