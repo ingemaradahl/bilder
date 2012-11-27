@@ -109,6 +109,7 @@ foldExpM f p e@(EPartCall _ es _) = foldM (foldExpM f) p es >>= flip f e
 foldExpM f p e@(ECurryCall _ ei _) = foldExpM f p ei >>= flip f e
 foldExpM f p e@(ETypeCall _ es) = foldM (foldExpM f) p es >>= flip f e
 foldExpM f p e@(EVar {}) = f p e
+foldExpM f p e@(EVarType {}) = f p e
 foldExpM f p e@(EIndex _ ei) = foldExpM f p ei >>= flip f e
 foldExpM f p e@(EFloat {}) = f p e
 foldExpM f p e@(EInt {}) = f p e
@@ -187,11 +188,12 @@ mapExpM f (EPartCall cid es ts) = EPartCall cid <$> mapM f es <*> pure ts
 mapExpM f (ECurryCall cid e t) = ECurryCall cid <$> f e <*> pure t
 mapExpM f (ETypeCall t es) = ETypeCall t <$> mapM f es
 mapExpM f (EIndex cid e) = EIndex cid <$> f e
-mapExpM _ (EVar cid) = pure $ EVar cid
+mapExpM _ e@(EVar {}) = pure e
 mapExpM _ e@(EFloat {}) = pure e
 mapExpM _ e@(EInt {}) = pure e
 mapExpM _ e@ETrue = pure e
 mapExpM _ e@EFalse = pure e
+mapExpM _ e@(EVarType {}) = pure e
 
 mapExp ∷ (Exp → Exp) → Exp → Exp
 mapExp f ex = runIdentity $ mapExpM f' ex

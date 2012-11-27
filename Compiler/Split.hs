@@ -5,6 +5,7 @@ module Compiler.Split where
 import Control.Monad.State
 import Control.Monad.Writer
 import Control.Applicative
+import Control.Arrow
 
 import Data.Maybe
 import qualified Data.Map as Map
@@ -13,17 +14,44 @@ import Data.List (nub)
 import Compiler.Utils
 import TypeChecker.Utils
 
-import TypeChecker.Types as Types hiding (functions, variables)
+import TypeChecker.Types as Types hiding (
+    functionName
+  , statements
+  , retType
+  , paramVars
+  , functions
+  , variables
+  )
 import qualified TypeChecker.Types as Source (Source(functions), Source(variables))
+import qualified TypeChecker.Types as Function (
+    functionName
+  , statements
+  , retType
+  , paramVars
+  )
 import FrontEnd.AbsGrammar
 
 import Text.Printf
 
-type Chunk = ([(Function, [Stm])], String)
+type Chunk = ([(SlimFun, [Stm])], String)
+
+data SlimFun = SlimFun {
+    functionName ∷ String
+  , retType ∷ Type
+  , args ∷ [SlimVar]
+  , statements ∷ [Stm]
+}
+ deriving (Show, Eq)
+
+data SlimVar = SlimVar {
+    varName ∷ String
+  , varType ∷ Type
+}
+ deriving (Show, Eq)
 
 data Shader = Shader {
-    funs ∷ Map.Map String Function
-  , vars ∷ Map.Map String Variable
+    funs ∷ Map.Map String SlimFun
+  , vars ∷ Map.Map String SlimVar
   , output ∷ String
   , inputs ∷ [String]
 }
@@ -38,16 +66,16 @@ data Dep =
 type DepList = [(Dep, [Dep])]
 
 data St = St {
-    functions ∷ Map.Map String Function
-  , variables ∷ Map.Map String Variable
-  , currentFun ∷ Function
-  , gobbled ∷ [(Function, [Stm])]
+    functions ∷ Map.Map String SlimFun
+  , variables ∷ Map.Map String SlimVar
+  , currentFun ∷ SlimFun
+  , gobbled ∷ [(SlimFun, [Stm])]
   , freeRefs ∷ [Int]
   , chunks ∷ [Chunk]
   , dependencies ∷ [Dep]
 }
 
-pushFun ∷ Function → State St ()
+pushFun ∷ SlimFun → State St ()
 pushFun f = modify (\st → st { gobbled = (f,[]):gobbled st, currentFun = f})
 
 popFun ∷ State St ()
@@ -55,26 +83,77 @@ popFun = modify (\st → st { gobbled = tail (gobbled st)})
 
 addStm ∷ Stm → State St ()
 addStm stm = do
-  (f, gobs) ← gets (head . gobbled)
-  modify (\st → st { gobbled = (f, stm:gobs):tail (gobbled st)})
+  gobs ← gets gobbled
+  f ← gets currentFun
+  if null gobs
+    then modify (\st → st { gobbled = [(f, [stm])]})
+    else unless (f == fst (head gobs)) (error "TRIST FEL VA? ⊃:") >> 
+          modify (\st → st { gobbled = (f, stm:snd (head gobs)):tail (gobbled st)})
 
-getFun ∷ String → State St Function
+getFun ∷ String → State St SlimFun
 getFun s = liftM (fromJust . Map.lookup s) $ gets functions
+
+
+gather ∷ Monoid a => (Exp → Writer a Exp) → [Stm] → a
+gather f ss = execWriter (mapM_ (mapStmExpM f) ss)
+
+-- Find all references in this functions
+refs ∷ SlimFun → [(String, Type)]
+refs f = gather collect (statements f)
+ where
+  collect ∷ Exp → Writer [(String, Type)] Exp
+  collect e@(EVarType cid t) = tell [(cIdentToString cid, t)] >> return e
+  collect e = return e
+
+-- Get a list of all calls made
+calls ∷ [Stm] → [String]
+calls = nub . gather collect
+ where
+  collect ∷ Exp → Writer [String] Exp
+  collect e@(ECall cid _) = tell [cIdentToString cid] >> return e
+  collect e = return e
+
+-- Get a list of all variables references
+usedVars ∷ [Stm] → [String]
+usedVars = nub . gather collect
+ where
+  collect ∷ Exp → Writer [String] Exp
+  collect e@(EVar cid) = tell [cIdentToString cid] >> return e
+  collect e = return e
+
+-- Strips arguments not needed
+stripArgs ∷ SlimFun → SlimFun
+stripArgs f = f { args = filter
+                          (\v → varName v `notElem` usedVars (statements f))
+                          (args f)
+                }
+
+stripFun ∷ Function → SlimFun
+stripFun f = SlimFun {
+    functionName = Function.functionName f
+  , retType = Function.retType f
+  , args = map stripVar $ Function.paramVars f
+  , statements = Function.statements f
+}
+
+stripVar ∷ Variable → SlimVar
+stripVar (Variable name _ t) = SlimVar name t
+
 
 splitSource ∷ Source → [Shader]
 splitSource src = evalState (split mainFun)
   St {
-      functions = Source.functions src
-    , variables = Source.variables src
-    , currentFun = Null
+      functions = Map.map stripFun $ Source.functions src
+    , variables = Map.map stripVar $ Source.variables src
+    , currentFun = mainFun
     , gobbled = []
     , freeRefs = [1..]
     , chunks = []
     , dependencies = []
   }
  where
-  mainFun ∷ Function
-  mainFun = fromJust $ Map.lookup "main" (Source.functions src)
+  mainFun ∷ SlimFun
+  mainFun = stripFun $ fromJust $ Map.lookup "main" (Source.functions src)
 
 newRef ∷ String → State St String
 newRef s = do
@@ -82,7 +161,7 @@ newRef s = do
   modify (\st → st { freeRefs = tail (freeRefs st)})
   return $ printf "img%03d%s" newId s
 
-split ∷ Function → State St [Shader]
+split ∷ SlimFun → State St [Shader]
 split fun = do
   mainShd ← collectMain fun
   shaders ← gets chunks >>= mapM buildShader
@@ -94,7 +173,7 @@ repeatSplit = return -- TODO check for additional partial applications..
 
 buildShader ∷ Chunk → State St Shader
 buildShader (stms,ref) = do
-  let fs = Map.fromList $ map ((\f → (ident f, f)) . buildFun) stms
+  let fs = Map.fromList $ map ((functionName &&& stripArgs) . buildFun) stms
   -- fetch missing stuff from state
   return Shader {
       funs = fs
@@ -103,23 +182,10 @@ buildShader (stms,ref) = do
     , inputs = [] -- TODO
   }
 
+buildFun ∷ (SlimFun, [Stm]) → SlimFun
+buildFun (f, ss) = f { statements = ss }
 
-buildFun ∷ (Function, [Stm]) → Function
-buildFun (f, ss) = stripArgs $ f { statements = ss }
-
--- Strips arguments not needed
-stripArgs ∷ Function → Function
-stripArgs f = f { paramVars = filter (\v → ident v `notElem` usedVars) (paramVars f) }
- where
-  usedVars ∷ [String]
-  usedVars = execWriter (mapM_ (mapStmExpM collect) (statements f))
-  collect ∷ Exp → Writer [String] Exp
-  collect e@(EVar cid) = tell [cIdentToString cid] >> return e
-  collect e = return e
-
-
-
-collectMain ∷ Function → State St Shader
+collectMain ∷ SlimFun → State St Shader
 collectMain fun = do
   modify (\st → st { gobbled = [], currentFun = fun })
   mapM_ gobbleStm (statements fun)
@@ -129,19 +195,16 @@ buildMain ∷ [Stm] → State St Shader
 buildMain stms = do
   fs ← gets functions
 
-  let mainFun = Types.Function {
+  let mainFun = SlimFun {
       functionName = "main"
-    , alias = "main"
-    , functionLocation = ("XX",(0,0))
     , retType = TVec4
-    , paramVars = [Variable "x" ("X",(0,0)) TFloat, Variable "x" ("X",(0,0)) TFloat]
-    , parameters = [] -- Not used
+    , args = [SlimVar "x" TFloat, SlimVar "x" TFloat]
     , statements = stms
   }
 
   -- Functions needed in main TODO: search functions for calls as well..
   let fs' = Map.insert "main" mainFun $
-              Map.fromList $ map (\f → (ident f, f)) $
+              Map.fromList $ map (functionName &&& id) $
               mapMaybe (`Map.lookup` fs) (calls stms)
 
   return Shader {
@@ -151,14 +214,7 @@ buildMain stms = do
     , output = "TODO"
   }
 
-calls ∷ [Stm] → [String]
-calls s = nub $ execWriter (mapM_ (mapStmExpM collect) s)
- where
-  collect ∷ Exp → Writer [String] Exp
-  collect e@(ECall cid _) = tell [cIdentToString cid] >> return e
-  collect e = return e
-
-collectRewrite ∷ Function → State St ()
+collectRewrite ∷ SlimFun → State St ()
 collectRewrite fun = do
   pushFun fun
   mapM_ gobbleStm (statements fun)
@@ -173,7 +229,7 @@ gobble (EPartCall cid es _) = do
   d ← depends es
   r ← newRef (cIdentToString cid)
   addChunk (d,r)
-  return (EVar (CIdent ((0,0),r)))
+  return (EVarType (CIdent ((0,0),r)) TImage)
 gobble e@(ECall cid _) = getFun (cIdentToString cid) >>= collectRewrite >> return e
 gobble e = return e
 
@@ -200,7 +256,7 @@ imgType ∷ Type
 imgType = TFun TVec4 [TFloat, TFloat]
 
 -- Dependency helpers {{{
-depends ∷ [Exp] → State St [(Function, [Stm])]
+depends ∷ [Exp] → State St [(SlimFun, [Stm])]
 depends es = do
   -- add all initial dependencies.
   mapM_ (mapM_ (uncurry addDeps) . expDeps) es
