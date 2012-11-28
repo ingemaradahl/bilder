@@ -33,7 +33,6 @@ import qualified TypeChecker.Types as Function (
   , retType
   , paramVars
   )
-import TypeChecker.Scope (builtInFuns)
 
 import FrontEnd.AbsGrammar
 
@@ -117,6 +116,8 @@ addStm stm = do
 getFun ∷ String → State St SlimFun
 getFun s = liftM (fromJust . Map.lookup s) $ gets functions
 
+getFunMaybe ∷ String → State St (Maybe SlimFun)
+getFunMaybe s = liftM (Map.lookup s) $ gets functions
 
 gather ∷ Monoid a => (Exp → Writer a Exp) → [Stm] → a
 gather f ss = execWriter (mapM_ (mapStmExpM f) ss)
@@ -217,19 +218,20 @@ collectMain fun = do
 
 buildMain ∷ SlimFun → [Stm] → State St Shader
 buildMain oldMain stms = do
-  fs ← gets functions
-
   let mainFun = oldMain { statements = reverse stms }
 
-  -- Functions needed in main TODO: search functions for calls as well..
-  let fs' = Map.insert "main" mainFun $
-              Map.fromList $ map (functionName &&& id) $
-              mapMaybe (`Map.lookup` fs) (calls stms)
+  modify (\st → st { gobbled = [(mainFun,stms)], dependencies = [] })
+  mapM_ (uncurry addBoth) $ stmDeps $ head stms
+
+
+  stms' ← depends []
+  let fs' = Map.fromList $ map (\(f, st) → (functionName f, f { statements = st})) stms'
+  let mainFun' = fromJust $ Map.lookup "main" fs'
 
   return Shader {
       funs = fs'
     , vars = Map.empty
-    , inputs = findExternals (statements mainFun)
+    , inputs = findExternals (statements mainFun')
     , output = "result_image"
   }
 
@@ -262,11 +264,15 @@ gobbleStm stm = mapStmExpM gobble stm >>= addStm
 
 gobble ∷ Exp → State St Exp
 gobble (EPartCall cid es _) = do
-  f ← getFun (cIdentToString cid)
+  f ← getFun name
   d ← depends es
-  r ← newRef (cIdentToString cid)
-  addChunk (d,r,f)
+  -- add a SReturn to the main function.
+  let d' = map (\(fun, ss) → (f, addSReturn fun ss name es)) d
+  r ← newRef name
+  addChunk (d',r,f)
   return (EVarType (CIdent ((0,0),r)) TImage)
+ where
+  name = cIdentToString cid
 gobble e@(ECall cid _) = getFun (cIdentToString cid) >>= collectRewrite >> return e
 gobble e = return e
 
@@ -303,18 +309,36 @@ depends es = do
   deps ← mapM (\(f,stms) → (,) <$> pure f <*> foldM isNeeded [] stms) gb
   (deps ++) <$> neededFuns
 
+-- | Adds a return-statement calling the given function.
+addSReturn ∷ SlimFun → [Stm] → String → [Exp] → [Stm]
+addSReturn f stms n es =
+  if functionName f == "main"
+    then stms ++ [SReturn (TkReturn ((0,0),"return")) ecall]
+    else stms
+ where
+  ecall = ECall cid (es ++ map fattenVar (args f))
+  cid = CIdent ((0,0),n)
+  fattenVar ∷ SlimVar → Exp
+  fattenVar s = EVar (CIdent ((0,0),varName s))
+
 -- | Returns all the functions that the state depends on.
 neededFuns ∷ State St [(SlimFun, [Stm])]
 neededFuns = do
-  deps ← gets dependencies
+  deps ← gets dependencies >>= filterM isFun
   sequence [
     getFun f >>= (\fun → return (fun, statements fun))
-    | (Fun f) ← filter isFun deps
+    | (Fun f) ← deps
     ]
  where
-  isFun ∷ Dep → Bool
-  isFun (Fun name) = name `notElem` Map.keys builtInFuns
-  isFun _ = False
+  isFun ∷ Dep → State St Bool
+  isFun (Fun name) = do
+    -- handles both "made up"-functions (saturated partial applications)
+    --    and built in functions.
+    fun ← getFunMaybe name
+    case fun of
+      Nothing → return False
+      Just _  → return True
+  isFun _ = return False
 
 addDeps ∷ Dep → [Dep] → State St ()
 addDeps _ = mapM_ add
@@ -362,14 +386,21 @@ declPostDeps (DecAss cids _ e) =
 declPostDeps (DecFun {}) = error "inner function declarations not allowed."
 
 expDeps ∷ Exp → DepList
-expDeps (EVar cid) = [(None, [Var (cIdentToString cid)])]
-expDeps (EVarType cid _) = [(None, [Var (cIdentToString cid)])]
 expDeps (EAss (EVar cid) _ e) =
-  (Var (cIdentToString cid), concatMap snd expdeps) : onlyAssDeps expdeps
+  (Var (cIdentToString cid), concatMap snd e') : onlyAssDeps e'
  where
-  expdeps = expDeps e
-expDeps (ECall cid es) = (None, Fun (cIdentToString cid) : concatMap (concatMap snd . expDeps) es) : concatMap (onlyAssDeps . expDeps) es
+  e' = expDeps e
+expDeps (EMemberCall e _ es) =
+  (None, concatMap snd es') : es'
+ where
+  es' = expDeps e ++ concatMap expDeps es
+expDeps (ECall cid es) = (None, Var (cIdentToString cid) : Fun (cIdentToString cid) : concatMap (concatMap snd) es') : concatMap onlyAssDeps es'
+ where
+  es' = map expDeps es
+expDeps (EVar cid) = [(None, [Var (cIdentToString cid)])]
 expDeps (EFloat {}) = []
+expDeps (EVarType cid _) = [(None, [Var (cIdentToString cid)])]
+
 expDeps e = error $ "expDeps: not implemented " ++ show e
 
 onlyAssDeps ∷ DepList → DepList
