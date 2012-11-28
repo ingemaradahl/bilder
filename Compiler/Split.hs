@@ -356,9 +356,24 @@ isNeeded p stm = do
 stmDeps ∷ Stm → DepList
 stmDeps (SDecl decl) = declDeps decl
 stmDeps (SExp e) = expDeps e
+stmDeps (SBlock ss) = concatMap stmDeps ss
+stmDeps (SWhile _ e s) = expDeps e ++ stmDeps s
+stmDeps (SDoWhile _ s _ e) = stmDeps s ++ expDeps e
+stmDeps (SFor _ fds cones loopes s) =
+  concatMap forDeclDeps fds ++ concatMap expDeps (cones ++ loopes) ++ stmDeps s
 stmDeps (SReturn _ e) = expDeps e
+stmDeps (SVoidReturn _) = []
+stmDeps (SIf _ e s) = expDeps e ++ stmDeps s
+stmDeps (SIfElse _ e st _ sf) = expDeps e ++ stmDeps st ++ stmDeps sf
+stmDeps (SBreak _) = []
+stmDeps (SContinue _) = []
+stmDeps (SDiscard _) = []
 stmDeps (SType _ s) = stmDeps s
-stmDeps s = error $ "stmDeps: not implemented: " ++ show s
+stmDeps (SFunDecl {}) = error "SFunDecl not allowed here."
+
+forDeclDeps ∷ ForDecl → DepList
+forDeclDeps (FDecl d) = declDeps d
+forDeclDeps (FExp e) = expDeps e
 
 declDeps ∷ Decl → DepList
 declDeps (Dec _ dp) = declPostDeps dp
