@@ -66,7 +66,7 @@ data Shader = Shader {
     funs ∷ Map.Map String SlimFun
   , vars ∷ Map.Map String SlimVar
   , output ∷ String
-  , inputs ∷ [String]
+  , inputs ∷ [SlimVar]
 }
 
 instance Show Shader where
@@ -203,7 +203,7 @@ buildShader (stms,ref,fun) = do
       funs = fs
     , vars = Map.empty --TODO
     , output = ref
-    , inputs = [] -- TODO
+    , inputs = nub $ concat [ findExternals (statements f) | (_,f) ← Map.toList fs ]
   }
 
 buildFun ∷ (SlimFun, [Stm]) → SlimFun
@@ -213,18 +213,13 @@ collectMain ∷ SlimFun → State St Shader
 collectMain fun = do
   modify (\st → st { gobbled = [(fun,[])], currentFun = fun })
   mapM_ gobbleStm (statements fun)
-  gets (snd . head . gobbled) >>= buildMain
+  gets (snd . head . gobbled) >>= buildMain fun
 
-buildMain ∷ [Stm] → State St Shader
-buildMain stms = do
+buildMain ∷ SlimFun → [Stm] → State St Shader
+buildMain oldMain stms = do
   fs ← gets functions
 
-  let mainFun = SlimFun {
-      functionName = "main"
-    , retType = TVec4
-    , args = [SlimVar "x" TFloat, SlimVar "x" TFloat]
-    , statements = reverse stms
-  }
+  let mainFun = oldMain { statements = reverse stms }
 
   -- Functions needed in main TODO: search functions for calls as well..
   let fs' = Map.insert "main" mainFun $
@@ -234,9 +229,27 @@ buildMain stms = do
   return Shader {
       funs = fs'
     , vars = Map.empty
-    , inputs = []
-    , output = "TODO"
+    , inputs = findExternals (statements mainFun)
+    , output = "result_image"
   }
+
+findExternals ∷ [Stm] → [SlimVar]
+findExternals ss = execWriter (mapM_  (mapStmM findExternal) ss >>
+  mapM_ (mapStmExpM findEVarTypes ) ss)
+
+findExternal ∷ Stm → Writer [SlimVar] Stm
+findExternal s@(SDecl (Dec qs (Vars [cid]))) | any isExternal qs =
+  tell [SlimVar (cIdentToString cid) (qualsToType qs)] >> return s
+findExternal s = mapStmM findExternal s
+
+isExternal ∷ Qualifier → Bool
+isExternal (QExternal _) = True
+isExternal _ = False
+
+findEVarTypes ∷ Exp → Writer [SlimVar] Exp
+findEVarTypes e@(EVarType cid t) = tell [SlimVar (cIdentToString cid) t] >>
+  return e
+findEVarTypes e = return e
 
 collectRewrite ∷ SlimFun → State St ()
 collectRewrite fun = do
