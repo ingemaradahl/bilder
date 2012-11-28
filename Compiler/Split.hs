@@ -355,7 +355,7 @@ isNeeded ∷ [Stm] → Stm → State St [Stm]
 isNeeded p stm = do
   let stmdeps = stmDeps stm
   deps ← gets dependencies
-  if True `elem` [a `elem` deps | a ← affected stmdeps]
+  if isReturn stm || True `elem` [a `elem` deps | a ← affected stmdeps]
     then do
       mapM_ (uncurry addDeps) stmdeps
       return $ stm:p
@@ -363,3 +363,7 @@ isNeeded p stm = do
  where
   affected ∷ DepList → [Dep]
   affected = map fst
+  isReturn ∷ Stm → Bool
+  isReturn (SType _ s) = isReturn s
+  isReturn (SReturn {}) = True
+  isReturn _ = False
