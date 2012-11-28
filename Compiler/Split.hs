@@ -266,7 +266,11 @@ gobble (EPartCall cid es _) = do
   return (EVarType (CIdent ((0,0),r)) TImage)
  where
   name = cIdentToString cid
-gobble e@(ECall cid _) = getFun (cIdentToString cid) >>= collectRewrite >> return e
+gobble e@(ECall cid _) = do
+  fun ← getFunMaybe (cIdentToString cid)
+  case fun of
+    Nothing → return e
+    Just f  → collectRewrite f >> return e
 gobble e = return e
 
 addChunk ∷ Chunk → State St ()
