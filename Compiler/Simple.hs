@@ -1,0 +1,47 @@
+{-# LANGUAGE UnicodeSyntax #-}
+
+module Compiler.Simple where
+
+import Control.Arrow
+import qualified Data.Map as Map
+
+import Compiler.Simple.Types as Simple
+import qualified Compiler.Split as Split
+
+import Compiler.Simple.AbsSimple
+import qualified FrontEnd.AbsGLSL as G
+import Compiler.Simple.FromAbsGrammar
+
+import Compiler.Simple.ToGLSL (funToPrototype, funToGLSL, varToGLSLDecl)
+
+absToSimple ∷ [Split.Shader] → [Simple.Shader]
+absToSimple = map splitShaderToSimple
+
+splitShaderToSimple ∷ Split.Shader → Simple.Shader
+splitShaderToSimple shd = Shader {
+      functions = Map.map slimFunToSimple (Split.funs shd)
+    , variables = Map.map slimVarToSimple (Split.vars shd)
+    , output = Variable (Split.output shd) TSampler False
+    , inputs = Map.fromList $ map (Split.varName &&& slimVarToSimple) (Split.inputs shd)
+  }
+
+slimFunToSimple ∷ Split.SlimFun → Function
+slimFunToSimple (Split.SlimFun name ret args stms) =
+  Function name (translate ret) (map slimVarToSimple args) (map translate stms)
+
+slimVarToSimple ∷ Split.SlimVar → Variable
+slimVarToSimple (Split.SlimVar name typ) =
+  Variable name (translate typ) False
+
+-- | Translates Simple to GLSL tree.
+simpleToGLSL ∷ [Shader] → [G.Tree]
+simpleToGLSL = map simpleToGLSLShader
+
+simpleToGLSLShader ∷ Shader → G.Tree
+simpleToGLSLShader shd = G.Tree $
+  --map structToGLSL (structs blob) ++
+  map (G.TopDecl . varToGLSLDecl) (Map.elems $ variables shd) ++
+  map funToPrototype (Map.elems $ functions shd) ++
+  map funToGLSL (Map.elems $ functions shd)
+
+

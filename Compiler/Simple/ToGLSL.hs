@@ -1,27 +1,11 @@
 {-# LANGUAGE UnicodeSyntax #-}
 
-module Simple where
-
-import qualified Simple.AbsSimple as S
-import Simple.Types
+module Compiler.Simple.ToGLSL where
 
 import qualified FrontEnd.AbsGLSL as G
-import qualified FrontEnd.AbsGrammar as F
+import qualified Compiler.Simple.AbsSimple as S
 
-
--- | Translates Simple to GLSL tree.
-simpleToGLSL ∷ SimpleSource → G.Tree
-simpleToGLSL blob = G.Tree $
-  map structToGLSL (structs blob) ++
-  map (G.TopDecl . varToGLSLDecl) (variables blob) ++
-  map funToPrototype (functions blob) ++
-  map funToGLSL (functions blob)
-
--- | Translates FL tree to Simple.
-flToSimple ∷ F.AbsTree → SimpleSource
-flToSimple _ = undefined
-
--- Simple to GLSL {{{
+-- Simple to GLSL
 funToPrototype ∷ S.Function → G.TopLevel
 funToPrototype fun = G.FunctionPrototype
   (typeToGLSL (S.returnType fun)) -- return type
@@ -108,22 +92,20 @@ expToGLSL (S.EPostInc e) = G.EPostInc (expToGLSL e)
 expToGLSL (S.EPostDec e) = G.EPostDec (expToGLSL e)
 expToGLSL (S.EMember e i) = G.ESwizzler (expToGLSL e) (G.EVar $ G.Ident i)
 expToGLSL (S.ECall i es) = G.ECall (G.Ident i) (map expToGLSL es)
+expToGLSL (S.ETypeCall t es) = G.ETypeCall (typeToGLSL t) (map expToGLSL es)
 expToGLSL (S.EVar i) = G.EVar (G.Ident i)
 expToGLSL (S.EIndex i e) = G.EIndex (G.Ident i) (expToGLSL e)
 expToGLSL (S.EFloat f) = G.EFloat (G.CFloat (show f))
 expToGLSL (S.EInt i) = G.EInt i
 expToGLSL (S.ETrue) = G.ETrue
 expToGLSL (S.EFalse) = G.EFalse
+expToGLSL e = error $ "Not implemented: " ++ show e
 
 variableToGLSLParam ∷ S.Variable → G.Param
 variableToGLSLParam var = G.ParamDec
-  (map paramQualsGLSL $ S.qualifiers var)
+  []
   (typeToGLSL $ S.variableType var)
   (G.Ident $ S.variableName var)
-
-paramQualsGLSL ∷ S.Qualifier → G.ParamQualifiers
-paramQualsGLSL (S.Const) = G.PQStorage G.QConst
-paramQualsGLSL (S.External) = error "compiler error - parameters are not allowed to have external qualifier."
 
 typeToGLSL ∷ S.Type → G.Type
 typeToGLSL (S.TVoid) = G.TVoid
@@ -137,10 +119,7 @@ typeToGLSL (S.TMat2) = G.TMat2
 typeToGLSL (S.TMat3) = G.TMat3
 typeToGLSL (S.TMat4) = G.TMat4
 typeToGLSL (S.TStruct i) = G.TStruct (G.Ident i)
-
-declQualsGLSL ∷ S.Qualifier → G.DeclQualifiers
-declQualsGLSL (S.Const) = G.DQStorage G.QConst
-declQualsGLSL (S.External) = G.DQStorage G.QUniform
+typeToGLSL (S.TSampler) = G.TSampler2D
 
 structToGLSL ∷ S.Struct → G.TopLevel
 structToGLSL s = G.TopDecl $ G.Struct
@@ -149,11 +128,6 @@ structToGLSL s = G.TopDecl $ G.Struct
 
 varToGLSLDecl ∷ S.Variable → G.Decl
 varToGLSLDecl var = G.Declaration
-  (map declQualsGLSL (S.qualifiers var)) -- qualifiers
+  [] -- qualifiers
   (typeToGLSL $ S.variableType var) -- type
   [G.Ident $ S.variableName var] -- names
-
-
--- }}}
-
--- vi:fdm=marker

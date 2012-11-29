@@ -10,6 +10,9 @@ import Compiler.Utils
 import qualified Compiler.Lifter as L
 import Compiler.Desugar (desugar)
 import Compiler.Split (splitSource)
+import Compiler.Simple (absToSimple, simpleToGLSL)
+
+import FrontEnd.AbsGLSL as G
 
 import TypeChecker.Types
 
@@ -32,7 +35,7 @@ buildEnv opts = Env {
 -- CPM - CompilerMonad: Alias for both Error and State monad
 type CPM a = StateT Environment CError a
 
-compileTree ∷ Options → Source → CError [[String]]
+compileTree ∷ Options → Source → CError [G.Tree]
 compileTree opts src = evalStateT (compile src) (buildEnv opts)
 
 lambdaLift ∷ Source → CPM Source
@@ -43,6 +46,6 @@ lambdaLift src = do
     })
   return $ L.source env
 
-compile ∷ Source → CPM [[String]]
+compile ∷ Source → CPM [G.Tree]
 compile src =
-  liftM (return . map show . splitSource . desugar) $ lambdaLift src
+  liftM (simpleToGLSL . absToSimple .splitSource . desugar) $ lambdaLift src

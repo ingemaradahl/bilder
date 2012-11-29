@@ -61,6 +61,10 @@ qualType qs | length types == 1 = Just $ head types
  where
   types = [ t | QType t ← qs ]
 
+isConst ∷ Qualifier → Bool
+isConst (QConst _) = True
+isConst _ = False
+
 declPostIdents ∷ DeclPost → [CIdent]
 declPostIdents (Vars i) = i
 declPostIdents (DecAss i _ _) = i
