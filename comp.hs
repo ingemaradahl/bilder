@@ -11,6 +11,9 @@ import FrontEnd
 import Compiler hiding (compile)
 import TypeChecker
 
+import FrontEnd.AbsGLSL
+import FrontEnd.PrintGLSL
+
 -- Compilation chain
 compile ∷ Options → IO ()
 compile o = do
@@ -31,10 +34,10 @@ parseArgs s  = Just $ Options $ head s
 printHelp ∷ IO ()
 printHelp = putStrLn "HELP"
 
-printResult ∷ CError [[String]] → IO ()
+printResult ∷ CError [Tree] → IO ()
 printResult r = case r of
   Pass ss → sequence_ [ do
-      putStrLn $ intercalate "\n" s
+      putStrLn $ printTree s
       putStrLn "--------------------\n"
     | s ← ss ]
   Fail e → putStrLn $ "FAIL:\n" ++ show e
