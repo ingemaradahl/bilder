@@ -92,12 +92,14 @@ expToGLSL (S.EPostInc e) = G.EPostInc (expToGLSL e)
 expToGLSL (S.EPostDec e) = G.EPostDec (expToGLSL e)
 expToGLSL (S.EMember e i) = G.ESwizzler (expToGLSL e) (G.EVar $ G.Ident i)
 expToGLSL (S.ECall i es) = G.ECall (G.Ident i) (map expToGLSL es)
+expToGLSL (S.ETypeCall t es) = G.ETypeCall (typeToGLSL t) (map expToGLSL es)
 expToGLSL (S.EVar i) = G.EVar (G.Ident i)
 expToGLSL (S.EIndex i e) = G.EIndex (G.Ident i) (expToGLSL e)
 expToGLSL (S.EFloat f) = G.EFloat (G.CFloat (show f))
 expToGLSL (S.EInt i) = G.EInt i
 expToGLSL (S.ETrue) = G.ETrue
 expToGLSL (S.EFalse) = G.EFalse
+expToGLSL e = error $ "Not implemented: " ++ show e
 
 variableToGLSLParam ∷ S.Variable → G.Param
 variableToGLSLParam var = G.ParamDec
@@ -117,6 +119,7 @@ typeToGLSL (S.TMat2) = G.TMat2
 typeToGLSL (S.TMat3) = G.TMat3
 typeToGLSL (S.TMat4) = G.TMat4
 typeToGLSL (S.TStruct i) = G.TStruct (G.Ident i)
+typeToGLSL (S.TSampler) = G.TSampler2D
 
 structToGLSL ∷ S.Struct → G.TopLevel
 structToGLSL s = G.TopDecl $ G.Struct
