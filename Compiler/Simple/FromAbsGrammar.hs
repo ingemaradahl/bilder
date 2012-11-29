@@ -67,7 +67,6 @@ instance Translate G.Stm Stm where
 instance Translate G.Exp Exp where
   --translate (G.1 el _ er) = 1 (translate el) (translate er)
   translate (G.EAss el _ er) = EAss (translate el) (translate er)
-  translate (G.EAdd el _ er) = EAdd (translate el) (translate er)
   translate (G.EAssAdd el _ er) = EAssAdd (translate el) (translate er)
   translate (G.EAssSub el _ er) = EAssSub (translate el) (translate er)
   translate (G.EAssMul el _ er) = EAssMul (translate el) (translate er)
