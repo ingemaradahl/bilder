@@ -12,6 +12,10 @@ import Compiler.Desugar (desugar)
 import Compiler.Split (splitSource)
 import Compiler.Simple (absToSimple, simpleToGLSL)
 
+-- TEMP
+import Compiler.GLSL.Utils
+
+
 import FrontEnd.AbsGLSL as G
 
 import TypeChecker.Types
@@ -48,4 +52,4 @@ lambdaLift src = do
 
 compile ∷ Source → CPM [G.Tree]
 compile src =
-  liftM (simpleToGLSL . absToSimple .splitSource . desugar) $ lambdaLift src
+  liftM (simpleToGLSL . map finalizeMain . absToSimple .splitSource . desugar) $ lambdaLift src

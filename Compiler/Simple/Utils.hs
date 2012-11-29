@@ -139,6 +139,7 @@ mapExp f ex = runIdentity $ mapExpM f' ex
 
 mapStmM ∷ (Monad m, Applicative m) => (Stm → m Stm) → Stm → m Stm
 mapStmM _ s@(SDecl {}) = pure s
+mapStmM _ s@(SDeclAss {}) = pure s
 mapStmM _ s@(SExp {}) = pure s
 mapStmM f (SWhile e s) = SWhile e <$> mapM f s
 mapStmM f (SDoWhile s e) = SDoWhile <$> mapM f s <*> pure e
