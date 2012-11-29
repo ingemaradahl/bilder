@@ -16,7 +16,7 @@ import TypeChecker.Utils
 
 import FrontEnd.PrintGrammar
 
-import Compiler.Dependencies (stmDeps, expDeps, Dep(Fun), DepList)
+import Compiler.Dependencies (stmDeps, expDeps, Dep(Fun, Var), DepList)
 
 import TypeChecker.Types as Types hiding (
     functionName
@@ -49,7 +49,7 @@ data SlimFun = SlimFun {
  deriving (Eq)
 
 instance Show SlimFun where
- show (SlimFun name ret params stms) = printf "%s %s(%s)\n{%s\n}"
+ show (SlimFun name ret params stms) = printf "%s %s(%s)\n{%s\n}\n"
   (show ret)
   name
   (show params)
@@ -157,6 +157,20 @@ stripFun f = SlimFun {
 stripVar ∷ Variable → SlimVar
 stripVar (Variable name _ t) = SlimVar name t
 
+splitShader ∷ Shader → [Shader]
+splitShader sh = evalState (split mainFun)
+  St {
+      functions = funs sh
+    , variables = vars sh
+    , currentFun = mainFun
+    , gobbled = []
+    , freeRefs = [1..] -- TODO
+    , chunks = []
+    , dependencies = []
+  }
+ where
+  mainFun ∷ SlimFun
+  mainFun = fromJust $ Map.lookup "main" (funs sh)
 
 splitSource ∷ Source → [Shader]
 splitSource src = evalState (split mainFun)
@@ -184,10 +198,24 @@ split fun = do
   mainShd ← collectMain fun
   shaders ← gets chunks >>= mapM buildShader
 
-  repeatSplit $ mainShd:shaders
+  if True `elem` map hasImages shaders
+    then return $ repeatSplit $ mainShd:shaders
+    else return $ mainShd:shaders
 
-repeatSplit ∷ [Shader] → State St [Shader]
-repeatSplit = return -- TODO check for additional partial applications..
+repeatSplit ∷ [Shader] → [Shader]
+repeatSplit = concatMap splitShader
+
+hasImages ∷ Shader → Bool
+hasImages sh = hasEPartCalls stms
+ where
+  stms = concatMap (statements . snd) $ (Map.toList . funs) sh
+
+hasEPartCalls ∷ [Stm] → Bool
+hasEPartCalls ss = not $ null $ execWriter (mapM (mapStmExpM findEPartCall) ss)
+ where
+  findEPartCall ∷ Exp → Writer [Bool] Exp
+  findEPartCall e@(EPartCall {}) = tell [True] >> return e
+  findEPartCall e = mapExpM findEPartCall e
 
 buildShader ∷ Chunk → State St Shader
 buildShader (stms,ref,fun) = do
@@ -255,12 +283,21 @@ collectRewrite fun = do
 gobbleStm ∷ Stm → State St ()
 gobbleStm stm = mapStmExpM gobble stm >>= addStm
 
+depFun ∷ SlimFun → State St ()
+depFun f = do
+  add (Fun name) >> add (Var name)
+  mapM_ (uncurry addBoth) $ concatMap stmDeps (statements f)
+ where
+  name = functionName f
+
 gobble ∷ Exp → State St Exp
 gobble (EPartCall cid es _) = do
+  -- add a dependency to the function.
   f ← getFun name
+  depFun f
   d ← depends es
   -- add a SReturn to the main function.
-  let d' = map (\(fun, ss) → (f, addSReturn fun ss name es)) d
+  let d' = map (\(fun, ss) → (fun, addSReturn fun ss name es)) d
   r ← newRef name
   addChunk (d',r,f)
   return (EVarType (CIdent ((0,0),r)) TImage)
@@ -364,6 +401,8 @@ isNeeded p stm = do
   affected ∷ DepList → [Dep]
   affected = map fst
   isReturn ∷ Stm → Bool
-  isReturn (SType _ s) = isReturn s
-  isReturn (SReturn {}) = True
-  isReturn _ = False
+  isReturn = foldStm isret False
+   where
+    isret ∷ Bool → Stm → Bool
+    isret _ (SReturn {}) = True
+    isret pr _ = pr
