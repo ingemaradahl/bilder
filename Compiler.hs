@@ -10,6 +10,7 @@ import Compiler.Utils
 import qualified Compiler.Lifter as L
 import Compiler.Desugar (desugar)
 import Compiler.Split (splitSource)
+import Compiler.Simple (absToSimple)
 
 import TypeChecker.Types
 
@@ -45,4 +46,4 @@ lambdaLift src = do
 
 compile ∷ Source → CPM [[String]]
 compile src =
-  liftM (return . map show . splitSource . desugar) $ lambdaLift src
+  liftM (return . map show . absToSimple .splitSource . desugar) $ lambdaLift src

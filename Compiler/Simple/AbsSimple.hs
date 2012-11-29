@@ -1,13 +1,13 @@
 {-# LANGUAGE UnicodeSyntax  #-}
 
-module Simple.AbsSimple where
+module Compiler.Simple.AbsSimple where
 
 type Ident = String
 
 data Variable = Variable {
       variableName ∷ String
     , variableType ∷ Type
-    , qualifiers ∷ [Qualifier]
+    , const ∷ Bool
   }
   deriving (Eq,Ord,Show)
 
@@ -23,11 +23,6 @@ data Struct = Struct {
       structName ∷ String
     , declarations ∷ [Variable]
   }
-  deriving (Eq,Ord,Show)
-
-data Qualifier =
-   Const
- | External
   deriving (Eq,Ord,Show)
 
 data Stm =
@@ -86,7 +81,9 @@ data Exp =
  | EPostInc Exp
  | EPostDec Exp
  | EMember Exp Ident
+ | EMemberCall Exp Ident [Exp]
  | ECall Ident [Exp]
+ | ETypeCall Type [Exp]
  | EVar Ident
  | EIndex Ident Exp
  | EFloat Float
@@ -106,5 +103,6 @@ data Type =
  | TMat2
  | TMat3
  | TMat4
+ | TSampler
  | TStruct Ident
   deriving (Eq,Ord,Show)
