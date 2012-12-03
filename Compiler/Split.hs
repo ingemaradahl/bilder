@@ -157,17 +157,20 @@ stripFun f = SlimFun {
 stripVar ∷ Variable → SlimVar
 stripVar (Variable name _ t) = SlimVar name t
 
-splitShader ∷ Shader → [Shader]
-splitShader sh = evalState (split mainFun)
-  St {
-      functions = funs sh
-    , variables = vars sh
-    , currentFun = mainFun
-    , gobbled = []
-    , freeRefs = [1..] -- TODO
-    , chunks = []
-    , dependencies = []
-  }
+splitShader ∷ Shader → State St [Shader]
+splitShader sh = do
+  cfree ← gets freeRefs
+  let (ss, sta) = runState (split mainFun) St {
+        functions = funs sh
+      , variables = vars sh
+      , currentFun = mainFun
+      , gobbled = []
+      , freeRefs = cfree
+      , chunks = []
+      , dependencies = []
+    }
+  modify (\st → st { freeRefs = freeRefs sta })
+  return $ (head ss) { output = output sh } : tail ss
  where
   mainFun ∷ SlimFun
   mainFun = fromJust $ Map.lookup "main" (funs sh)
@@ -208,24 +211,19 @@ split fun = do
   mainShd ← collectMain fun
   shaders ← gets chunks >>= mapM buildShader
 
-  if True `elem` map hasImages shaders
-    then return $ repeatSplit $ mainShd:shaders
-    else return $ mainShd:shaders
+  let shaders' = mainShd:shaders
 
-repeatSplit ∷ [Shader] → [Shader]
-repeatSplit = concatMap splitShader
+  if True `elem` map hasImages shaders'
+    then repeatSplit shaders'
+    else return shaders'
+
+repeatSplit ∷ [Shader] → State St [Shader]
+repeatSplit ss = liftM concat (mapM splitShader ss)
 
 hasImages ∷ Shader → Bool
-hasImages sh = hasEPartCalls stms
+hasImages sh = True `elem` map createsImg stms
  where
   stms = concatMap (statements . snd) $ (Map.toList . funs) sh
-
-hasEPartCalls ∷ [Stm] → Bool
-hasEPartCalls ss = not $ null $ execWriter (mapM (mapStmExpM findEPartCall) ss)
- where
-  findEPartCall ∷ Exp → Writer [Bool] Exp
-  findEPartCall e@(EPartCall {}) = tell [True] >> return e
-  findEPartCall e = mapExpM findEPartCall e
 
 buildShader ∷ Chunk → State St Shader
 buildShader (stms,ref,fun) = do
@@ -288,17 +286,35 @@ collectRewrite ∷ SlimFun → State St ()
 collectRewrite fun = do
   pushFun fun
   mapM_ gobbleStm (statements fun)
+  updateFunWithGobbdled (functionName fun)
   popFun
+
+updateFunWithGobbdled ∷ String → State St ()
+updateFunWithGobbdled n = do
+  gs ← gets gobbled
+  let stms = snd $ head $ filter ((==n) . functionName . fst) gs
+  fs ← gets functions
+  modify (\st → st { functions = Map.adjust (\f → f { statements = stms }) n fs })
 
 gobbleStm ∷ Stm → State St ()
 gobbleStm stm = mapStmExpM gobble stm >>= addStm
 
 depFun ∷ SlimFun → State St ()
 depFun f = do
+  -- add all direct dependencies
   add (Fun name) >> add (Var name)
   mapM_ (uncurry addBoth) $ concatMap stmDeps (statements f)
+  -- and all recursive dependencies
+  mapM_ (mapStmExpM addDepFun) (statements f)
  where
   name = functionName f
+
+addDepFun ∷ Exp → State St Exp
+addDepFun e@(EPartCall cid _ _) = do
+  f ← getFun (cIdentToString cid)
+  depFun f
+  return e
+addDepFun e = return e
 
 gobble ∷ Exp → State St Exp
 gobble (EPartCall cid es _) = do

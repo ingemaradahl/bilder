@@ -107,7 +107,7 @@ expDeps (EInt _) = []
 expDeps (ETrue) = []
 expDeps (EFalse) = []
 expDeps (EPartCall cid es _) =
-  (Fun (cIdentToString cid), concatMap snd es') : es'
+  (None, Var (cIdentToString cid):Fun (cIdentToString cid):concatMap snd es') : es'
  where
   es' = concatMap expDeps es
 expDeps (ECurryCall {}) = error "ECurryCall should be uncurried here."
