@@ -173,7 +173,7 @@ splitShader sh = evalState (split mainFun)
   mainFun = fromJust $ Map.lookup "main" (funs sh)
 
 splitSource ∷ Source → [Shader]
-splitSource src = evalState (split mainFun)
+splitSource src = map stripExternals $ evalState (split mainFun)
   St {
       functions = Map.map stripFun $ Source.functions src
     , variables = Map.map stripVar $ Source.variables src
@@ -186,6 +186,16 @@ splitSource src = evalState (split mainFun)
  where
   mainFun ∷ SlimFun
   mainFun = stripFun $ fromJust $ Map.lookup "main" (Source.functions src)
+
+stripExternals ∷ Shader → Shader
+stripExternals shd = shd { funs = Map.map stripExt (funs shd)}
+
+stripExt ∷ SlimFun → SlimFun
+stripExt fun = fun { statements = expandStm stripExt' (statements fun)}
+ where
+  stripExt' ∷ [Stm] → [Stm]
+  stripExt' (SDecl (Dec qs _):ss) | any isExternal qs = stripExt' ss
+  stripExt' ss = expandStm stripExt' ss
 
 newRef ∷ String → State St String
 newRef s = do

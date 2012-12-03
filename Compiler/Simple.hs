@@ -12,7 +12,12 @@ import Compiler.Simple.AbsSimple
 import qualified FrontEnd.AbsGLSL as G
 import Compiler.Simple.FromAbsGrammar
 
-import Compiler.Simple.ToGLSL (funToPrototype, funToGLSL, varToGLSLDecl)
+import Compiler.Simple.ToGLSL (
+    funToPrototype
+  , funToGLSL
+  , varToGLSLDecl
+  , typeToGLSL
+  )
 
 absToSimple ∷ [Split.Shader] → [Simple.Shader]
 absToSimple = map splitShaderToSimple
@@ -38,10 +43,17 @@ simpleToGLSL ∷ [Shader] → [G.Tree]
 simpleToGLSL = map simpleToGLSLShader
 
 simpleToGLSLShader ∷ Shader → G.Tree
-simpleToGLSLShader shd = G.Tree $
+simpleToGLSLShader (Shader funs vars _ ins) = G.Tree $
   --map structToGLSL (structs blob) ++
-  map (G.TopDecl . varToGLSLDecl) (Map.elems $ variables shd) ++
-  map funToPrototype (Map.elems $ functions shd) ++
-  map funToGLSL (Map.elems $ functions shd)
+  map (G.TopDecl . uniform) (Map.elems ins) ++
+  map (G.TopDecl . varToGLSLDecl) (Map.elems vars) ++
+  map funToPrototype (Map.elems funs) ++
+  map funToGLSL (Map.elems funs)
+
+uniform ∷ Variable → G.Decl
+uniform v = G.Declaration
+  [G.DQStorage G.QUniform]
+  (typeToGLSL $ variableType v)
+  [G.Ident $ variableName v]
 
 
