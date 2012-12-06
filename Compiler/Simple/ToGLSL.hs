@@ -17,31 +17,30 @@ funToGLSL fun = G.Function
   (typeToGLSL (S.returnType fun)) -- return type
   (G.Ident $ S.functionName fun) -- name
   (map variableToGLSLParam (S.parameters fun)) -- parameters
-  (concatMap stmToGLSL (S.statements fun)) -- statements
+  (map stmToGLSL (S.statements fun)) -- statements
 
-stmToGLSL ∷ S.Stm → [G.Stm]
-stmToGLSL (S.SDecl v) = [G.SDecl (varToGLSLDecl v)]
+stmToGLSL ∷ S.Stm → G.Stm
+stmToGLSL (S.SDecl v) = G.SDecl (varToGLSLDecl v)
 stmToGLSL (S.SDeclAss v e) =
-  [G.SDecl (varToGLSLDecl v),
-   G.SExp (G.EAss (G.EVar (G.Ident $ S.variableName v)) (expToGLSL e))]
+  G.SDecl (varToGLSLDeclAss v (expToGLSL e))
 stmToGLSL (S.SStruct s) =
-  [G.SDecl $ G.Struct (G.Ident $ S.structName s)
-    [G.SVDecl (varToGLSLDecl v) | v ← S.declarations s]]
-stmToGLSL (S.SExp e) = [G.SExp $ expToGLSL e]
+  G.SDecl $ G.Struct (G.Ident $ S.structName s)
+    [G.SVDecl (varToGLSLDecl v) | v ← S.declarations s]
+stmToGLSL (S.SExp e) = G.SExp $ expToGLSL e
 stmToGLSL (S.SWhile e ss) =
-  [G.SWhile (expToGLSL e) (G.SBlock $ concatMap stmToGLSL ss)]
+  G.SWhile (expToGLSL e) (G.SBlock $ map stmToGLSL ss)
 stmToGLSL (S.SDoWhile ss e) =
-  [G.SDoWhile (G.SBlock $ concatMap stmToGLSL ss) (expToGLSL e)]
+  G.SDoWhile (G.SBlock $ map stmToGLSL ss) (expToGLSL e)
 stmToGLSL (S.SFor dss ec el ss)
   | not $ isForDecl dss && dss /= []  = error $ "compiler error - for statements must only contain SDeclAss or SExp: " ++ show dss
-  | otherwise  = [G.SFor [] (map expToGLSL ec) (map expToGLSL el) (G.SBlock $ concatMap stmToGLSL ss)]
-stmToGLSL (S.SReturn e) = [G.SReturn (expToGLSL e)]
-stmToGLSL (S.SVoidReturn) = [G.SVoidReturn]
-stmToGLSL (S.SIf e ss) = [G.SIf (expToGLSL e) (G.SBlock $ concatMap stmToGLSL ss)]
-stmToGLSL (S.SIfElse e sst ssf) = [G.SIfElse (expToGLSL e) (G.SBlock $ concatMap stmToGLSL sst) (G.SBlock $ concatMap stmToGLSL ssf)]
-stmToGLSL (S.SBreak) = [G.SBreak]
-stmToGLSL (S.SContinue) = [G.SContinue]
-stmToGLSL (S.SDiscard) = [G.SDiscard]
+  | otherwise  = G.SFor [] (map expToGLSL ec) (map expToGLSL el) (G.SBlock $ map stmToGLSL ss)
+stmToGLSL (S.SReturn e) = G.SReturn (expToGLSL e)
+stmToGLSL (S.SVoidReturn) = G.SVoidReturn
+stmToGLSL (S.SIf e ss) = G.SIf (expToGLSL e) (G.SBlock $ map stmToGLSL ss)
+stmToGLSL (S.SIfElse e sst ssf) = G.SIfElse (expToGLSL e) (G.SBlock $ map stmToGLSL sst) (G.SBlock $ map stmToGLSL ssf)
+stmToGLSL (S.SBreak) = G.SBreak
+stmToGLSL (S.SContinue) = G.SContinue
+stmToGLSL (S.SDiscard) = G.SDiscard
 
 isForDecl ∷ [S.Stm] → Bool
 isForDecl [] = True
@@ -128,6 +127,12 @@ structToGLSL s = G.TopDecl $ G.Struct
 
 varToGLSLDecl ∷ S.Variable → G.Decl
 varToGLSLDecl var = G.Declaration
+  [] -- qualifiers
+  (typeToGLSL $ S.variableType var) -- type
+  [G.Ident $ S.variableName var] -- names
+
+varToGLSLDeclAss ∷ S.Variable → G.Exp → G.Decl
+varToGLSLDeclAss var = G.DefaultDeclaration
   [] -- qualifiers
   (typeToGLSL $ S.variableType var) -- type
   [G.Ident $ S.variableName var] -- names
