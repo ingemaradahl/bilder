@@ -13,6 +13,7 @@ import Compiler.Simple.AbsSimple
 import Compiler.Simple.Types
 import Compiler.Simple.Utils
 import Compiler.GLSL.Utils
+import Compiler.Clean (clean)
 
 import CompilerError
 import Compiler.Utils (liftCError)
@@ -62,6 +63,7 @@ compile src =
     >>> splitSource       -- Split to [Shader] with AbsGrammar
     >>> absToSimple       -- Convert to SimpleGrammar
     >>> map finalizeMain  -- Replace main-function with GLSL-variant
+    >>> map clean         -- Removes unnecessary statements
     >>> simpleToGLSL      -- Translate to GLSL
   ) $ lambdaLift src
 
