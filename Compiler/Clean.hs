@@ -20,14 +20,7 @@ data Dep =
 
 type DepList = [(Dep, [Dep])]
 
-data Env = Env {
-  dependencies ∷ [Dep]
-}
-
-emptyEnv ∷ Env
-emptyEnv = Env {
-    dependencies = []
-  }
+type Dependencies = [Dep]
 
 -- | Cleans all the functions in all shaders from unnecessary statements.
 clean ∷ Shader → Shader
@@ -38,19 +31,19 @@ cleanFun ∷ Function → Function
 cleanFun fun = fun { statements = cleaned }
  where
   stms = reverse $ statements fun
-  cleaned = evalState (needed (head stms) (tail stms)) emptyEnv
+  cleaned = evalState (needed (head stms) (tail stms)) []
 
 -- | Returns a list of needed statements given a starting statement.
-needed ∷ Stm → [Stm] → State Env [Stm]
+needed ∷ Stm → [Stm] → State Dependencies [Stm]
 needed start stms = do
   -- add dependencies for the start statement.
   mapM_ (uncurry addDeps) $ stmDeps start
   (++[start]) <$> foldM isNeeded [] stms
 
-isNeeded ∷ [Stm] → Stm → State Env [Stm]
+isNeeded ∷ [Stm] → Stm → State Dependencies [Stm]
 isNeeded p stm = do
   let stmdeps = stmDeps stm
-  deps ← gets dependencies
+  deps ← get
   if isReturn stm || True `elem` [a `elem` deps | a ← affected stmdeps]
     then do
       mapM_ (uncurry addDeps) stmdeps
@@ -66,19 +59,17 @@ isNeeded p stm = do
     isret _ (SReturn {}) = True
     isret pr _ = pr
 
-addDeps ∷ Dep → [Dep] → State Env ()
+addDeps ∷ Dep → [Dep] → State Dependencies ()
 addDeps _ = mapM_ add
 
-addAffected ∷ Dep → [Dep] → State Env ()
+addAffected ∷ Dep → [Dep] → State Dependencies ()
 addAffected d _ = add d
 
-addBoth ∷ Dep → [Dep] → State Env ()
+addBoth ∷ Dep → [Dep] → State Dependencies ()
 addBoth d ds = mapM_ add (d : ds)
 
-add ∷ Dep → State Env ()
-add d = do
-  deps ← gets dependencies
-  modify (\s → s { dependencies = nub $ d : deps })
+add ∷ Dep → State Dependencies ()
+add d = get >>= \ds → put $ nub (d:ds)
 
 -- Dependency calculation {{{
 -- | Returns a list of all affected variables and their dependencies.
