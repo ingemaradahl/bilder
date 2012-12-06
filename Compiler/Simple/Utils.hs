@@ -63,6 +63,7 @@ foldExp f p e = runIdentity (foldExpM (liftIdentity f) p e)
 
 foldStmM ∷ Monad m => (a → Stm → m a) → a → Stm → m a
 foldStmM f p s@(SDecl {}) = f p s
+foldStmM f p s@(SDeclAss {}) = f p s
 foldStmM f p s@(SExp {}) = f p s
 foldStmM f p s@(SWhile _ is) = foldM (foldStmM f) p is >>= flip f s
 foldStmM f p s@(SDoWhile is _) = foldM (foldStmM f) p is >>= flip f s
