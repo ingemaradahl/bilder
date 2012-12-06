@@ -25,6 +25,7 @@ import TypeChecker.Types as Types hiding (
   , paramVars
   , functions
   , variables
+  , varType
   )
 import qualified TypeChecker.Types as Source (Source(functions), Source(variables))
 import qualified TypeChecker.Types as Function (
@@ -82,6 +83,8 @@ data St = St {
   , variables ∷ Map.Map String SlimVar
   , currentFun ∷ SlimFun
   , gobbled ∷ [(SlimFun, [Stm])]
+  , gobbledFuns ∷ Map.Map String SlimFun
+  , inlineAssigns ∷ Map.Map String [Stm]
   , freeRefs ∷ [Int]
   , chunks ∷ [Chunk]
   , dependencies ∷ [Dep]
@@ -103,7 +106,7 @@ addStm stm = do
   stejt ← gets gobbled
   if null gobs
     then modify (\st → st { gobbled = [(f, [stm])]})
-    else unless (f == fst (head gobs)) (error $ printf "TRIST FEL VA? ⊃:\nska lägga till:%s \n\ncurrentFun\n%s\n\ngobblefun:\n%s\n\nstate:\n%s" (show stm) (show f) (show (fst (head gobs))) (intercalate "\n" (map (show . first functionName) stejt))) >> 
+    else unless (f == fst (head gobs)) (error $ printf "TRIST FEL VA? ⊃:\nska lägga till:%s \n\ncurrentFun\n%s\n\ngobblefun:\n%s\n\nstate:\n%s" (show stm) (show f) (show (fst (head gobs))) (intercalate "\n" (map (show . first functionName) stejt))) >>
           modify (\st → st { gobbled = (f, stm:snd (head gobs)):tail (gobbled st)})
 
 getFun ∷ String → State St SlimFun
@@ -165,6 +168,8 @@ splitShader sh = do
       , variables = vars sh
       , currentFun = mainFun
       , gobbled = []
+      , gobbledFuns = Map.empty
+      , inlineAssigns = Map.empty
       , freeRefs = cfree
       , chunks = []
       , dependencies = []
@@ -182,6 +187,8 @@ splitSource src = map stripExternals $ evalState (split mainFun)
     , variables = Map.map stripVar $ Source.variables src
     , currentFun = mainFun
     , gobbled = []
+    , gobbledFuns = Map.empty
+    , inlineAssigns = Map.empty
     , freeRefs = [1..]
     , chunks = []
     , dependencies = []
@@ -209,16 +216,15 @@ newRef s = do
 split ∷ SlimFun → State St [Shader]
 split fun = do
   mainShd ← collectMain fun
+  modify (\st → st { dependencies = [] })
   shaders ← gets chunks >>= mapM buildShader
 
-  let shaders' = mainShd:shaders
-
-  if True `elem` map hasImages shaders'
-    then repeatSplit shaders'
-    else return shaders'
-
-repeatSplit ∷ [Shader] → State St [Shader]
-repeatSplit ss = liftM concat (mapM splitShader ss)
+  liftM concat $ sequence [
+    if hasImages s
+      then splitShader s
+      else return [s]
+    | s ← mainShd:shaders
+    ]
 
 hasImages ∷ Shader → Bool
 hasImages sh = True `elem` map createsImg stms
@@ -226,15 +232,33 @@ hasImages sh = True `elem` map createsImg stms
   stms = concatMap (statements . snd) $ (Map.toList . funs) sh
 
 buildShader ∷ Chunk → State St Shader
-buildShader (stms,ref,fun) = do
-  let fs = Map.fromList $ (functionName fun, fun) : map ((functionName &&& stripArgs) . buildFun) stms
-  -- fetch missing stuff from state
+buildShader (gs,ref,fun) = do
+  -- find all functions that will form the new "main".
+  inlinable ← addAssignments $ reverse $ dropWhile (\(f,_) → functionName f /= "main") (reverse gs)
+  let fs = Map.fromList $ (functionName fun, fun) : map ((functionName &&& stripArgs) . buildFun) gs
+      mainFun = (fromJust $ Map.lookup "main" fs) { statements = concatMap snd (reverse inlinable) }
+      -- fetch the rest of the functions that are not to be inlined.
+      restFuns = map (\(f,_) → (functionName f, f)) (takeWhile (\(f,_) → functionName f /= "main") (reverse gs))
+
   return Shader {
-      funs = fs
-    , vars = Map.empty --TODO
+      funs = Map.fromList $ ("main", mainFun) : restFuns
+    , vars = Map.empty
     , output = ref
-    , inputs = nub $ concat [ findExternals (statements f) | (_,f) ← Map.toList fs ]
+    , inputs = nub $ findExternals (statements mainFun)
   }
+
+-- | Adds declerations and assignments for a functions arguments
+--    needed when inlining the function into main.
+addAssignments ∷ [(SlimFun, [Stm])] → State St [(SlimFun, [Stm])]
+addAssignments gs = do
+  is ← gets inlineAssigns
+  sequence [
+      if functionName f == "main"
+        then return (f, ss)
+        else case Map.lookup (functionName f) is of
+          Nothing → return (f, ss)
+          Just assigns → return (f, assigns ++ ss)
+    | (f, ss) ← gs ]
 
 buildFun ∷ (SlimFun, [Stm]) → SlimFun
 buildFun (f, ss) = f { statements = ss }
@@ -252,7 +276,7 @@ buildMain oldMain stms = do
   modify (\st → st { gobbled = [(mainFun,stms)], dependencies = [] })
   mapM_ (uncurry addBoth) $ stmDeps $ head stms
 
-
+  -- get rid of statements nothing depends on.
   stms' ← depends []
   let fs' = Map.fromList $ map (\(f, st) → (functionName f, f { statements = st})) stms'
   let mainFun' = fromJust $ Map.lookup "main" fs'
@@ -282,29 +306,38 @@ findEVarTypes e@(EVarType cid t) = tell [SlimVar (cIdentToString cid) t] >>
   return e
 findEVarTypes e = return e
 
-collectRewrite ∷ SlimFun → State St ()
-collectRewrite fun = do
+collectRewrite ∷ SlimFun → [Exp] → State St ()
+collectRewrite fun es = do
   pushFun fun
   mapM_ gobbleStm (statements fun)
-  updateFunWithGobbdled (functionName fun)
+  -- store them for later use
+  storeGobbledFun (functionName fun) assigns
   popFun
+ where
+  assigns = zipWith mkAss es (args fun)
+  tkass = TkAss ((0,0),"=")
+  mkAss ∷ Exp → SlimVar → Stm
+  mkAss e v = SDecl (Dec [QType (varType v)] (DecAss [CIdent ((0,0),varName v)] tkass e))
 
-updateFunWithGobbdled ∷ String → State St ()
-updateFunWithGobbdled n = do
+storeGobbledFun ∷ String → [Stm] → State St ()
+storeGobbledFun n ss = do
   gs ← gets gobbled
-  let stms = snd $ head $ filter ((==n) . functionName . fst) gs
-  fs ← gets functions
-  modify (\st → st { functions = Map.adjust (\f → f { statements = stms }) n fs })
+  let (fun, stms) = head $ filter ((==n) . functionName . fst) gs
+  -- store gobbled version.
+  gfs ← gets gobbledFuns
+  modify (\st → st { gobbledFuns = Map.insert n (fun { statements = reverse stms }) gfs })
+  -- store declarations + assignments needed for inlining.
+  ifs ← gets inlineAssigns
+  modify (\st → st { inlineAssigns = Map.insert n ss ifs })
 
 gobbleStm ∷ Stm → State St ()
 gobbleStm stm = mapStmExpM gobble stm >>= addStm
 
 depFun ∷ SlimFun → State St ()
 depFun f = do
-  -- add all direct dependencies
+  -- add the actual function.
   add (Fun name) >> add (Var name)
   mapM_ (uncurry addBoth) $ concatMap stmDeps (statements f)
-  -- and all recursive dependencies
   mapM_ (mapStmExpM addDepFun) (statements f)
  where
   name = functionName f
@@ -318,23 +351,32 @@ addDepFun e = return e
 
 gobble ∷ Exp → State St Exp
 gobble (EPartCall cid es _) = do
-  -- add a dependency to the function.
+  -- add a dependency to the called function (and all its dependencies).
   f ← getFun name
+
+  modify (\st → st { dependencies = [] })
   depFun f
+
+  -- calculate all the needed (already gobbled) statements.
   d ← depends es
-  -- add a SReturn to the main function.
-  let d' = map (\(fun, ss) → (fun, addSReturn fun ss name es)) d
+
+  -- add a SReturn to the top function.
+  let mainFun = fst $ head $ filter (\(fun, _) → functionName fun == "main") d
+      d' = (\(fun, ss) → (fun, addSReturn mainFun ss name es)) (head d) : tail d
   r ← newRef name
   addChunk (d',r,f)
   return (EVarType (CIdent ((0,0),r)) TImage)
  where
   name = cIdentToString cid
-gobble e@(ECall cid _) = do
+gobble e@(ECall cid es) = do
+  -- add dependencies for all the arguments passed to the function call.
+  mapM_ (uncurry addBoth) $ concatMap expDeps es
+
   fun ← getFunMaybe (cIdentToString cid)
   case fun of
     Nothing → return e
-    Just f  → collectRewrite f >> return e
-gobble e = return e
+    Just f  → collectRewrite f es >> return e
+gobble e = mapExpM gobble e
 
 addChunk ∷ Chunk → State St ()
 addChunk c = modify (\st → st { chunks = c:chunks st })
@@ -367,14 +409,13 @@ depends es = do
   -- find all needed dependencies
   gb ← gets gobbled
   deps ← mapM (\(f,stms) → (,) <$> pure f <*> foldM isNeeded [] stms) gb
-  (deps ++) <$> neededFuns
+
+  -- add all needed functions and map through them to get rid of unneeded stuff.
+  (deps ++) <$> neededFuns >>= mapM (\(f,stms) → (,) <$> pure f <*> foldM isNeeded [] (reverse stms))
 
 -- | Adds a return-statement calling the given function.
 addSReturn ∷ SlimFun → [Stm] → String → [Exp] → [Stm]
-addSReturn f stms n es =
-  if functionName f == "main"
-    then stms ++ [SReturn (TkReturn ((0,0),"return")) ecall]
-    else stms
+addSReturn f stms n es = stms ++ [SReturn (TkReturn ((0,0),"return")) ecall]
  where
   ecall = ECall cid (es ++ map fattenVar (args f))
   cid = CIdent ((0,0),n)
@@ -385,8 +426,16 @@ addSReturn f stms n es =
 neededFuns ∷ State St [(SlimFun, [Stm])]
 neededFuns = do
   deps ← gets dependencies >>= filterM isFun
-  sequence [
-    getFun f >>= (\fun → return (fun, statements fun))
+  sequence [ do
+    f' ← getFun f
+    gfs ← gets gobbledFuns
+    -- if it creates an image it has been gobbled and the new version should be used.
+    if True `elem` map createsImg (statements f')
+      then case Map.lookup f gfs of
+        Just gf → return (gf, statements gf)
+        -- unless it's an nestled partial application - then it's not yet gobbled.
+        Nothing → return (f', statements f')
+      else return (f', statements f')
     | (Fun f) ← deps
     ]
  where
