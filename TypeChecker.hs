@@ -151,7 +151,7 @@ checkStatement (SDecl decl@(Dec _ (DecFun cid ps stms))) = do
   tdecl@(TFun rt _) ← checkDecl decl
   ps' ← mapM paramToVar ps
 
-  addCIdentVariable cid tdecl
+  addCIdentVariable cid tdecl Nothing
   -- Check the declared function.
   file ← gets currentFile
   let fun = Types.Function {
@@ -220,7 +220,7 @@ checkDecl (Dec qs post) = do
   maybe (return ())
     (\a → unless (t == a) $ decAssError (head $ declPostIdents post) a t) expT
 
-  sequence_ [ addCIdentVariable cid t | cid ← declPostIdents post ]
+  sequence_ [ addCIdentVariable cid t (declPostExp post) | cid ← declPostIdents post ]
 
   return t
 

@@ -104,7 +104,7 @@ renameVariables vars = do
 addToScope ∷ Decl → TCM ()
 addToScope (Dec qs post) = do
   t ← verifyQualsType qs >>= filterTDef
-  sequence_ [ addCIdentVariable cid t | cid ← declPostIdents post]
+  sequence_ [ addCIdentVariable cid t (declPostExp post) | cid ← declPostIdents post]
 
 renameStm ∷ Stm → TCM Stm
 renameStm (SDecl dec) = addToScope dec >> SDecl <$> renameDecl dec
@@ -124,7 +124,7 @@ renameStm (SFunDecl cid t ps ss) = do
   ps' ← mapM paramToVar ps
   file ← gets currentFile
   t' ← filterTDef t
-  addCIdentVariable cid (TFun t' (Prelude.map varType ps'))
+  addCIdentVariable cid (TFun t' (Prelude.map varType ps')) Nothing
 
   fun ← annotateFunction Types.Function {
       functionName = cIdentToString cid
@@ -185,9 +185,11 @@ filterQuals [] = pure []
 
 renameParam ∷ Param → TCM Param
 renameParam (ParamDec qs cid) = verifyQualsType qs >>= filterTDef >>=
-  addCIdentVariable cid >> ParamDec <$> filterQuals qs <*> renameCIdent cid
-renameParam (ParamDefault qs cid tk e) = ParamDefault <$> filterQuals qs <*>
-  renameCIdent cid <*> pure tk <*> renameExp e
+  (\t → addCIdentVariable cid t Nothing) >> ParamDec <$> filterQuals qs <*> renameCIdent cid
+renameParam (ParamDefault qs cid tk e) = do
+  e' ← renameExp e
+  verifyQualsType qs >>= filterTDef >>= (\t → addCIdentVariable cid t (Just e'))
+  ParamDefault <$> filterQuals qs <*> renameCIdent cid <*> pure tk <*> pure e'
 
 renameDecl ∷ Decl → TCM Decl
 renameDecl (Dec qs post) = Dec <$> filterQuals qs <*> renameDeclPost post

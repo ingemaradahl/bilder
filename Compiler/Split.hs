@@ -241,9 +241,10 @@ buildShader (gs,ref,fun) = do
       -- fetch the rest of the functions that are not to be inlined.
       restFuns = map (\(f,_) → (functionName f, f)) (takeWhile (\(f,_) → functionName f /= "main") (reverse gs))
 
+  vs ← gets variables
   return Shader {
       funs = Map.fromList $ ("main", mainFun) : restFuns
-    , vars = Map.empty
+    , vars = vs
     , output = ref
     , inputs = nub $ findExternals (statements mainFun)
   }
@@ -282,9 +283,10 @@ buildMain oldMain stms = do
   let fs' = Map.fromList $ map (\(f, st) → (functionName f, f { statements = st})) stms'
   let mainFun' = fromJust $ Map.lookup "main" fs'
 
+  vs ← gets variables
   return Shader {
       funs = fs'
-    , vars = Map.empty
+    , vars = vs
     , inputs = findExternals (statements mainFun')
     , output = "result_image"
   }

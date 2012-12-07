@@ -69,6 +69,10 @@ declPostIdents ∷ DeclPost → [CIdent]
 declPostIdents (Vars i) = i
 declPostIdents (DecAss i _ _) = i
 
+declPostExp ∷ DeclPost → Maybe Exp
+declPostExp (DecAss _ _ e) = Just e
+declPostExp _ = Nothing
+
 toCIdent ∷ Global a => a → CIdent
 toCIdent v = CIdent (position v, ident v)
 

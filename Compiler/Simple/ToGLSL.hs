@@ -126,10 +126,17 @@ structToGLSL s = G.TopDecl $ G.Struct
   (map (G.SVDecl . varToGLSLDecl) (S.declarations s))
 
 varToGLSLDecl ∷ S.Variable → G.Decl
-varToGLSLDecl var = G.Declaration
-  [] -- qualifiers
-  (typeToGLSL $ S.variableType var) -- type
-  [G.Ident $ S.variableName var] -- names
+varToGLSLDecl var =
+  case S.value var of
+    Nothing → G.Declaration
+      [] -- qualifiers
+      (typeToGLSL $ S.variableType var) -- type
+      [G.Ident $ S.variableName var] -- names
+    Just e → G.DefaultDeclaration
+      [] -- qualifiers
+      (typeToGLSL $ S.variableType var) -- type
+      [G.Ident $ S.variableName var] -- names
+      (expToGLSL e)
 
 varToGLSLDeclAss ∷ S.Variable → G.Exp → G.Decl
 varToGLSLDeclAss var = G.DefaultDeclaration
