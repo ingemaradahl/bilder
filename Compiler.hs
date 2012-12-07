@@ -67,6 +67,7 @@ compile src =
     >>> mergeShaders      -- Try to merge shaders based on sample count
     >>> map finalizeMain  -- Replace main-function with GLSL-variant
     >>> map clean         -- Removes unnecessary statements
+    >>> map renameBuiltin -- Re-renames built in functions
     >>> simpleToGLSL      -- Translate to GLSL
   ) $ lambdaLift src
 
@@ -93,3 +94,18 @@ reworkMain (Function name _ [x, y] stms) = Function name TVoid [] (d:stms')
   subReturn (SReturn e) = SExp $ EAss gl_FragColor e
   subReturn s = mapStm subReturn s
 
+renameBuiltin ∷ Shader → Shader
+renameBuiltin sh = sh { functions =
+    Map.map (\f → f { statements = map (mapStmExp cleanBuiltin) (statements f)})
+    (functions sh)
+  }
+
+-- Worlds ugliest hack below, don't read
+cleanBuiltin ∷ Exp → Exp
+cleanBuiltin (ECall s es) | matchesBuiltin s =
+  ECall (drop 4 s) $ map (mapExp cleanBuiltin) es
+cleanBuiltin e = mapExp cleanBuiltin e
+
+matchesBuiltin ∷ String → Bool
+matchesBuiltin ('_':'x':_) = True
+matchesBuiltin _ = False
