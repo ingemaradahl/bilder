@@ -22,6 +22,7 @@ import Compiler.Desugar (desugar)
 import Compiler.Split (splitSource)
 import Compiler.Merge (mergeShaders)
 import Compiler.Clean (clean)
+import Compiler.SimpleInliner (simpleInline)
 import Compiler.Simple (absToSimple, simpleToGLSL)
 
 
@@ -66,8 +67,11 @@ compile src =
     >>> absToSimple       -- Convert to SimpleGrammar
     >>> mergeShaders      -- Try to merge shaders based on sample count
     >>> map finalizeMain  -- Replace main-function with GLSL-variant
-    >>> map clean         -- Removes unnecessary statements
+    >>> map clean         -- Removes unnecessary statements and functions
+    >>> map simpleInline  -- Performes simple inlining
+    >>> map clean
     >>> map renameBuiltin -- Re-renames built in functions
+    >>> map addResUniform -- Adds resolution uniform fl_Resolution
     >>> simpleToGLSL      -- Translate to GLSL
   ) $ lambdaLift src
 
@@ -109,3 +113,8 @@ cleanBuiltin e = mapExp cleanBuiltin e
 matchesBuiltin ∷ String → Bool
 matchesBuiltin ('_':'x':_) = True
 matchesBuiltin _ = False
+
+addResUniform ∷ Shader → Shader
+addResUniform sh = sh { inputs =
+    Map.insert "fl_Resolution" (Variable "fl_Resolution" TVec2 False Nothing) (inputs sh)
+  }
