@@ -350,7 +350,7 @@ liftSFunDecl (SIfElse tki e strue tke sfalse) = do
  where
   negSIf = SIf tki (ENegSign (TkNegSign ((0,0),"!")) e)
 liftSFunDecl (SType t s) = liftStm s (SType t)
-liftSFunDecl (SFunDecl cid rt ps stms) = do
+liftSFunDecl (SFunDecl cid (TFun rt _) ps stms) = do
   -- lift inner inner functions first.
   stms' ← funLifter stms
   -- create a new top level function...
