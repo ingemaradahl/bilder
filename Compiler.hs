@@ -13,7 +13,6 @@ import Compiler.Simple.AbsSimple
 import Compiler.Simple.Types
 import Compiler.Simple.Utils
 import Compiler.GLSL.Utils
-import Compiler.Clean (clean)
 
 import CompilerError
 import Compiler.Utils (liftCError)
@@ -22,6 +21,7 @@ import qualified Compiler.Lifter as L
 import Compiler.Desugar (desugar)
 import Compiler.Split (splitSource)
 import Compiler.Merge (mergeShaders)
+import Compiler.Clean (clean)
 import Compiler.Simple (absToSimple, simpleToGLSL)
 
 

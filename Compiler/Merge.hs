@@ -4,7 +4,6 @@ module Compiler.Merge where
 
 import Control.Arrow
 import Control.Monad.State
-import Control.Monad.Writer
 
 import Data.Maybe
 import Data.List
@@ -14,18 +13,6 @@ import Utils
 import Compiler.Simple.Utils
 import Compiler.Simple.Types
 import Compiler.Simple.AbsSimple
-
-
--- Copypasta from Split
-gather ∷ Monoid a => (Exp → Writer a Exp) → [Stm] → a
-gather f ss = execWriter (mapM_ (mapStmExpM f) ss)
-
-usedVars ∷ [Stm] → [String]
-usedVars = nub . gather collect
- where
-  collect ∷ Exp → Writer [String] Exp
-  collect e@(EVar s) = tell [s] >> return e
-  collect e = mapExpM collect e
 
 
 
@@ -184,7 +171,7 @@ mergeFun f args = do
   modify (\st → st {
     samplers = Map.union (samplers st) $ Map.fromList
       [ (alias, fromJust (Map.lookup sampler (samplers st)))
-        | (Variable alias TSampler _, EVar sampler)
+        | (Variable alias TSampler _ _, EVar sampler)
         ← zip (parameters f) args
       ]
     })

@@ -5,8 +5,29 @@ module Compiler.Simple.Utils where
 import Control.Applicative
 import Control.Monad
 import Control.Monad.Identity
+import Control.Monad.Writer
+
+import Data.List
 
 import Compiler.Simple.AbsSimple
+
+gather ∷ Monoid a => (Exp → Writer a Exp) → [Stm] → a
+gather f ss = execWriter (mapM_ (mapStmExpM f) ss)
+
+usedVars ∷ [Stm] → [String]
+usedVars = nub . gather collect
+ where
+  collect ∷ Exp → Writer [String] Exp
+  collect e@(EVar s) = tell [s] >> return e
+  collect e = mapExpM collect e
+
+calls ∷ [Stm] → [String]
+calls = nub . gather collect
+ where
+  collect ∷ Exp → Writer [String] Exp
+  collect e@(ECall s es) = tell [s] >> mapM_ collect es >> return e
+  collect e = mapExpM collect e
+
 
 foldExpM ∷ Monad m => (a → Exp → m a) → a → Exp → m a
 foldExpM f p e@(EAss el er) = foldM (foldExpM f) p [el,er] >>= flip f e

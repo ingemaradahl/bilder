@@ -132,8 +132,8 @@ calls ∷ [Stm] → [String]
 calls = nub . gather collect
  where
   collect ∷ Exp → Writer [String] Exp
-  collect e@(ECall cid _) = tell [cIdentToString cid] >> return e
-  collect e = return e
+  collect e@(ECall cid es) = tell [cIdentToString cid] >> mapM_ (mapExpM collect) es >> return e
+  collect e = mapExpM collect e
 
 -- Get a list of all variables references
 usedVars ∷ [Stm] → [String]

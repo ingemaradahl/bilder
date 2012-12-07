@@ -2,14 +2,15 @@
 
 module Compiler.Clean where
 
-import Compiler.Simple.Types (Shader, functions)
+import Compiler.Simple.Types
 import Compiler.Simple.AbsSimple
-import Compiler.Simple.Utils (foldStm)
+import Compiler.Simple.Utils
 
 import Control.Monad.State
 import Control.Applicative
 
-import Data.List (nub)
+import Data.List
+import Data.Maybe
 import qualified Data.Map as Map
 
 data Dep =
@@ -22,9 +23,33 @@ type DepList = [(Dep, [Dep])]
 
 type Dependencies = [Dep]
 
+type Functions = Map.Map String Function
+type Variables = Map.Map String Variable
+
 -- | Cleans all the functions in all shaders from unnecessary statements.
 clean ∷ Shader → Shader
-clean sh = sh { functions = Map.map cleanFun (functions sh) }
+clean sh = sh { variables = dropVars (variables sh) newFuns, functions = newFuns }
+ where
+  newFuns = dropFuns (Map.map cleanFun (functions sh))
+
+dropFuns ∷ Functions → Functions
+dropFuns funs = Map.filterWithKey (\k _ → k `elem` findCalls mainf ["main"]) funs
+ where
+  mainf = fromJust $ Map.lookup "main" funs
+  findCalls ∷ Function → [String] → [String]
+  findCalls fun known =
+    let refs = map functionName $ mapMaybe (`Map.lookup` funs) (nub $ calls $ statements fun) in
+    let new = refs \\ known in
+    let known' = new ++ known in
+    let toCheck = mapMaybe (`Map.lookup` funs) new in
+    nub (concatMap (`findCalls` known) toCheck) ++ known'
+
+dropVars ∷ Variables → Functions → Variables
+dropVars vs funs = Map.filterWithKey (\k _ → k `elem` references) vs
+ where
+  references ∷ [String]
+  references = nub $ concatMap (usedVars . statements) (Map.elems funs)
+
 
 -- | Removes unnecessary statements from a function.
 cleanFun ∷ Function → Function
