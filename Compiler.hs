@@ -21,7 +21,9 @@ import Compiler.Utils (liftCError)
 import qualified Compiler.Lifter as L
 import Compiler.Desugar (desugar)
 import Compiler.Split (splitSource)
+import Compiler.Merge (mergeShaders)
 import Compiler.Simple (absToSimple, simpleToGLSL)
+
 
 import qualified FrontEnd.AbsGLSL as G
 
@@ -62,6 +64,7 @@ compile src =
         desugar
     >>> splitSource       -- Split to [Shader] with AbsGrammar
     >>> absToSimple       -- Convert to SimpleGrammar
+    >>> mergeShaders      -- Try to merge shaders based on sample count
     >>> map finalizeMain  -- Replace main-function with GLSL-variant
     >>> map clean         -- Removes unnecessary statements
     >>> simpleToGLSL      -- Translate to GLSL
