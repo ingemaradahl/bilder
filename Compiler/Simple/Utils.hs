@@ -80,6 +80,25 @@ foldStmM f p s@(SDiscard {}) = f p s
 foldStm ∷ (a → Stm → a) → a → Stm → a
 foldStm f p s = runIdentity (foldStmM (liftIdentity f) p s)
 
+foldStmExpM ∷ Monad m => (a → Exp → m a) → a → Stm → m a
+foldStmExpM f p (SDeclAss _ e) = foldExpM f p e
+foldStmExpM f p (SExp e) = foldExpM f p e
+foldStmExpM f p (SWhile e ss) = foldExpM f p e >>= (\l → foldM (foldStmExpM f) l ss)
+foldStmExpM f p (SDoWhile ss e) = foldM (foldStmExpM f) p ss >>= (\l → foldExpM f l e)
+foldStmExpM f p (SFor ss econd epost sblock) = do
+  ss' ← foldM (foldStmExpM f) p ss
+  econd' ← foldM (foldExpM f) ss' econd
+  epost' ← foldM (foldExpM f) econd' epost
+  foldM (foldStmExpM f) epost' sblock
+foldStmExpM f p (SReturn e) = foldExpM f p e
+foldStmExpM f p (SIf e ss) = foldExpM f p e >>= (\l → foldM (foldStmExpM f) l ss)
+foldStmExpM f p (SIfElse e st sf) = foldExpM f p e >>=
+  (\l → foldM (foldStmExpM f) l st) >>= (\l → foldM (foldStmExpM f) l sf)
+foldStmExpM _ p _ = return p
+
+foldStmExp ∷ (a → Exp → a) → a → Stm → a
+foldStmExp f p s = runIdentity (foldStmExpM (liftIdentity f) p s)
+
 liftIdentity ∷ (a → b → a) → a → b → Identity a
 liftIdentity f' p' s' = Identity (f' p' s')
 
