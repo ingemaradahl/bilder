@@ -4,14 +4,30 @@ module Compiler.Merge where
 
 import Control.Arrow
 import Control.Monad.State
+import Control.Monad.Writer
 
 import Data.Maybe
+import Data.List
 import qualified Data.Map as Map
 
 import Utils
 import Compiler.Simple.Utils
 import Compiler.Simple.Types
 import Compiler.Simple.AbsSimple
+
+
+-- Copypasta from Split
+gather ∷ Monoid a => (Exp → Writer a Exp) → [Stm] → a
+gather f ss = execWriter (mapM_ (mapStmExpM f) ss)
+
+usedVars ∷ [Stm] → [String]
+usedVars = nub . gather collect
+ where
+  collect ∷ Exp → Writer [String] Exp
+  collect e@(EVar s) = tell [s] >> return e
+  collect e = mapExpM collect e
+
+
 
 data Count = Count {
   images ∷ [Map.Map String String], -- Variables containing sampler alias
@@ -33,9 +49,6 @@ setAlias variable target = modify (\st → st {
 
 increment ∷ String → State Count ()
 increment s = modify (\st → st { samples = Map.insertWith (+) s 1 (samples st)}) 
-
-mergeShaders ∷ [Shader] → [Shader]
-mergeShaders s = s
 
 sampleCount ∷ Shader → Int
 sampleCount shd = evalState (countSamples mainFun) (emptyState shd)
@@ -97,12 +110,31 @@ branchFun fun args = do
 
 
 
+mergeShaders ∷ [Shader] → [Shader]
+mergeShaders ss = dropShaders $ if clean then ss' else mergeShaders ss'
+ where
+  (clean, ss') = ((not . dirty) &&& (Map.elems . shaders)) $ execState (startMerge mainShd) (freshState mainShd ss)
+  mainShd = head $ filter isMain ss
+
+-- Drop shaders not needed any more due to them being merged in to another shader
+dropShaders ∷ [Shader] → [Shader]
+dropShaders ss = filter needed ss
+ where
+  ins = nub $ "result_image":concatMap (map variableName . Map.elems . inputs) ss
+  needed ∷ Shader → Bool
+  needed s = variableName (output s) `elem` ins
+
+isMain ∷ Shader → Bool
+isMain = (==) "result_image" . variableName . output
 
 data Merge = Merge {
   currentShader ∷ Shader,
+  currentFunction ∷ Function,
   shaders ∷ Map.Map String Shader,
-  samplers ∷ Map.Map String Variable
+  samplers ∷ Map.Map String Variable,
+  dirty ∷ Bool
 }
+  deriving (Show)
 
 updateSampler ∷ String → String → State Merge ()
 updateSampler var samp = do
@@ -111,10 +143,6 @@ updateSampler var samp = do
     Just s  → modify (\st → st { samplers = Map.insert var s smps})
     Nothing → return () -- Sampler wasn't referencing anything useful :(
 
-
---putStr $ unlines $ map printTree $ simpleToGLSL $ testing shdA [shdA,shdB]
-testing ∷ Shader → [Shader] → [Shader]
-testing startshader shds = (Map.elems . shaders) $ execState (startMerge startshader) (freshState startshader shds)
 
 startMerge ∷ Shader → State Merge ()
 startMerge shd = do
@@ -139,8 +167,10 @@ startMerge shd = do
 freshState ∷ Shader → [Shader] → Merge
 freshState shd shds = Merge
   shd
+  (fromJust $ Map.lookup "main" $ functions shd)
   (Map.fromList $ map ((variableName . output) &&& id) shds)
   (Map.filter ((==) TSampler . variableType) (inputs shd))
+  False
 
 
 -- Finds which shader is referred to with the string s in the current context
@@ -148,7 +178,7 @@ resolveShader ∷ String → State Merge (Maybe String)
 resolveShader s = gets (fmap variableName . Map.lookup s . samplers)
 
 
-mergeFun ∷ Function → [Exp] → State Merge ()
+mergeFun ∷ Function → [Exp] → State Merge (String, [Exp])
 mergeFun f args = do
   -- Add sampler aliases to state
   modify (\st → st {
@@ -160,20 +190,29 @@ mergeFun f args = do
     })
 
   stms ← mapM mergeStm (statements f)
+  if stms == statements f
+    then return (functionName f, args)
+    else do -- Stuff has changed, we might not be dependent on samplers as args any more
+      newName ← iterateFun (functionName f)
 
-  -- Update state
-  currShader ← gets currentShader
-  let shader' = currShader {
-      functions = Map.insert
-                    (functionName f)
-                    f { statements = stms}
-                    (functions currShader)
-    }
+      let references = usedVars stms
+      let (params', args') = unzip $ filter ((`elem` references) . variableName . fst) $ zip (parameters f) args
 
-  modify (\st → st {
-        currentShader = shader'
-      , shaders = Map.insert (variableName (output shader')) shader' (shaders st)
-    })
+      -- Update state
+      currShader ← gets currentShader
+      let shader' = currShader {
+          functions = Map.insert
+                        newName
+                        f { functionName = newName, parameters = params', statements = stms }
+                        (functions currShader)
+        }
+
+      modify (\st → st {
+            currentShader = shader'
+          , shaders = Map.insert (variableName (output shader')) shader' (shaders st)
+        })
+
+      return (newName, args')
 
 mergeStm ∷ Stm → State Merge Stm
 mergeStm s@(SDeclAss var (EVar samp)) | variableType var == TSampler =
@@ -190,11 +229,10 @@ mergeExp (ECall f [ex, ey]) = do
 
   -- Tries inlining
   let inlined = shd >>= flip Map.lookup shds >>=
-                  (\s → mayhaps (sampleCount s < 3) (inline s ex ey))
+                  (\s → mayhaps (sampleCount s < 3) (inline s ex' ey'))
 
   -- Tries branching
-  let branch = fmap (\g → mergeFun g [ex', ey']) (Map.lookup f funs) >>
-                  return (return (ECall f [ex', ey']))
+  let branch = fmap (\g → mergeFun g [ex', ey'] >>= (\(fun, args) → return (ECall fun args))) (Map.lookup f funs)
 
   -- Performs actual computation
   fromJust $ inlined `mplus` branch `mplus` Just (return (ECall f [ex', ey']))
@@ -202,7 +240,7 @@ mergeExp (ECall f es) = do
   es' ← mapM mergeExp es
   funs ← gets (functions . currentShader)
   case Map.lookup f funs of
-    Just f' → mergeFun f' es' >> return (ECall f es')
+    Just f' → mergeFun f' es' >>= (\(fun, args) → return (ECall fun args))
     Nothing → return (ECall f es')
 mergeExp e@(EAss (EVar v) (EVar s)) = -- Naïve solution :S
   updateSampler v s >>
@@ -216,7 +254,7 @@ inline shd ex ey = do
   let main' = renameMain mainF (variableName $ output shd)
   let shd' = shd {
     functions = (Map.insert (functionName main') main' . Map.delete "main") (functions shd)}
-  modify (\st → st { currentShader = mergeShader (currentShader st) shd'})
+  modify (\st → st { currentShader = mergeShader (currentShader st) shd', dirty = True})
   return $ ECall (functionName main') [ey,ex]
 
 -- Merge the second shader into the first, removing unneccecary in/outs
@@ -231,3 +269,14 @@ mergeShader orig new = Shader {
 
 renameMain ∷ Function → String → Function
 renameMain f s = f { functionName = 'm':s }
+
+iterateFun ∷ String → State Merge String
+iterateFun s = iterateFun' ['a'..'z']
+ where
+  iterateFun' ∷ String → State Merge String
+  iterateFun' more = do
+    funs ← gets (concatMap (Map.keys . functions) . Map.elems . shaders)
+    if s ++ [head more] `elem` funs
+      then iterateFun' (tail more)
+      else return $ s ++ [head more]
+
