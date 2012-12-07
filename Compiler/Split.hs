@@ -119,14 +119,6 @@ getFunMaybe s = liftM (Map.lookup s) $ gets functions
 gather ∷ Monoid a => (Exp → Writer a Exp) → [Stm] → a
 gather f ss = execWriter (mapM_ (mapStmExpM f) ss)
 
--- Find all references in this functions
-refs ∷ SlimFun → [(String, Type)]
-refs f = gather collect (statements f)
- where
-  collect ∷ Exp → Writer [(String, Type)] Exp
-  collect e@(EVarType cid t) = tell [(cIdentToString cid, t)] >> return e
-  collect e = return e
-
 -- Get a list of all calls made
 calls ∷ [Stm] → [String]
 calls = nub . gather collect
@@ -425,20 +417,28 @@ addSReturn f stms n es = stms ++ [SReturn (TkReturn ((0,0),"return")) ecall]
   fattenVar ∷ SlimVar → Exp
   fattenVar s = EVar (CIdent ((0,0),varName s))
 
+calledFuns ∷ [Stm] → State St [(SlimFun, [Stm])]
+calledFuns ss = liftM concat $ mapM getFunMaybe (calls ss) >>= mapM (maybe (return []) calledFun)
+
+calledFun ∷ SlimFun → State St [(SlimFun, [Stm])]
+calledFun f = do
+  gfs ← gets gobbledFuns
+  -- if it creates an image it has been gobbled and the new version should be used.
+  if True `elem` map createsImg (statements f)
+    then case Map.lookup name gfs of
+      Just gf → return [(gf, statements gf)]
+      -- unless it's an nestled partial application - then it's not yet gobbled.
+      Nothing → return [(f, statements f)]
+    else (:) (f, statements f) <$> calledFuns (statements f)
+ where
+  name = functionName f
+
 -- | Returns all the functions that the state depends on.
 neededFuns ∷ State St [(SlimFun, [Stm])]
 neededFuns = do
   deps ← gets dependencies >>= filterM isFun
-  sequence [ do
-    f' ← getFun f
-    gfs ← gets gobbledFuns
-    -- if it creates an image it has been gobbled and the new version should be used.
-    if True `elem` map createsImg (statements f')
-      then case Map.lookup f gfs of
-        Just gf → return (gf, statements gf)
-        -- unless it's an nestled partial application - then it's not yet gobbled.
-        Nothing → return (f', statements f')
-      else return (f', statements f')
+  liftM concat $ sequence [
+    getFun f >>= calledFun
     | (Fun f) ← deps
     ]
  where
