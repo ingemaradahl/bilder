@@ -22,9 +22,9 @@ liftCError m = StateT (\s → case m of { Fail f → Fail f; Pass a → return (
 -- | Creates a Variable from a FilePath and a Param
 paramToVar ∷ FilePath → Param → T.Variable
 paramToVar f (ParamDec qs cid) =
-  T.Variable (cIdentToString cid) (f, cIdentToPos cid) (qualsToType qs)
-paramToVar f (ParamDefault qs cid _ _) =
-  T.Variable (cIdentToString cid) (f, cIdentToPos cid) (qualsToType qs)
+  T.Variable (cIdentToString cid) (f, cIdentToPos cid) (qualsToType qs) Nothing
+paramToVar f (ParamDefault qs cid _ e) =
+  T.Variable (cIdentToString cid) (f, cIdentToPos cid) (qualsToType qs) (Just e)
 
 varTypeToParam ∷ String → Type → Param
 varTypeToParam n t = ParamDec [QType t] name

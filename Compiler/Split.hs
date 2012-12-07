@@ -59,6 +59,7 @@ instance Show SlimFun where
 data SlimVar = SlimVar {
     varName ∷ String
   , varType ∷ Type
+  , value ∷ Maybe Exp
 }
  deriving (Show, Eq)
 
@@ -158,7 +159,7 @@ stripFun f = SlimFun {
 }
 
 stripVar ∷ Variable → SlimVar
-stripVar (Variable name _ t) = SlimVar name t
+stripVar (Variable name _ t e) = SlimVar name t e
 
 splitShader ∷ Shader → State St [Shader]
 splitShader sh = do
@@ -294,7 +295,7 @@ findExternals ss = execWriter (mapM_  (mapStmM findExternal) ss >>
 
 findExternal ∷ Stm → Writer [SlimVar] Stm
 findExternal s@(SDecl (Dec qs (Vars [cid]))) | any isExternal qs =
-  tell [SlimVar (cIdentToString cid) (qualsToType qs)] >> return s
+  tell [SlimVar (cIdentToString cid) (qualsToType qs) Nothing] >> return s
 findExternal s = mapStmM findExternal s
 
 isExternal ∷ Qualifier → Bool
@@ -302,7 +303,7 @@ isExternal (QExternal _) = True
 isExternal _ = False
 
 findEVarTypes ∷ Exp → Writer [SlimVar] Exp
-findEVarTypes e@(EVarType cid t) = tell [SlimVar (cIdentToString cid) t] >>
+findEVarTypes e@(EVarType cid t) = tell [SlimVar (cIdentToString cid) t Nothing] >>
   return e
 findEVarTypes e = return e
 

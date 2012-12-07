@@ -113,7 +113,7 @@ buildAnonFunc name loc ret args = TypeChecker.Types.Function {
   }
  where
   buildAnonVar ∷ Type → Variable
-  buildAnonVar = Variable "anonvar" ("anonvar",(-1,-1))
+  buildAnonVar t = Variable "anonvar" ("anonvar",(-1,-1)) t Nothing
 
 uncurryType ∷ Type → Type
 uncurryType t@(TFunc {}) = TFun (head ret) args

@@ -92,7 +92,7 @@ addCIdentVariable ∷ CIdent → Type → TCM ()
 addCIdentVariable cid t = cIdentToVariable cid (uncurryType t) >>= addVariable
 
 cIdentToVariable ∷ CIdent → Type → TCM Variable
-cIdentToVariable cid t = Variable n <$> ((,) <$> gets currentFile <*> pure p) <*> pure t
+cIdentToVariable cid t = Variable n <$> ((,) <$> gets currentFile <*> pure p) <*> pure t <*> pure Nothing
  where
   n = cIdentToString cid
   p = cIdentToPos cid
@@ -220,7 +220,7 @@ paramToVar ∷ Param → TCM Variable
 paramToVar p = do
   varTyp ← paramType p >>= filterTDef
   file ← gets currentFile
-  return $ Variable (paramToString p) (file, paramToPos p) varTyp
+  return $ Variable (paramToString p) (file, paramToPos p) varTyp Nothing
 
 filterTDef ∷ Type → TCM Type
 filterTDef (TDefined tid) = lookupTypedef tid >>= (filterTDef . typedefType)

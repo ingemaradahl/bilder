@@ -50,8 +50,8 @@ typeCheck opts tree = do
   rootFile = (fst . rootLabel) tree
   loc = (rootFile,(-1,-1))
   main = Types.Function "main" "" loc TVec4 [x,y] [] []
-  x = Variable "x" loc TFloat
-  y = Variable "y" loc TFloat
+  x = Variable "x" loc TFloat Nothing
+  y = Variable "y" loc TFloat Nothing
   noEntryPoint ∷ TCM a
   noEntryPoint = typeError (-1,-1) $
     printf ("No entrypoint \"main\" of " ++

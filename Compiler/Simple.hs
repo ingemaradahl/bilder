@@ -26,7 +26,7 @@ splitShaderToSimple ∷ Split.Shader → Simple.Shader
 splitShaderToSimple shd = Shader {
       functions = Map.map slimFunToSimple (Split.funs shd)
     , variables = Map.map slimVarToSimple (Split.vars shd)
-    , output = Variable (Split.output shd) TSampler False
+    , output = Variable (Split.output shd) TSampler False Nothing
     , inputs = Map.fromList $ map (Split.varName &&& slimVarToSimple) (Split.inputs shd)
   }
 
@@ -35,8 +35,8 @@ slimFunToSimple (Split.SlimFun name ret args stms) =
   Function name (translate ret) (map slimVarToSimple args) (map translate stms)
 
 slimVarToSimple ∷ Split.SlimVar → Variable
-slimVarToSimple (Split.SlimVar name typ) =
-  Variable name (translate typ) False
+slimVarToSimple (Split.SlimVar name typ e) =
+  Variable name (translate typ) False (fmap translate e)
 
 -- | Translates Simple to GLSL tree.
 simpleToGLSL ∷ [Shader] → [G.Tree]

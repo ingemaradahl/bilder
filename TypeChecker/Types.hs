@@ -60,6 +60,7 @@ data Variable = Variable {
     variableName ∷ String
   , variableLocation ∷ Location
   , varType ∷ Type
+  , value ∷ Maybe Exp
 }
 
 instance Global Variable where
@@ -67,8 +68,9 @@ instance Global Variable where
   location = variableLocation
 
 instance Show Variable where
- show (Variable name _ typ) = printf "%s ∷ %s"
+ show (Variable name _ typ v) = printf "%s (= %s) ∷ %s"
   name
+  (show v)
   (show typ)
 
 data Typedef = Typedef {

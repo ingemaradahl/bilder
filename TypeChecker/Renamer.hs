@@ -57,6 +57,7 @@ renameBlob blob children = do
   -- Populate Scope
   mapM_ (mergeTypedefs . Blob.typedefs . snd3 . rootLabel) children
   mapM_ (addSource . fst3 . rootLabel) children
+  mergeVariables $ Blob.variables blob
   annotFuns ← mapM annotateFunction $ concat $ elems (Blob.functions blob)
   mapM_ addFunction annotFuns
 
@@ -174,8 +175,8 @@ renameExp (ECall cid es) = do
 renameExp e =  mapExpM renameExp e
 
 renameVariable ∷ Variable → TCM Variable
-renameVariable (Variable name loc typ) = Variable <$> newAlias name <*>
-  pure loc <*> pure typ
+renameVariable (Variable name loc typ e) = Variable <$> newAlias name <*>
+  pure loc <*> pure typ <*> pure e
 
 filterQuals ∷ [Qualifier] → TCM [Qualifier]
 filterQuals (QType t:qs) = (:) <$> (QType <$> filterTDef t) <*> filterQuals qs

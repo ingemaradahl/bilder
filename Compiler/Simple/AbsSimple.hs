@@ -8,6 +8,7 @@ data Variable = Variable {
       variableName ∷ String
     , variableType ∷ Type
     , const ∷ Bool
+    , value ∷ Maybe Exp
   }
   deriving (Eq,Ord,Show)
 

@@ -56,7 +56,7 @@ lookupVar _ [] = Nothing
 lookupVarFun ∷ String → [Scope] → Maybe Function
 lookupVarFun name (s:ss) =
   case lookup name (variables s) of
-    Just (Variable n l (TFun ret args)) → Just $ buildAnonFunc n l ret args
+    Just (Variable n l (TFun ret args) _) → Just $ buildAnonFunc n l ret args
     Nothing → lookupVarFun name ss
 lookupVarFun _ [] = Nothing
 
@@ -89,7 +89,7 @@ builtInFuns = fromList $ evalState (mapM buildFuns [
   vecs = [ TVec2, TVec3, TVec4 ]
   vecnums = TFloat : vecs
   var ∷ (String, Type) → Variable
-  var (n, t) = Variable n ("predefined", (-1,-1)) t
+  var (n, t) = Variable n ("predefined", (-1,-1)) t Nothing
   param ∷ (String, Type) → Param
   param (n, _) = ParamDec [] (CIdent ((-1,-1), n))
   buildFuns ∷ (String, [(Type, [(String, Type)])]) → State [Int] (String, [Function])

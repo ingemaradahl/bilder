@@ -13,6 +13,7 @@ buildVariable qs cid = Variable
   (cIdentToString cid)
   (translate $ fromJust $ qualType qs)
   (any isConst qs)
+  Nothing
 
 stripBlock ∷ G.Stm → [Stm]
 stripBlock (G.SBlock ss) = map translate ss
