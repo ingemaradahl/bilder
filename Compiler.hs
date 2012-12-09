@@ -25,9 +25,6 @@ import Compiler.Clean (clean)
 import Compiler.Simple (absToSimple, simpleToGLSL)
 
 
-import qualified FrontEnd.AbsGLSL as G
-
-
 data Options = Options {
   inputFile ∷ FilePath
 }
@@ -47,7 +44,7 @@ buildEnv opts = Env {
 -- CPM - CompilerMonad: Alias for both Error and State monad
 type CPM a = StateT Environment CError a
 
-compileTree ∷ Options → Source → CError [G.Tree]
+compileTree ∷ Options → Source → CError (String, [(String, String)])
 compileTree opts src = evalStateT (compile src) (buildEnv opts)
 
 lambdaLift ∷ Source → CPM Source
@@ -58,7 +55,7 @@ lambdaLift src = do
     })
   return $ L.source env
 
-compile ∷ Source → CPM [G.Tree]
+compile ∷ Source → CPM (String, [(String, String)])
 compile src =
   liftM (
         desugar

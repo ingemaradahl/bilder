@@ -10,9 +10,6 @@ import FrontEnd
 import Compiler hiding (compile)
 import TypeChecker
 
-import FrontEnd.AbsGLSL
-import FrontEnd.PrintGLSL
-
 -- Compilation chain
 compile ∷ Options → IO ()
 compile o = do
@@ -33,12 +30,15 @@ parseArgs s  = Just $ Options $ head s
 printHelp ∷ IO ()
 printHelp = putStrLn "HELP"
 
-printResult ∷ CError [Tree] → IO ()
+printResult ∷ CError (String, [(String, String)]) → IO ()
 printResult r = case r of
-  Pass ss → sequence_ [ do
-      putStrLn $ printTree s
+  Pass (g, ss) → do
+    putStrLn $ printf "Graph:\n%s\n" g
+    sequence_ [ do
+      putStrLn $ printf "file %s:\n" (fst s)
+      mapM_ putStrLn (lines $ snd s)
       putStrLn "--------------------\n"
-    | s ← ss ]
+      | s ← ss ]
   Fail e → putStrLn $ "FAIL:\n" ++ show e
 
 main ∷ IO ()

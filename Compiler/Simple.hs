@@ -10,7 +10,10 @@ import qualified Compiler.Split as Split
 
 import Compiler.Simple.AbsSimple
 import qualified FrontEnd.AbsGLSL as G
+import qualified FrontEnd.PrintGLSL as PG
 import Compiler.Simple.FromAbsGrammar
+
+import Compiler.Graph (makeGraph, graphToJSON)
 
 import Compiler.Simple.ToGLSL (
     funToPrototype
@@ -39,8 +42,8 @@ slimVarToSimple (Split.SlimVar name typ e) =
   Variable name (translate typ) False (fmap translate e)
 
 -- | Translates Simple to GLSL tree.
-simpleToGLSL ∷ [Shader] → [G.Tree]
-simpleToGLSL = map simpleToGLSLShader
+simpleToGLSL ∷ [Shader] → (String, [(String, String)])
+simpleToGLSL ss = graphToJSON $ makeGraph $ map (\s → (s, PG.printTree $ simpleToGLSLShader s)) ss
 
 simpleToGLSLShader ∷ Shader → G.Tree
 simpleToGLSLShader (Shader funs vars _ ins) = G.Tree $
@@ -55,5 +58,3 @@ uniform v = G.Declaration
   [G.DQStorage G.QUniform]
   (typeToGLSL $ variableType v)
   [G.Ident $ variableName v]
-
-
