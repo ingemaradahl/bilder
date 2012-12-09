@@ -50,7 +50,7 @@ data Shaders = Shaders {
   }
  deriving (Show)
 
-makeGraph ∷ [(Shader, TranslatedShader)] → (Node, [(Hash, TranslatedShader)])
+makeGraph ∷ [(Shader, TranslatedShader)] → (Node, [(ShaderName, TranslatedShader)])
 makeGraph ss = (node, Map.elems $ shaders ss')
  where
   root = head $ filter (\s → (variableName . output . fst) s == "result_image") ss
@@ -91,7 +91,7 @@ findInput s i = do
 hashShader ∷ TranslatedShader → Hash
 hashShader s = show $ hash s
 
-graphToJSON ∷ (Node, [(Hash, TranslatedShader)]) → (String, [(String, String)])
+graphToJSON ∷ (Node, [(ShaderName, TranslatedShader)]) → (String, [(String, String)])
 graphToJSON = first show
 
 graphToXML ∷ Shaders → String
