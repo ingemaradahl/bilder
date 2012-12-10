@@ -30,15 +30,9 @@ parseArgs s  = Just $ Options $ head s
 printHelp ∷ IO ()
 printHelp = putStrLn "HELP"
 
-printResult ∷ CError (String, [(String, String)]) → IO ()
+printResult ∷ CError String → IO ()
 printResult r = case r of
-  Pass (g, ss) → do
-    putStrLn $ printf "Graph:\n%s\n" g
-    sequence_ [ do
-      putStrLn $ printf "file %s:\n" (fst s)
-      mapM_ putStrLn (lines $ snd s)
-      putStrLn "--------------------\n"
-      | s ← ss ]
+  Pass s → putStrLn s
   Fail e → putStrLn $ "FAIL:\n" ++ show e
 
 main ∷ IO ()

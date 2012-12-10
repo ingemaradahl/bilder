@@ -44,7 +44,7 @@ buildEnv opts = Env {
 -- CPM - CompilerMonad: Alias for both Error and State monad
 type CPM a = StateT Environment CError a
 
-compileTree ∷ Options → Source → CError (String, [(String, String)])
+compileTree ∷ Options → Source → CError String
 compileTree opts src = evalStateT (compile src) (buildEnv opts)
 
 lambdaLift ∷ Source → CPM Source
@@ -55,7 +55,7 @@ lambdaLift src = do
     })
   return $ L.source env
 
-compile ∷ Source → CPM (String, [(String, String)])
+compile ∷ Source → CPM String
 compile src =
   liftM (
         desugar

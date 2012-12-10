@@ -8,9 +8,9 @@ import Compiler.Simple.AbsSimple
 import Control.Monad.State
 import Control.Applicative
 
-import Control.Arrow
-
 import Text.Printf
+
+import Text.JSON
 
 import Data.Hashable
 import qualified Data.Map as Map
@@ -24,6 +24,8 @@ type TranslatedShader = String
 data UniformType =
     Texture
   | Float
+  | Integer
+  | Boolean
   | Vector Int
   | Matrix Int Int
  deriving (Show)
@@ -42,6 +44,35 @@ instance Show Node where
       h
       (unlines $ map (\l → "    " ++ l) $ lines $ concatMap ((++"\n") . show) ins)
 
+instance JSON Node where
+  showJSON (Node n h is) = makeObj
+    [ ("filename", showJSON n)
+    , ("hash", showJSON h)
+    , ("inputs", showJSON is)
+    ]
+  readJSON _ = error "one way only, mange."
+
+instance JSON Input where
+  showJSON (NodeInput o node) = makeObj
+    [ ("name", showJSON o)
+    , ("type", showJSON "node")
+    , ("node", showJSON node)
+    ]
+  showJSON (Uniform t n) = makeObj
+    [ ("name", showJSON n)
+    , ("type", showJSON t)
+    ]
+  readJSON _ = error "one way only, mange."
+
+instance JSON UniformType where
+  showJSON (Texture) = showJSON "texture"
+  showJSON (Float) = showJSON "float"
+  showJSON (Integer) = showJSON "int"
+  showJSON (Boolean) = showJSON "bool"
+  showJSON (Vector i) = showJSON ("vec" ++ show i)
+  showJSON (Matrix i j) = showJSON (show i ++ "x" ++ show j)
+  readJSON _ = error "one way only, mange."
+
 data Shaders = Shaders {
       shaders ∷ Map.Map Hash (ShaderName, TranslatedShader)
     , shaderNames ∷ Map.Map Hash ShaderName
@@ -59,10 +90,10 @@ makeGraph ss = (node, Map.elems $ shaders ss')
 
 shaderToNode ∷ (Shader, TranslatedShader) → State Shaders Node
 shaderToNode (s, t) =
-  Node <$> addShader hashed t <*> pure hashed <*> mapM (findInput s) ins
+  Node <$> addShader hashed t <*> pure hashed <*> mapM findInput ins
  where
   hashed = hashShader t
-  ins = map variableName $ Map.elems $ inputs s
+  ins = Map.elems $ inputs s
 
 newName ∷ State Shaders ShaderName
 newName = do
@@ -80,19 +111,45 @@ addShader h sh = do
       return name
     Just (name, _) → return name
 
-findInput ∷ Shader → String → State Shaders Input
-findInput s i = do
+findInput ∷ Variable → State Shaders Input
+findInput v = do
   ss ← gets oldShaders
   -- find the shader with output `i'.
   case filter (\sh → (variableName . output . fst) sh == i) ss of
-    []  → return $ Uniform Texture i -- TODO: Look up the actual type.
+    []  → return $ Uniform (typeToUniformType t) i -- TODO: Look up the actual type.
     ss' → NodeInput i <$> shaderToNode (head ss')
+ where
+  t = variableType v
+  i = variableName v
+
+typeToUniformType ∷ Type → UniformType
+--typeToUniformType (TVoid) = Void
+typeToUniformType (TFloat) = Float
+typeToUniformType (TBool) = Boolean
+typeToUniformType (TInt) = Integer
+typeToUniformType (TVec2) = Vector 2
+typeToUniformType (TVec3) = Vector 3
+typeToUniformType (TVec4) = Vector 4
+typeToUniformType (TMat2) = Matrix 2 2
+typeToUniformType (TMat3) = Matrix 3 3
+typeToUniformType (TMat4) = Matrix 4 4
+typeToUniformType (TSampler) = Texture
+typeToUniformType (TStruct {}) = undefined
 
 hashShader ∷ TranslatedShader → Hash
 hashShader s = show $ hash s
 
-graphToJSON ∷ (Node, [(ShaderName, TranslatedShader)]) → (String, [(String, String)])
-graphToJSON = first show
+graphToJSON ∷ (Node, [(ShaderName, TranslatedShader)]) → String
+graphToJSON (g, ss) = encode $ makeObj [
+    ("graph", showJSON g)
+  , ("shaders", JSArray $ map mkShader ss)
+  ]
+ where
+  --mkShader ∷ (ShaderName, TranslatedShader) → String
+  mkShader (n, s) = JSObject $ toJSObject [
+      ("name", showJSON n)
+    , ("shader", showJSON s)
+    ]
 
 graphToXML ∷ Shaders → String
 graphToXML _ = undefined

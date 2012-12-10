@@ -42,7 +42,7 @@ slimVarToSimple (Split.SlimVar name typ e) =
   Variable name (translate typ) False (fmap translate e)
 
 -- | Translates Simple to GLSL tree.
-simpleToGLSL ∷ [Shader] → (String, [(String, String)])
+simpleToGLSL ∷ [Shader] → String
 simpleToGLSL ss = graphToJSON $ makeGraph $ map (\s → (s, PG.printTree $ simpleToGLSLShader s)) ss
 
 simpleToGLSLShader ∷ Shader → G.Tree
