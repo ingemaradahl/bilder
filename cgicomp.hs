@@ -10,7 +10,16 @@ import TypeChecker
 import Network.CGI
 import NetTypes
 
+import Data.Char
+import qualified Data.Map as Map
+
 import Text.JSON
+
+data Compiled = Compiled {
+    warnings ∷ [Warning]
+  , cerror ∷ Maybe CompilerError
+  , compiledData ∷ JSValue
+  }
 
 -- | Index page - a form where one can submit JSON containing shaders.
 index ∷ CGI CGIResult
@@ -20,18 +29,41 @@ index = output "<html><body><form method=\"post\" action=\"/\">Shader:<br/><text
 --    compiled shaders in a new JSON dict.
 handleRequest ∷ CGI CGIResult
 handleRequest = do
-  files ← getInput "files"
-  case files of
-    Nothing → index
-    Just fs →
-      case decode fs ∷ Result [NetFile] of
-        (Ok fs')  → do
-          setHeader "Content-Type" "application/json"
-          liftIO (compileFiles fs') >>= output
-        (Error s) → output $ encode $ Compiled [] (Just $ UnknownError $ "Unable to decode JSON: " ++ show s) (makeObj [])
+  ins ← getInputs
+  liftIO (compileFiles $ parseFiles ins) >>= output
 
-main ∷ IO ()
-main = runCGI (handleErrors handleRequest)
+-- | Parses <name>[<num>][<field>] to (<num>, <field>)
+parseName ∷ String → Maybe (Int, String)
+parseName s =
+  if all (==True) (map isNumber num) && length num > 0
+    then Just (read num, field)
+    else Nothing
+ where
+  num = takeWhile (/=']') $ drop 1 $ dropWhile (/='[') s
+  field = reverse $ takeWhile (/='[') $ drop 1 $ reverse s
+
+updateTuple ∷ String → String → (String, String) → (String, String)
+updateTuple "name" value = \(_, d) → (value, d)
+updateTuple "data" value = \(n, _) → (n, value)
+
+-- (Name, Data)
+pair ∷ [(String, String)] → Map.Map Int (String, String)
+pair ((n,d):[]) =
+  case parseName n of
+    Nothing → error "UNABLE TO PARSE OH MY GOOOD"
+    Just (i, f) → Map.fromList [(i, updateTuple f d ("", ""))]
+pair ((n,d):ss) =
+  case parseName n of
+    Nothing → error "OH MY GOOOOD UNABLE TO PARSE"
+    Just (i, f) →
+      case Map.lookup i rest of
+        Nothing  → Map.insert i (updateTuple f d ("", "")) rest
+        Just cur → Map.insert i (updateTuple f d cur) rest
+ where
+  rest = pair ss
+
+parseFiles ∷ [(String, String)] → [NetFile]
+parseFiles ss = map (uncurry NetFile) $ Map.elems $ pair ss
 
 -- | Compiles a list of Files to a JSON string or an error.
 compileFiles ∷ [NetFile] → IO String
@@ -43,12 +75,6 @@ compileFiles fs = do
     Fail e → return $ encode $ Compiled [] (Just e) (makeObj [])
  where
   os = Options "zeh cloud, awh yeah"
-
-data Compiled = Compiled {
-    warnings ∷ [Warning]
-  , cerror ∷ Maybe CompilerError
-  , compiledData ∷ JSValue
-  }
 
 instance JSON CompilerError where
   showJSON (SyntaxError (l,c) f s) = makeObj [
@@ -90,3 +116,6 @@ formResult ∷ [Warning] → CError JSValue → IO String
 formResult ws r = case r of
   Pass s → return $ encode $ Compiled ws Nothing s
   Fail e → return $ encode $ Compiled ws (Just e) (makeObj [])
+
+main ∷ IO ()
+main = runCGI (handleErrors handleRequest)
