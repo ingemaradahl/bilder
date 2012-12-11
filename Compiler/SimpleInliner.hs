@@ -44,6 +44,7 @@ replaceVars ∷ Map.Map String Exp → Exp → Exp
 replaceVars trans = mapExp replace
  where
   replace (EVar v) = fromMaybe (EVar v) (Map.lookup v trans)
+  replace (ECall n es) = fromMaybe (ECall n (map (replaceVars trans) es)) (Map.lookup n trans >>= (\(EVar v) → Just $ ECall v (map (replaceVars trans) es)))
   replace e = mapExp replace e
 
 -- Sanity check
