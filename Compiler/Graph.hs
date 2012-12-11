@@ -145,7 +145,6 @@ graphToJSON (g, ss) = makeObj [
   , ("shaders", JSArray $ map mkShader ss)
   ]
  where
-  --mkShader ∷ (ShaderName, TranslatedShader) → String
   mkShader (n, s) = JSObject $ toJSObject [
       ("name", showJSON n)
     , ("shader", showJSON s)

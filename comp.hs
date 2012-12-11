@@ -11,6 +11,9 @@ import FrontEnd
 import Compiler hiding (compile)
 import TypeChecker
 
+import qualified Data.Map as Map
+import Data.Maybe
+
 -- Compilation chain
 compile ∷ Options → IO ()
 compile o = do
@@ -33,8 +36,28 @@ printHelp = putStrLn "HELP"
 
 printResult ∷ CError JSValue → IO ()
 printResult r = case r of
-  Pass s → putStrLn (encode s)
+  Pass (JSObject o) → do
+    let obj = fromJSObject o
+    printGraph $ (snd . head) obj
+    printShaders $ (snd . last) obj
   Fail e → putStrLn $ "FAIL:\n" ++ show e
+
+printGraph ∷ JSValue → IO ()
+printGraph (JSObject o) = putStrLn $ printf "graph:\n\n%s\n\n" (encode o)
+
+printShaders ∷ JSValue → IO ()
+printShaders (JSObject o) = do
+  putStrLn $ printf "shader %s:\n\n" name
+  putStrLn shader
+ where
+  m = Map.fromList $ fromJSObject o
+  name = lookdown "name"
+  shader = lookdown "shader"
+  lookdown ∷ String → String
+  lookdown n = (\(JSString s) → fromJSString s) (fromJust $ Map.lookup n m)
+printShaders (JSArray os) = mapM_ printShaders os
+
+printShaders o = error $ "what: " ++ show o
 
 main ∷ IO ()
 main = fmap parseArgs getArgs >>= maybe printHelp compile
