@@ -55,22 +55,26 @@ instance JSON CompilerError where
       ("line", showJSON l)
     , ("column", showJSON c)
     , ("file", showJSON f)
+    , ("type", showJSON "syntax")
     , ("message", showJSON s)
     ]
   showJSON (TypeError (l,c) f s) = makeObj [
       ("line", showJSON l)
     , ("column", showJSON c)
     , ("file", showJSON f)
+    , ("type", showJSON "type")
     , ("message", showJSON s)
     ]
   showJSON (CompileError (l,c) f s) = makeObj [
       ("line", showJSON l)
     , ("column", showJSON c)
     , ("file", showJSON f)
+    , ("type", showJSON "compiler")
     , ("message", showJSON s)
     ]
   showJSON (UnknownError s) = makeObj [
       ("message", showJSON s)
+    , ("type", showJSON "unknown")
     ]
   readJSON _ = error "CompilerError: show only"
 
