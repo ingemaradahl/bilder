@@ -5,6 +5,8 @@ import CompilerTypes
 import FrontEnd
 import Compiler hiding (compile)
 
+import Control.Exception
+
 import TypeChecker
 
 import Network.CGI
@@ -117,5 +119,10 @@ formResult ws r = case r of
   Pass s → return $ encode $ Compiled ws Nothing s
   Fail e → return $ encode $ Compiled ws (Just e) (makeObj [])
 
+handleException ∷ SomeException → CGI CGIResult
+handleException e = output $ encode $ Compiled [] (Just exc) (makeObj [])
+ where
+  exc = UnknownError $ "Exception in compiler: " ++ show e
+
 main ∷ IO ()
-main = runCGI (handleErrors handleRequest)
+main = runCGI (catchCGI handleRequest handleException)
