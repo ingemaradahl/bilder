@@ -3,6 +3,7 @@
 import System.Environment (getArgs)
 
 import Text.Printf
+import Text.JSON
 
 import CompilerError
 import CompilerTypes
@@ -30,9 +31,9 @@ parseArgs s  = Just $ Options $ head s
 printHelp ∷ IO ()
 printHelp = putStrLn "HELP"
 
-printResult ∷ CError String → IO ()
+printResult ∷ CError JSValue → IO ()
 printResult r = case r of
-  Pass s → putStrLn s
+  Pass s → putStrLn (encode s)
   Fail e → putStrLn $ "FAIL:\n" ++ show e
 
 main ∷ IO ()

@@ -25,6 +25,8 @@ import Compiler.Clean (clean)
 import Compiler.SimpleInliner (simpleInline)
 import Compiler.Simple (absToSimple, simpleToGLSL)
 
+import Text.JSON
+
 
 data Options = Options {
   inputFile ∷ FilePath
@@ -45,7 +47,7 @@ buildEnv opts = Env {
 -- CPM - CompilerMonad: Alias for both Error and State monad
 type CPM a = StateT Environment CError a
 
-compileTree ∷ Options → Source → CError String
+compileTree ∷ Options → Source → CError JSValue
 compileTree opts src = evalStateT (compile src) (buildEnv opts)
 
 lambdaLift ∷ Source → CPM Source
@@ -56,7 +58,7 @@ lambdaLift src = do
     })
   return $ L.source env
 
-compile ∷ Source → CPM String
+compile ∷ Source → CPM JSValue
 compile src =
   liftM (
         desugar

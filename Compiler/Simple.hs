@@ -2,6 +2,8 @@
 
 module Compiler.Simple where
 
+import Text.JSON
+
 import Control.Arrow
 import qualified Data.Map as Map
 
@@ -42,7 +44,7 @@ slimVarToSimple (Split.SlimVar name typ e) =
   Variable name (translate typ) False (fmap translate e)
 
 -- | Translates Simple to GLSL tree.
-simpleToGLSL ∷ [Shader] → String
+simpleToGLSL ∷ [Shader] → JSValue
 simpleToGLSL ss = graphToJSON $ makeGraph $ map (\s → (s, PG.printTree $ simpleToGLSLShader s)) ss
 
 simpleToGLSLShader ∷ Shader → G.Tree

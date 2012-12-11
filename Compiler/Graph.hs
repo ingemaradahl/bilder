@@ -116,7 +116,7 @@ findInput v = do
   ss ← gets oldShaders
   -- find the shader with output `i'.
   case filter (\sh → (variableName . output . fst) sh == i) ss of
-    []  → return $ Uniform (typeToUniformType t) i -- TODO: Look up the actual type.
+    []  → return $ Uniform (typeToUniformType t) i
     ss' → NodeInput i <$> shaderToNode (head ss')
  where
   t = variableType v
@@ -139,8 +139,8 @@ typeToUniformType (TStruct {}) = undefined
 hashShader ∷ TranslatedShader → Hash
 hashShader s = show $ hash s
 
-graphToJSON ∷ (Node, [(ShaderName, TranslatedShader)]) → String
-graphToJSON (g, ss) = encode $ makeObj [
+graphToJSON ∷ (Node, [(ShaderName, TranslatedShader)]) → JSValue
+graphToJSON (g, ss) = makeObj [
     ("graph", showJSON g)
   , ("shaders", JSArray $ map mkShader ss)
   ]
