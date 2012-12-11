@@ -1,7 +1,5 @@
 {-# LANGUAGE UnicodeSyntax #-}
 
-import Text.Printf
-
 import CompilerError
 import CompilerTypes
 import FrontEnd
@@ -30,7 +28,7 @@ handleRequest = do
         (Ok fs')  → do
           setHeader "Content-Type" "application/json"
           liftIO (compileFiles fs') >>= output
-        (Error s) → output $ "error: " ++ show s
+        (Error s) → output $ encode $ Compiled [] (Just $ UnknownError $ "Unable to decode JSON: " ++ show s) (makeObj [])
 
 main ∷ IO ()
 main = runCGI (handleErrors handleRequest)
@@ -42,25 +40,49 @@ compileFiles fs = do
   let warnBlobs = p >>= typeCheck os
   case warnBlobs of
     Pass (warns, blobs) → formResult warns (compileTree os blobs)
-    Fail e → return $ printf "error when compiling: %s" (show e)
+    Fail e → return $ encode $ Compiled [] (Just e) (makeObj [])
  where
   os = Options "zeh cloud, awh yeah"
 
 data Compiled = Compiled {
     warnings ∷ [Warning]
-  , errors ∷ [String]
-  , compiledData ∷ String
+  , cerror ∷ Maybe CompilerError
+  , compiledData ∷ JSValue
   }
 
+instance JSON CompilerError where
+  showJSON (SyntaxError (l,c) f s) = makeObj [
+      ("line", showJSON l)
+    , ("column", showJSON c)
+    , ("file", showJSON f)
+    , ("message", showJSON s)
+    ]
+  showJSON (TypeError (l,c) f s) = makeObj [
+      ("line", showJSON l)
+    , ("column", showJSON c)
+    , ("file", showJSON f)
+    , ("message", showJSON s)
+    ]
+  showJSON (CompileError (l,c) f s) = makeObj [
+      ("line", showJSON l)
+    , ("column", showJSON c)
+    , ("file", showJSON f)
+    , ("message", showJSON s)
+    ]
+  showJSON (UnknownError s) = makeObj [
+      ("message", showJSON s)
+    ]
+  readJSON _ = error "CompilerError: show only"
+
 instance JSON Compiled where
-  showJSON (Compiled ws es c) = makeObj [
+  showJSON (Compiled ws e c) = makeObj [
       ("warnings", showJSON ws)
-    , ("errors", showJSON es)
+    , ("error", maybe (makeObj []) showJSON e)
     , ("data", showJSON c)
     ]
-  readJSON _ = error "show only"
+  readJSON _ = error "Compiled: show only"
 
-formResult ∷ [Warning] → CError String → IO String
+formResult ∷ [Warning] → CError JSValue → IO String
 formResult ws r = case r of
-  Pass s → return $ encode $ Compiled ws [] s
-  Fail e → return $ encode $ Compiled ws [show e] ""
+  Pass s → return $ encode $ Compiled ws Nothing s
+  Fail e → return $ encode $ Compiled ws (Just e) (makeObj [])
