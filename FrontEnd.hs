@@ -90,7 +90,7 @@ parseNet fs = do
 findTree ∷ FilePath → [(String, AbsTree)] → (String, AbsTree)
 findTree f fs =
   case filter ((==f). fst) fs of
-    [] → error "no such file found."
+    [] → error $ "no such file found: " ++ f
     rs → head rs
 
 parseNetTree ∷ (String, AbsTree) → [(String, AbsTree)] → PM (Tree (FilePath, AbsTree))
