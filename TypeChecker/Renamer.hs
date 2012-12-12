@@ -5,10 +5,12 @@ module TypeChecker.Renamer where
 import Control.Applicative
 import Control.Monad
 import Control.Monad.State hiding (mapM)
+import Control.Monad.Reader
 
 import Data.Tree
 import Data.Map as Map hiding (fold)
 import Data.Monoid
+import Data.Maybe
 
 import TypeChecker.TCM
 import TypeChecker.TCM.Utils hiding (initScope)
@@ -64,10 +66,14 @@ renameBlob blob children = do
   variables' ← renameVariables $ Blob.variables blob
   functions' ← mapM renameFunction annotFuns
 
+  -- replace all TDefined with the actual type.
+  let tdefs = Prelude.map (Blob.typedefs . snd3) $ concatMap flatten children
+      funs' = Prelude.map (\f → runReader (replaceTDef f) tdefs) functions'
+
   aliases' ← gets (head . aliases)
 
   return (Source
-    (fromList (Prelude.map (\f → (alias f, f )) functions'))
+    (fromList (Prelude.map (\f → (alias f, f )) funs'))
     variables'
     ,
 
@@ -95,6 +101,54 @@ renameFunction fun = do
     , parameters = parameters'
     , statements = statements'
   }
+
+replaceTDef ∷ Function → Reader [Map String Typedef] Function
+replaceTDef fun = do
+  stms' ← mapM replaceStm (statements fun)
+  return $ fun { statements = stms' }
+
+replaceStm ∷ Stm → Reader [Map String Typedef] Stm
+replaceStm (SType t s) = SType <$> replaceType t <*> replaceStm s
+replaceStm (SFunDecl i t ps ss) =
+  SFunDecl i <$> replaceType t <*> mapM replaceParam ps <*> mapM replaceStm ss
+replaceStm (SFor tk fds ecs eis s) =
+  SFor tk <$> mapM (mapForDeclExpM replaceExp) fds <*> mapM replaceExp ecs <*> mapM replaceExp eis <*> replaceStm s
+replaceStm s = mapStmExpM replaceExp s
+
+replaceParam ∷ Param → Reader [Map String Typedef] Param
+replaceParam (ParamDec qs cid) =
+  ParamDec <$> mapM replaceQualifier qs <*> pure cid
+replaceParam (ParamDefault qs cid tk e) =
+  ParamDefault <$> mapM replaceQualifier qs <*> pure cid <*> pure tk <*> replaceExp e
+
+replaceQualifier ∷ Qualifier → Reader [Map String Typedef] Qualifier
+replaceQualifier (QType t) = QType <$> replaceType t
+replaceQualifier q = pure q
+
+replaceExp ∷ Exp → Reader [Map String Typedef] Exp
+replaceExp (ETypeCall t es) =
+  ETypeCall <$> replaceType t <*> mapM replaceExp es
+replaceExp (EPartCall cid es ts) =
+  EPartCall cid <$> mapM replaceExp es <*> mapM replaceType ts
+replaceExp (ECurryCall cid e t) =
+  ECurryCall cid <$> replaceExp e <*> replaceType t
+replaceExp (EVarType cid t) =
+  EVarType cid <$> replaceType t
+replaceExp e = mapExpM replaceExp e
+
+replaceType ∷ Type → Reader [Map String Typedef] Type
+replaceType (TDefined (TypeIdent (_, i))) = do
+  ms ← ask
+  case Prelude.map (Map.lookup i) ms of
+    [] → error $ "could not find any typedef for " ++ show i
+    ts → return $ typedefType $ fromJust $ head ts
+replaceType (TArray t) = replaceType t
+replaceType (TFunc tl tk tr) =
+  TFunc <$> replaceType tl <*> pure tk <*> replaceType tr
+replaceType (TFun t ts) = TFun <$> replaceType t <*> mapM replaceType ts
+replaceType (TConst t) = TConst <$> replaceType t
+replaceType t = return t
+
 
 renameVariables ∷ Map String Variable → TCM (Map String Variable)
 renameVariables vars = do
