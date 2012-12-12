@@ -24,6 +24,7 @@ import Compiler.Merge (mergeShaders)
 import Compiler.Clean (clean)
 import Compiler.SimpleInliner (simpleInline)
 import Compiler.Simple (absToSimple, simpleToGLSL)
+import Compiler.Texture2D (texture2D)
 
 import Text.JSON
 
@@ -71,6 +72,7 @@ compile src =
     >>> map clean
     >>> map renameBuiltin -- Re-renames built in functions
     >>> map addResUniform -- Adds resolution uniform fl_Resolution
+    >>> map texture2D
     >>> simpleToGLSL      -- Translate to GLSL
   ) $ lambdaLift src
 
