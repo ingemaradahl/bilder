@@ -32,6 +32,7 @@ index = output "<html><body><form method=\"post\" action=\"/\">Shader:<br/><text
 handleRequest ∷ CGI CGIResult
 handleRequest = do
   ins ← getInputs
+  setHeader "Content-Type" "application/json"
   liftIO (compileFiles $ parseFiles ins) >>= output
 
 -- | Parses <name>[<num>][<field>] to (<num>, <field>)
@@ -119,8 +120,10 @@ formResult ws r = case r of
   Pass s → return $ encode $ Compiled ws Nothing s
   Fail e → return $ encode $ Compiled ws (Just e) (makeObj [])
 
-handleException ∷ SomeException → CGI CGIResult
-handleException e = output $ encode $ Compiled [] (Just exc) (makeObj [])
+handleException ∷ Exception a => a → CGI CGIResult
+handleException e = do
+  setHeader "Content-Type" "application/json"
+  output $ encode $ Compiled [] (Just exc) (makeObj [])
  where
   exc = UnknownError $ "Exception in compiler: " ++ show e
 
