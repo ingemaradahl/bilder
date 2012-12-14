@@ -25,6 +25,7 @@ import Compiler.Clean (clean)
 import Compiler.SimpleInliner (simpleInline)
 import Compiler.Simple (absToSimple, simpleToGLSL)
 import Compiler.Texture2D (texture2D)
+import Compiler.AvoidAlias (avoidAlias)
 
 import Text.JSON
 
@@ -70,6 +71,7 @@ compile src =
     >>> map clean         -- Removes unnecessary statements and functions
     >>> map simpleInline  -- Performes simple inlining
     >>> map clean
+    >>> map avoidAlias    -- Reduces unneccecary aliases, such as Image a = b;
     >>> map renameBuiltin -- Re-renames built in functions
     >>> map addResUniform -- Adds resolution uniform fl_Resolution
     >>> map texture2D
