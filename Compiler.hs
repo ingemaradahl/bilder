@@ -89,9 +89,9 @@ reworkMain ∷ Function → Function
 reworkMain (Function name _ [x, y] stms) = Function name TVoid [] (d:stms')
  where
   p = Variable "p" TVec2 True Nothing
-  d = SDeclAss p (EDiv gl_FragCoord_xy fl_Resolution)
+  d = SDeclAss p (EDiv (ETypeCall TVec2 [gl_FragCoord_x, ESub fl_Resolution_y gl_FragCoord_y]) fl_Resolution)
   x' = EMember (EVar (variableName p)) "x"
-  y' = ENeg $ EMember (EVar (variableName p)) "y"
+  y' = EMember (EVar (variableName p)) "y"
   stms' = map (subReturn . mapStmExp subXY) stms
   subXY ∷ Exp → Exp
   subXY (EVar s) | s == variableName x = x'
