@@ -201,8 +201,11 @@ renameExp ∷ Exp → TCM Exp
 renameExp (EVar cid) = EVar <$> renameCIdent cid
 renameExp (ECall cid es) = do
   args ← mapM inferExp es
+  funsAlias ← lookupAliasMaybe (cIdentToString cid) >>=
+      (\x → case x of Just y → liftM Just (lookupFunction y); Nothing → return Nothing )
   funs ← lookupFunction (cIdentToString cid)
   fun ← maybe err return $ tryApply funs args `mplus` tryUncurry funs args
+          `mplus` (funsAlias >>= (`tryApply` args)) `mplus` (funsAlias >>= (`tryUncurry` args))
 
   -- It's possible that the found function is created on the fly by
   -- lookupFunction, in which case the alias field is empty.
