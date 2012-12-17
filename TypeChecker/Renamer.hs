@@ -178,13 +178,14 @@ renameStm (SFunDecl cid t ps ss) = do
   ps' ← mapM paramToVar ps
   file ← gets currentFile
   t' ← filterTDef t
+  let (TFun ret _) = t'
   addCIdentVariable cid (TFun t' (Prelude.map varType ps')) Nothing
 
   fun ← annotateFunction Types.Function {
       functionName = cIdentToString cid
     , alias = ""
     , functionLocation = (file, cIdentToPos cid)
-    , retType = t'
+    , retType = ret
     , paramVars = ps'
     , parameters = ps
     , statements = ss
@@ -194,7 +195,7 @@ renameStm (SFunDecl cid t ps ss) = do
 
   fun' ← renameFunction fun
 
-  return $ SFunDecl (toCIdent fun') (retType fun') (parameters fun') (statements fun')
+  return $ SFunDecl (toCIdent fun') t' (parameters fun') (statements fun')
 renameStm s = mapStmM renameStm s
 
 renameExp ∷ Exp → TCM Exp
@@ -225,7 +226,7 @@ renameExp (ECall cid es) = do
       then return $ ECurryCall (newCIdent cid alias') (head es') (head args)
       else return $ EPartCall (newCIdent cid alias') es' args
  where
-  err = compileError (cIdentToPos cid) $ "Unable to find function" ++ cIdentToString cid
+  err = compileError (cIdentToPos cid) $ "Unable to find function " ++ cIdentToString cid
   curried ∷ [Type] → [Type] → Bool
   curried funArgs inferred = length inferred == 1 && isVec (head inferred) &&
     length funArgs == vecLength (head inferred)

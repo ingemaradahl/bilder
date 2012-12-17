@@ -27,7 +27,8 @@ inferExp ETrue = return TBool
 inferExp EFalse = return TBool
 inferExp (EVar cid) = do
   types ← lookupVarTypes cid
-  when (length types > 1) $ warning (cIdentToPos cid) $ printf "more than one function/variable by the name \"%s\" - using the one declared last." (cIdentToString cid)
+  when (length types > 1) $ warning (cIdentToPos cid)
+    $ printf "more than one function/variable by the name \"%s\" - using the one declared last." (cIdentToString cid)
   return (head types)
 inferExp (ECond ec tkq etrue tkc efalse) = do
   t ← inferExp ec
