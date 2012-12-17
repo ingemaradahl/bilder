@@ -68,13 +68,13 @@ renameBlob blob children = do
 
   -- replace all TDefined with the actual type.
   let tdefs = Prelude.map (Blob.typedefs . snd3) $ concatMap flatten children
-      funs' = Prelude.map (\f → runReader (replaceTDef f) tdefs) functions'
+      funs' = Prelude.map (\f → runReader (replaceFunTDefs f) tdefs) functions'
 
   aliases' ← gets (head . aliases)
 
   return (Source
     (fromList (Prelude.map (\f → (alias f, f )) funs'))
-    variables'
+    (Map.map (\v → runReader (replaceVarTDefs v) tdefs) variables')
     ,
 
     blob
@@ -102,8 +102,14 @@ renameFunction fun = do
     , statements = statements'
   }
 
-replaceTDef ∷ Function → Reader [Map String Typedef] Function
-replaceTDef fun = do
+replaceVarTDefs ∷ Variable → Reader [Map String Typedef] Variable
+replaceVarTDefs var = do
+  t ← replaceType (varType var)
+  me ← maybe (return Nothing) (liftM Just . replaceExp) (value var)
+  return $ var { varType = t, value = me }
+
+replaceFunTDefs ∷ Function → Reader [Map String Typedef] Function
+replaceFunTDefs fun = do
   stms' ← mapM replaceStm (statements fun)
   return $ fun { statements = stms' }
 
