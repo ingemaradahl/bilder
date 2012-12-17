@@ -208,6 +208,7 @@ separator Exp "," ;
 -- Decorations help the pretty printer
 internal EPartCall.     Exp16 ::= CIdent "<{(" [Exp] "::" [Type] ")}>" ;
 internal ECurryCall.    Exp16 ::= CIdent "<C(" Exp "::" Type ")>" ;
+internal EVarType.      Exp18 ::= CIdent Type ;
 
 -- Types ------------------------------------------------------------
 TVoid.       Type1 ::= "Void" ;
@@ -231,4 +232,6 @@ coercions Type 3 ;
 internal TFun.    Type ::= Type [Type] ;
 internal TArray.  Type ::= Type ;
 internal TConst.  Type ::= Type ;
+
+internal TImage.  Type ::= ;
 separator Type "" ;

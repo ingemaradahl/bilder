@@ -61,9 +61,17 @@ qualType qs | length types == 1 = Just $ head types
  where
   types = [ t | QType t ← qs ]
 
+isConst ∷ Qualifier → Bool
+isConst (QConst _) = True
+isConst _ = False
+
 declPostIdents ∷ DeclPost → [CIdent]
 declPostIdents (Vars i) = i
 declPostIdents (DecAss i _ _) = i
+
+declPostExp ∷ DeclPost → Maybe Exp
+declPostExp (DecAss _ _ e) = Just e
+declPostExp _ = Nothing
 
 toCIdent ∷ Global a => a → CIdent
 toCIdent v = CIdent (position v, ident v)
@@ -109,7 +117,7 @@ buildAnonFunc name loc ret args = TypeChecker.Types.Function {
   }
  where
   buildAnonVar ∷ Type → Variable
-  buildAnonVar = Variable "anonvar" ("anonvar",(-1,-1))
+  buildAnonVar t = Variable "anonvar" ("anonvar",(-1,-1)) t Nothing
 
 uncurryType ∷ Type → Type
 uncurryType t@(TFunc {}) = TFun (head ret) args

@@ -1,27 +1,11 @@
 {-# LANGUAGE UnicodeSyntax #-}
 
-module Simple where
-
-import qualified Simple.AbsSimple as S
-import Simple.Types
+module Compiler.Simple.ToGLSL where
 
 import qualified FrontEnd.AbsGLSL as G
-import qualified FrontEnd.AbsGrammar as F
+import qualified Compiler.Simple.AbsSimple as S
 
-
--- | Translates Simple to GLSL tree.
-simpleToGLSL ∷ SimpleSource → G.Tree
-simpleToGLSL blob = G.Tree $
-  map structToGLSL (structs blob) ++
-  map (G.TopDecl . varToGLSLDecl) (variables blob) ++
-  map funToPrototype (functions blob) ++
-  map funToGLSL (functions blob)
-
--- | Translates FL tree to Simple.
-flToSimple ∷ F.AbsTree → SimpleSource
-flToSimple _ = undefined
-
--- Simple to GLSL {{{
+-- Simple to GLSL
 funToPrototype ∷ S.Function → G.TopLevel
 funToPrototype fun = G.FunctionPrototype
   (typeToGLSL (S.returnType fun)) -- return type
@@ -33,31 +17,30 @@ funToGLSL fun = G.Function
   (typeToGLSL (S.returnType fun)) -- return type
   (G.Ident $ S.functionName fun) -- name
   (map variableToGLSLParam (S.parameters fun)) -- parameters
-  (concatMap stmToGLSL (S.statements fun)) -- statements
+  (map stmToGLSL (S.statements fun)) -- statements
 
-stmToGLSL ∷ S.Stm → [G.Stm]
-stmToGLSL (S.SDecl v) = [G.SDecl (varToGLSLDecl v)]
+stmToGLSL ∷ S.Stm → G.Stm
+stmToGLSL (S.SDecl v) = G.SDecl (varToGLSLDecl v)
 stmToGLSL (S.SDeclAss v e) =
-  [G.SDecl (varToGLSLDecl v),
-   G.SExp (G.EAss (G.EVar (G.Ident $ S.variableName v)) (expToGLSL e))]
+  G.SDecl (varToGLSLDeclAss v (expToGLSL e))
 stmToGLSL (S.SStruct s) =
-  [G.SDecl $ G.Struct (G.Ident $ S.structName s)
-    [G.SVDecl (varToGLSLDecl v) | v ← S.declarations s]]
-stmToGLSL (S.SExp e) = [G.SExp $ expToGLSL e]
+  G.SDecl $ G.Struct (G.Ident $ S.structName s)
+    [G.SVDecl (varToGLSLDecl v) | v ← S.declarations s]
+stmToGLSL (S.SExp e) = G.SExp $ expToGLSL e
 stmToGLSL (S.SWhile e ss) =
-  [G.SWhile (expToGLSL e) (G.SBlock $ concatMap stmToGLSL ss)]
+  G.SWhile (expToGLSL e) (G.SBlock $ map stmToGLSL ss)
 stmToGLSL (S.SDoWhile ss e) =
-  [G.SDoWhile (G.SBlock $ concatMap stmToGLSL ss) (expToGLSL e)]
+  G.SDoWhile (G.SBlock $ map stmToGLSL ss) (expToGLSL e)
 stmToGLSL (S.SFor dss ec el ss)
   | not $ isForDecl dss && dss /= []  = error $ "compiler error - for statements must only contain SDeclAss or SExp: " ++ show dss
-  | otherwise  = [G.SFor [] (map expToGLSL ec) (map expToGLSL el) (G.SBlock $ concatMap stmToGLSL ss)]
-stmToGLSL (S.SReturn e) = [G.SReturn (expToGLSL e)]
-stmToGLSL (S.SVoidReturn) = [G.SVoidReturn]
-stmToGLSL (S.SIf e ss) = [G.SIf (expToGLSL e) (G.SBlock $ concatMap stmToGLSL ss)]
-stmToGLSL (S.SIfElse e sst ssf) = [G.SIfElse (expToGLSL e) (G.SBlock $ concatMap stmToGLSL sst) (G.SBlock $ concatMap stmToGLSL ssf)]
-stmToGLSL (S.SBreak) = [G.SBreak]
-stmToGLSL (S.SContinue) = [G.SContinue]
-stmToGLSL (S.SDiscard) = [G.SDiscard]
+  | otherwise  = G.SFor [] (map expToGLSL ec) (map expToGLSL el) (G.SBlock $ map stmToGLSL ss)
+stmToGLSL (S.SReturn e) = G.SReturn (expToGLSL e)
+stmToGLSL (S.SVoidReturn) = G.SVoidReturn
+stmToGLSL (S.SIf e ss) = G.SIf (expToGLSL e) (G.SBlock $ map stmToGLSL ss)
+stmToGLSL (S.SIfElse e sst ssf) = G.SIfElse (expToGLSL e) (G.SBlock $ map stmToGLSL sst) (G.SBlock $ map stmToGLSL ssf)
+stmToGLSL (S.SBreak) = G.SBreak
+stmToGLSL (S.SContinue) = G.SContinue
+stmToGLSL (S.SDiscard) = G.SDiscard
 
 isForDecl ∷ [S.Stm] → Bool
 isForDecl [] = True
@@ -108,22 +91,20 @@ expToGLSL (S.EPostInc e) = G.EPostInc (expToGLSL e)
 expToGLSL (S.EPostDec e) = G.EPostDec (expToGLSL e)
 expToGLSL (S.EMember e i) = G.ESwizzler (expToGLSL e) (G.EVar $ G.Ident i)
 expToGLSL (S.ECall i es) = G.ECall (G.Ident i) (map expToGLSL es)
+expToGLSL (S.ETypeCall t es) = G.ETypeCall (typeToGLSL t) (map expToGLSL es)
 expToGLSL (S.EVar i) = G.EVar (G.Ident i)
 expToGLSL (S.EIndex i e) = G.EIndex (G.Ident i) (expToGLSL e)
 expToGLSL (S.EFloat f) = G.EFloat (G.CFloat (show f))
 expToGLSL (S.EInt i) = G.EInt i
 expToGLSL (S.ETrue) = G.ETrue
 expToGLSL (S.EFalse) = G.EFalse
+expToGLSL e = error $ "Not implemented: " ++ show e
 
 variableToGLSLParam ∷ S.Variable → G.Param
 variableToGLSLParam var = G.ParamDec
-  (map paramQualsGLSL $ S.qualifiers var)
+  []
   (typeToGLSL $ S.variableType var)
   (G.Ident $ S.variableName var)
-
-paramQualsGLSL ∷ S.Qualifier → G.ParamQualifiers
-paramQualsGLSL (S.Const) = G.PQStorage G.QConst
-paramQualsGLSL (S.External) = error "compiler error - parameters are not allowed to have external qualifier."
 
 typeToGLSL ∷ S.Type → G.Type
 typeToGLSL (S.TVoid) = G.TVoid
@@ -137,10 +118,7 @@ typeToGLSL (S.TMat2) = G.TMat2
 typeToGLSL (S.TMat3) = G.TMat3
 typeToGLSL (S.TMat4) = G.TMat4
 typeToGLSL (S.TStruct i) = G.TStruct (G.Ident i)
-
-declQualsGLSL ∷ S.Qualifier → G.DeclQualifiers
-declQualsGLSL (S.Const) = G.DQStorage G.QConst
-declQualsGLSL (S.External) = G.DQStorage G.QUniform
+typeToGLSL (S.TSampler) = G.TSampler2D
 
 structToGLSL ∷ S.Struct → G.TopLevel
 structToGLSL s = G.TopDecl $ G.Struct
@@ -148,12 +126,20 @@ structToGLSL s = G.TopDecl $ G.Struct
   (map (G.SVDecl . varToGLSLDecl) (S.declarations s))
 
 varToGLSLDecl ∷ S.Variable → G.Decl
-varToGLSLDecl var = G.Declaration
-  (map declQualsGLSL (S.qualifiers var)) -- qualifiers
+varToGLSLDecl var =
+  case S.value var of
+    Nothing → G.Declaration
+      [] -- qualifiers
+      (typeToGLSL $ S.variableType var) -- type
+      [G.Ident $ S.variableName var] -- names
+    Just e → G.DefaultDeclaration
+      [] -- qualifiers
+      (typeToGLSL $ S.variableType var) -- type
+      [G.Ident $ S.variableName var] -- names
+      (expToGLSL e)
+
+varToGLSLDeclAss ∷ S.Variable → G.Exp → G.Decl
+varToGLSLDeclAss var = G.DefaultDeclaration
+  [] -- qualifiers
   (typeToGLSL $ S.variableType var) -- type
   [G.Ident $ S.variableName var] -- names
-
-
--- }}}
-
--- vi:fdm=marker

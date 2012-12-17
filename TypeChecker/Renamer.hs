@@ -5,10 +5,12 @@ module TypeChecker.Renamer where
 import Control.Applicative
 import Control.Monad
 import Control.Monad.State hiding (mapM)
+import Control.Monad.Reader
 
 import Data.Tree
 import Data.Map as Map hiding (fold)
 import Data.Monoid
+import Data.Maybe
 
 import TypeChecker.TCM
 import TypeChecker.TCM.Utils hiding (initScope)
@@ -57,17 +59,22 @@ renameBlob blob children = do
   -- Populate Scope
   mapM_ (mergeTypedefs . Blob.typedefs . snd3 . rootLabel) children
   mapM_ (addSource . fst3 . rootLabel) children
+  mergeVariables $ Blob.variables blob
   annotFuns ← mapM annotateFunction $ concat $ elems (Blob.functions blob)
   mapM_ addFunction annotFuns
 
   variables' ← renameVariables $ Blob.variables blob
   functions' ← mapM renameFunction annotFuns
 
+  -- replace all TDefined with the actual type.
+  let tdefs = Prelude.map (Blob.typedefs . snd3) $ concatMap flatten children
+      funs' = Prelude.map (\f → runReader (replaceFunTDefs f) tdefs) functions'
+
   aliases' ← gets (head . aliases)
 
   return (Source
-    (fromList (Prelude.map (\f → (alias f, f )) functions'))
-    variables'
+    (fromList (Prelude.map (\f → (alias f, f )) funs'))
+    (Map.map (\v → runReader (replaceVarTDefs v) tdefs) variables')
     ,
 
     blob
@@ -95,6 +102,60 @@ renameFunction fun = do
     , statements = statements'
   }
 
+replaceVarTDefs ∷ Variable → Reader [Map String Typedef] Variable
+replaceVarTDefs var = do
+  t ← replaceType (varType var)
+  me ← maybe (return Nothing) (liftM Just . replaceExp) (value var)
+  return $ var { varType = t, value = me }
+
+replaceFunTDefs ∷ Function → Reader [Map String Typedef] Function
+replaceFunTDefs fun = do
+  stms' ← mapM replaceStm (statements fun)
+  return $ fun { statements = stms' }
+
+replaceStm ∷ Stm → Reader [Map String Typedef] Stm
+replaceStm (SType t s) = SType <$> replaceType t <*> replaceStm s
+replaceStm (SFunDecl i t ps ss) =
+  SFunDecl i <$> replaceType t <*> mapM replaceParam ps <*> mapM replaceStm ss
+replaceStm (SFor tk fds ecs eis s) =
+  SFor tk <$> mapM (mapForDeclExpM replaceExp) fds <*> mapM replaceExp ecs <*> mapM replaceExp eis <*> replaceStm s
+replaceStm s = mapStmExpM replaceExp s
+
+replaceParam ∷ Param → Reader [Map String Typedef] Param
+replaceParam (ParamDec qs cid) =
+  ParamDec <$> mapM replaceQualifier qs <*> pure cid
+replaceParam (ParamDefault qs cid tk e) =
+  ParamDefault <$> mapM replaceQualifier qs <*> pure cid <*> pure tk <*> replaceExp e
+
+replaceQualifier ∷ Qualifier → Reader [Map String Typedef] Qualifier
+replaceQualifier (QType t) = QType <$> replaceType t
+replaceQualifier q = pure q
+
+replaceExp ∷ Exp → Reader [Map String Typedef] Exp
+replaceExp (ETypeCall t es) =
+  ETypeCall <$> replaceType t <*> mapM replaceExp es
+replaceExp (EPartCall cid es ts) =
+  EPartCall cid <$> mapM replaceExp es <*> mapM replaceType ts
+replaceExp (ECurryCall cid e t) =
+  ECurryCall cid <$> replaceExp e <*> replaceType t
+replaceExp (EVarType cid t) =
+  EVarType cid <$> replaceType t
+replaceExp e = mapExpM replaceExp e
+
+replaceType ∷ Type → Reader [Map String Typedef] Type
+replaceType (TDefined (TypeIdent (_, i))) = do
+  ms ← ask
+  case Prelude.map (Map.lookup i) ms of
+    [] → error $ "could not find any typedef for " ++ show i
+    ts → return $ typedefType $ fromJust $ head ts
+replaceType (TArray t) = replaceType t
+replaceType (TFunc tl tk tr) =
+  TFunc <$> replaceType tl <*> pure tk <*> replaceType tr
+replaceType (TFun t ts) = TFun <$> replaceType t <*> mapM replaceType ts
+replaceType (TConst t) = TConst <$> replaceType t
+replaceType t = return t
+
+
 renameVariables ∷ Map String Variable → TCM (Map String Variable)
 renameVariables vars = do
   vars' ← mapM (renameVariable . snd) (toList vars)
@@ -103,7 +164,7 @@ renameVariables vars = do
 addToScope ∷ Decl → TCM ()
 addToScope (Dec qs post) = do
   t ← verifyQualsType qs >>= filterTDef
-  sequence_ [ addCIdentVariable cid t | cid ← declPostIdents post]
+  sequence_ [ addCIdentVariable cid t (declPostExp post) | cid ← declPostIdents post]
 
 renameStm ∷ Stm → TCM Stm
 renameStm (SDecl dec) = addToScope dec >> SDecl <$> renameDecl dec
@@ -123,13 +184,14 @@ renameStm (SFunDecl cid t ps ss) = do
   ps' ← mapM paramToVar ps
   file ← gets currentFile
   t' ← filterTDef t
-  addCIdentVariable cid (TFun t' (Prelude.map varType ps'))
+  let (TFun ret _) = t'
+  addCIdentVariable cid (TFun t' (Prelude.map varType ps')) Nothing
 
   fun ← annotateFunction Types.Function {
       functionName = cIdentToString cid
     , alias = ""
     , functionLocation = (file, cIdentToPos cid)
-    , retType = t'
+    , retType = ret
     , paramVars = ps'
     , parameters = ps
     , statements = ss
@@ -139,15 +201,18 @@ renameStm (SFunDecl cid t ps ss) = do
 
   fun' ← renameFunction fun
 
-  return $ SFunDecl (toCIdent fun') (retType fun') (parameters fun') (statements fun')
+  return $ SFunDecl (toCIdent fun') t' (parameters fun') (statements fun')
 renameStm s = mapStmM renameStm s
 
 renameExp ∷ Exp → TCM Exp
 renameExp (EVar cid) = EVar <$> renameCIdent cid
 renameExp (ECall cid es) = do
   args ← mapM inferExp es
+  funsAlias ← lookupAliasMaybe (cIdentToString cid) >>=
+      (\x → case x of Just y → liftM Just (lookupFunction y); Nothing → return Nothing )
   funs ← lookupFunction (cIdentToString cid)
   fun ← maybe err return $ tryApply funs args `mplus` tryUncurry funs args
+          `mplus` (funsAlias >>= (`tryApply` args)) `mplus` (funsAlias >>= (`tryUncurry` args))
 
   -- It's possible that the found function is created on the fly by
   -- lookupFunction, in which case the alias field is empty.
@@ -167,15 +232,15 @@ renameExp (ECall cid es) = do
       then return $ ECurryCall (newCIdent cid alias') (head es') (head args)
       else return $ EPartCall (newCIdent cid alias') es' args
  where
-  err = compileError (cIdentToPos cid) $ "Unable to find function" ++ cIdentToString cid
+  err = compileError (cIdentToPos cid) $ "Unable to find function " ++ cIdentToString cid
   curried ∷ [Type] → [Type] → Bool
   curried funArgs inferred = length inferred == 1 && isVec (head inferred) &&
     length funArgs == vecLength (head inferred)
 renameExp e =  mapExpM renameExp e
 
 renameVariable ∷ Variable → TCM Variable
-renameVariable (Variable name loc typ) = Variable <$> newAlias name <*>
-  pure loc <*> pure typ
+renameVariable (Variable name loc typ e) = Variable <$> newAlias name <*>
+  pure loc <*> pure typ <*> pure e
 
 filterQuals ∷ [Qualifier] → TCM [Qualifier]
 filterQuals (QType t:qs) = (:) <$> (QType <$> filterTDef t) <*> filterQuals qs
@@ -184,9 +249,11 @@ filterQuals [] = pure []
 
 renameParam ∷ Param → TCM Param
 renameParam (ParamDec qs cid) = verifyQualsType qs >>= filterTDef >>=
-  addCIdentVariable cid >> ParamDec <$> filterQuals qs <*> renameCIdent cid
-renameParam (ParamDefault qs cid tk e) = ParamDefault <$> filterQuals qs <*>
-  renameCIdent cid <*> pure tk <*> renameExp e
+  (\t → addCIdentVariable cid t Nothing) >> ParamDec <$> filterQuals qs <*> renameCIdent cid
+renameParam (ParamDefault qs cid tk e) = do
+  e' ← renameExp e
+  verifyQualsType qs >>= filterTDef >>= (\t → addCIdentVariable cid t (Just e'))
+  ParamDefault <$> filterQuals qs <*> renameCIdent cid <*> pure tk <*> pure e'
 
 renameDecl ∷ Decl → TCM Decl
 renameDecl (Dec qs post) = Dec <$> filterQuals qs <*> renameDeclPost post

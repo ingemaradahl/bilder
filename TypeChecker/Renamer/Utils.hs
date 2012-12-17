@@ -67,7 +67,17 @@ lookupAlias s = do
     Nothing → debugError $ "ALIAS " ++ s ++ "NOT FOUND"
  where
   lookupAlias' ∷ [Aliases] → Maybe String
-  lookupAlias' [] = lookupAlias' []
+  lookupAlias' [] = Nothing
+  lookupAlias' (a:as) =
+    case Map.lookup s a of
+      Just alias' → Just alias'
+      Nothing → lookupAlias' as
+
+lookupAliasMaybe ∷ String → TCM (Maybe String)
+lookupAliasMaybe s = liftM lookupAlias' $ gets aliases
+ where
+  lookupAlias' ∷ [Aliases] → Maybe String
+  lookupAlias' [] = Nothing
   lookupAlias' (a:as) =
     case Map.lookup s a of
       Just alias' → Just alias'
@@ -80,7 +90,7 @@ addSource src = do
 
 annotateFunction ∷ Function → TCM Function
 annotateFunction f = do
-  ident' ← newAlias (ident f)
+  ident' ← if ident f == "main" then return "main" else newAlias (ident f)
   return $ f { alias = ident' }
 
 flushAliases ∷ TCM ()

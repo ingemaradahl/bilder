@@ -88,11 +88,11 @@ addVariable var = do
   name = ident var ∷ String
 
 -- | Add a variable to the current scope, using currentFile from the state
-addCIdentVariable ∷ CIdent → Type → TCM ()
-addCIdentVariable cid t = cIdentToVariable cid (uncurryType t) >>= addVariable
+addCIdentVariable ∷ CIdent → Type → Maybe Exp → TCM ()
+addCIdentVariable cid t me = cIdentToVariable cid (uncurryType t) me >>= addVariable
 
-cIdentToVariable ∷ CIdent → Type → TCM Variable
-cIdentToVariable cid t = Variable n <$> ((,) <$> gets currentFile <*> pure p) <*> pure t
+cIdentToVariable ∷ CIdent → Type → Maybe Exp → TCM Variable
+cIdentToVariable cid t me = Variable n <$> ((,) <$> gets currentFile <*> pure p) <*> pure t <*> pure me
  where
   n = cIdentToString cid
   p = cIdentToPos cid
@@ -220,7 +220,7 @@ paramToVar ∷ Param → TCM Variable
 paramToVar p = do
   varTyp ← paramType p >>= filterTDef
   file ← gets currentFile
-  return $ Variable (paramToString p) (file, paramToPos p) varTyp
+  return $ Variable (paramToString p) (file, paramToPos p) varTyp Nothing
 
 filterTDef ∷ Type → TCM Type
 filterTDef (TDefined tid) = lookupTypedef tid >>= (filterTDef . typedefType)
