@@ -58,6 +58,7 @@ renameBlob blob children = do
 
   -- Populate Scope
   mapM_ (mergeTypedefs . Blob.typedefs . snd3 . rootLabel) children
+  mergeTypedefs $ Blob.typedefs blob
   mapM_ (addSource . fst3 . rootLabel) children
   mergeVariables $ Blob.variables blob
   annotFuns ← mapM annotateFunction $ concat $ elems (Blob.functions blob)
