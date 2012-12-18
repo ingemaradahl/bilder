@@ -205,7 +205,7 @@ renameStm (SFunDecl cid t ps ss) = do
 renameStm s = mapStmM renameStm s
 
 renameExp ∷ Exp → TCM Exp
-renameExp (EVar cid) = EVar <$> renameCIdent cid
+renameExp (EVar cid) = setCIdentAssigned cid >> EVar <$> renameCIdent cid
 renameExp (ECall cid es) = do
   args ← mapM inferExp es
   funsAlias ← lookupAliasMaybe (cIdentToString cid) >>=
@@ -236,7 +236,7 @@ renameExp (ECall cid es) = do
   curried ∷ [Type] → [Type] → Bool
   curried funArgs inferred = length inferred == 1 && isVec (head inferred) &&
     length funArgs == vecLength (head inferred)
-renameExp e =  mapExpM renameExp e
+renameExp e = mapExpM renameExp e
 
 renameVariable ∷ Variable → TCM Variable
 renameVariable (Variable name loc typ e) = Variable <$> newAlias name <*>
@@ -256,7 +256,9 @@ renameParam (ParamDefault qs cid tk e) = do
   ParamDefault <$> filterQuals qs <*> renameCIdent cid <*> pure tk <*> pure e'
 
 renameDecl ∷ Decl → TCM Decl
-renameDecl (Dec qs post) = Dec <$> filterQuals qs <*> renameDeclPost post
+renameDecl (Dec qs post) = do
+  mapM_ setCIdentAssigned $ declPostIdents post
+  Dec <$> filterQuals qs <*> renameDeclPost post
 -- TODO STRUCT HELL
 
 renameForDecl ∷ ForDecl → TCM ForDecl

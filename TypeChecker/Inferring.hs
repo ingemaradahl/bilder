@@ -26,8 +26,8 @@ inferExp (EInt _) = return TInt
 inferExp ETrue = return TBool
 inferExp EFalse = return TBool
 inferExp (EVar cid) = do
-  isAssigned cid >>= (\b → unless b $ notAssigned cid)
   types ← lookupVarTypes cid
+  isAssigned cid >>= (\b → unless b $ notAssigned cid)
   when (length types > 1) $ warning (cIdentToPos cid)
     $ printf "more than one function/variable by the name \"%s\" - using the one declared last." (cIdentToString cid)
   return (head types)
@@ -39,7 +39,7 @@ inferExp (ECond ec tkq etrue tkc efalse) = do
   unless (tetrue == tefalse) $ typeMismatch (tkpos tkc) tetrue tefalse
   return tetrue
 inferExp (EAss (EVar cid) tk e) = do
-  setAssigned cid
+  setCIdentAssigned cid
   targetType ← liftM varType $ lookupVar cid
   valueType ← inferExp e
   case compAssType targetType valueType of
@@ -52,7 +52,7 @@ inferExp (EAss m@(EMember {}) tk e) = do
   return valueType
 -- TODO: Copy paste technology (.js), generalize cases like this
 inferExp (EAssAdd (EVar cid) tk e) = do
-  setAssigned cid
+  setCIdentAssigned cid
   targetType ← liftM varType $ lookupVar cid
   valueType ← inferExp e
   case compAssType targetType valueType of

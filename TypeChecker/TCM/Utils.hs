@@ -166,7 +166,9 @@ mergeFunctions' ∷ Map String Function → TCM ()
 mergeFunctions' funs = mapM_ (addFunction . snd) $ toList funs
 
 mergeVariables ∷ Map String Variable → TCM ()
-mergeVariables vars = mapM_ (addVariable . snd) $ toList vars
+mergeVariables vars = do
+  mapM_ addVariable $ elems vars
+  mapM_ setAssigned $ keys vars
 
 mergeTypedefs ∷ Map String Typedef → TCM ()
 mergeTypedefs defs = mapM_ (addTypedef . snd) $ toList defs
@@ -206,6 +208,11 @@ isQType ∷ Qualifier → Bool
 isQType (QType {}) = True
 isQType _ = False
 
+isExternal ∷ [Qualifier] → Bool
+isExternal [] = False
+isExternal ((QExternal {}):_) = True
+isExternal (_:rest) = isExternal rest
+
 paramExp ∷ Param → TCM Exp
 paramExp (ParamDefault _ _ _ e) = return e
 paramExp p = compileError (paramToPos p)
@@ -235,9 +242,13 @@ isAssigned cid = Scope.isAssigned name <$> gets scopes
  where
   name = cIdentToString cid
 
-setAssigned ∷ CIdent → TCM ()
-setAssigned cid = do
-  scs ← Scope.setAssigned name <$> gets scopes
+setCIdentAssigned ∷ CIdent → TCM ()
+setCIdentAssigned cid = do
+  ss ← gets scopes
+  let scs = Scope.setAssigned name ss
   modify (\s → s { scopes = scs })
  where
   name = cIdentToString cid
+
+setAssigned ∷ String → TCM ()
+setAssigned s = setCIdentAssigned (CIdent ((0,0),s))

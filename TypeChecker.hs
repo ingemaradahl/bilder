@@ -214,19 +214,22 @@ checkDecl (Dec qs (DecFun cid ps _)) = do
   return (TFun t tps)
 checkDecl (Dec qs post) = do
   t ← liftM uncurryType $ verifyQualsType qs >>= filterTDef
-  expT ← checkDecAss post
-
-  -- Check that inferred type and declared type matches
-  maybe (return ())
-    (\a → unless (t == a) $ decAssError (head $ declPostIdents post) a t) expT
 
   sequence_ [ addCIdentVariable cid t (declPostExp post) | cid ← declPostIdents post ]
+
+  -- if it's external - it's already assigned
+  when (isExternal qs) $ mapM_ setCIdentAssigned $ declPostIdents post
+
+  -- Check that inferred type and declared type matches
+  expT ← checkDecAss post
+  maybe (return ())
+    (\a → unless (t == a) $ decAssError (head $ declPostIdents post) a t) expT
 
   return t
 
 checkTopDecls ∷ AbsTree → TCM ()
 checkTopDecls (AbsTree tree) =
-  sequence_ [ checkDecl d | (TopDecl d) ← tree ]
+  sequence_ [ checkDecl d >> mapM_ setCIdentAssigned (declPostIdents post) | (TopDecl d@(Dec _ post)) ← tree ]
 
 checkForDecl ∷ ForDecl → TCM Type
 checkForDecl (FDecl decl) = checkDecl decl
@@ -234,7 +237,8 @@ checkForDecl (FExp e) = inferExp e
 
 checkDecAss ∷ DeclPost → TCM (Maybe Type)
 checkDecAss (Vars _) = return Nothing
-checkDecAss (DecAss _ _ e) = fmap Just $ inferExp e
+checkDecAss (DecAss cids _ e) =
+  mapM_ setCIdentAssigned cids >> fmap Just (inferExp e)
 
 -- }}}
 
