@@ -149,8 +149,10 @@ checkStatement s@(SReturn (TkReturn (pos,_)) e) = do
     else returnMismatch pos t
 checkStatement (SDecl decl@(Dec qs (DecFun cid ps stms))) = do
   currFun ← gets currentFunction
-  tdecl@(TFun rt _) ← checkDecl decl
+  tdecl@(TFun rt at) ← checkDecl decl
   ps' ← mapM paramToVar ps
+
+  when (not (okForPixelQuals rt at) && any isQPixel qs) $ pixelQualsOnImageonly cid
 
   addCIdentVariable cid tdecl Nothing
   -- Check the declared function.
@@ -215,6 +217,7 @@ checkDecl (Dec qs (DecFun cid ps _)) = do
   t ← verifyQualsType qs >>= filterTDef
   sequence_ [ unless (isQType q || isQPixel q) $ noFunctionQualifiers cid | q ← qs ]
   tps ← mapM paramType ps >>= mapM filterTDef
+  when (not (okForPixelQuals t tps) && any isQPixel qs) $ pixelQualsOnImageonly cid
   return (TFun t tps)
 checkDecl (Dec qs post) = do
   t ← liftM uncurryType $ verifyQualsType qs >>= filterTDef

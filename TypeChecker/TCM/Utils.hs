@@ -179,6 +179,7 @@ tcFun (Abs.Function qs cident params stms) = do
   retType' ← verifyQualsType qs >>= filterTDef
   sequence_ [ unless (isQType q || isQPixel q) $ noFunctionQualifiers cident | q ← qs ]
   unless (length (Prelude.filter isQPixel qs) <= 1) $ invalidQualList qs
+  when (not (okForPixelQuals retType' (Prelude.map varType params')) && any isQPixel qs) $ pixelQualsOnImageonly cident
   file ← gets currentFile
   let fun = TC.Function {
     functionName = cIdentToString cident,
@@ -201,6 +202,8 @@ verifyQuals qs = unless (null dups) $ invalidQualList qs
   eq ∷ Qualifier → Qualifier → Bool
   eq (QExternal {}) (QExternal {}) = True
   eq (QConst {}) (QConst {}) = True
+  eq (QPixelwise {}) (QPixelwise {}) = True
+  eq (QBounded {}) (QBounded {}) = True
   eq a b = a == b
 
 verifyQualsType ∷ [Qualifier] → TCM Type

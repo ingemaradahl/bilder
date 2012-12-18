@@ -70,6 +70,7 @@ isConst _ = False
 declPostIdents ∷ DeclPost → [CIdent]
 declPostIdents (Vars i) = i
 declPostIdents (DecAss i _ _) = i
+declPostIdents (DecFun i _ _) = [i]
 
 declPostExp ∷ DeclPost → Maybe Exp
 declPostExp (DecAss _ _ e) = Just e
@@ -94,6 +95,9 @@ stmPos (SBlock ss) = stmPos $ head ss
 stmPos (SDecl (Dec _ decpost)) = cIdentToPos $ head $ declPostIdents decpost
 stmPos _ = (-1,-1)
 
+okForPixelQuals ∷ Type → [Type] → Bool
+okForPixelQuals ret ts | length ts < 2 || ret /= TVec4 = False
+                       | otherwise = all isNum $ leave 2 ts
 
 -- }}}
 -- Function checking {{{

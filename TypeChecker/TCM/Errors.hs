@@ -115,6 +115,16 @@ qualsNoTypeGiven qs =
  where
   pos = qualToPos $ head qs
 
+pixelQualsOnImageonly ∷ CIdent → TCM a
+pixelQualsOnImageonly cid =
+  typeError pos $
+    printf ("In definition of function '%s',\n" ++
+            "Pixel layout qualifier only allowed on image-like functions")
+    (cIdentToString cid)
+ where
+  pos = cIdentToPos cid
+
+
 decAssError ∷ CIdent → Type → Type → TCM a
 decAssError cid inferred expected =
   typeError (cIdentToPos cid) $
