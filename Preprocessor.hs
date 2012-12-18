@@ -17,6 +17,7 @@ import Data.List (sortBy)
 import Data.Map (member, insert, delete, assocs)
 
 import Text.Printf (printf)
+import Text.Regex.Posix
 
 import CompilerError
 
@@ -28,7 +29,15 @@ import Data.Function (on)
 readAndProcessFile ∷ FilePath → PM String
 readAndProcessFile f = do
   modify (\s → s {currentFile = f})
-  liftIO (readFile f) >>= preprocess
+  src ← liftIO (readFile f)
+  mapM_ readChild (lines src)
+  preprocess src
+
+readChild ∷ String → PM ()
+readChild line =
+  case extractFileName line of
+    Nothing   → return ()
+    Just file → void $ readAndProcessFile file
 
 -- | Preprocess the given source code.
 preprocess ∷ String → PM String
@@ -37,6 +46,11 @@ preprocess src = do
   ifs ← gets ifStack
   unless (ifs == []) $ syntaxError "unmatched if-statement."
   return $ (concat . catMaybes) ls
+
+extractFileName ∷ String → Maybe String
+extractFileName line = if null ms then Nothing else Just $ head ms
+ where
+  (_,_,_,ms) = line =~ "import[ ]+\"([^\"]+)\"" ∷ (String,String,String,[String])
 
 -- | Preprocesses given a line of source code
 processLine ∷ (Int, String) → PM (Maybe String)
@@ -57,7 +71,7 @@ processLine (n, line) = do
       if k
         then liftM (Just . (++ "\n")) (subMacros line)
         else return Nothing
-  where
+ where
     isDirective ∷ String → Bool
     isDirective = (=="#") . take 1 . dropWhile (==' ')
     extractDeclarative ∷ String → (String, String)
@@ -73,7 +87,7 @@ subMacros ∷ String → PM String
 subMacros s = do
   ms ← gets defines
   return $ foldr sub s $ sortBy (compare `on` (length . fst)) (assocs ms)
-  where
+ where
     sub ∷ (String, String) → String → String
     sub (k, v) t = subRegex (mkRegex k) t v
 
@@ -86,17 +100,15 @@ isDefined name = do
 -- | Adds a definiton writing over existing ones with the same name
 define ∷ String → PM ()
 define line = do
---  liftIO $ putStrLn $ printf "defining macro %s" name
+  line' ← subMacros line
+  let (name, value) = (break (==' ') . strip) line'
   isDefined name >>= flip when (warning $ printf "%s already defined." name)
   defs ← gets defines
   modify (\s → s { defines = insert name (strip value) defs })
-  where
-    (name, value) = (break (==' ') . strip) line
 
 -- | Deletes a definition
 undefine ∷ String → PM ()
 undefine name = do
---  liftIO $ putStrLn $ printf "undefining macro %s" name
   isDefined name >>= flip unless (warning $ printf "%s not defined." name)
   defs ← gets defines
   modify (\st → st { defines = delete (strip name) defs })

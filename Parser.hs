@@ -24,6 +24,7 @@ type PM a = StateT PPEnv (CErrorT IO) a
 data PPEnv = PPEnv {
 	defines ∷ Map.Map String String,
 	ifStack ∷ [Bool],
+  children ∷ Map.Map String String,
   warnings ∷ [(Position, String)],
   filepaths ∷ [FilePath],
   currentFile ∷ FilePath,
@@ -36,6 +37,7 @@ buildEnv ∷ Options → PPEnv
 buildEnv os = PPEnv {
   ifStack = [],
   defines = Map.empty,
+  children = Map.empty,
   warnings = [],
   filepaths = [],
   currentFile = "",
