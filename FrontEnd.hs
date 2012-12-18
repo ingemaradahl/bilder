@@ -6,6 +6,7 @@ import System.FilePath
 
 import Control.Monad
 import Control.Monad.Trans.State
+import Control.Monad.Error
 
 import Data.Tree
 import Data.List ((\\))
@@ -66,23 +67,32 @@ isMain ∷ Toplevel → Bool
 isMain (Function _ cid _ _) = cIdentToString cid == "main"
 isMain _ = False
 
-preprocessNetFile ∷ NetFile → PM String
-preprocessNetFile f = do
+preprocessNetFile ∷ NetFile → [NetFile] → PM String
+preprocessNetFile f cs = do
+  mapM_ (`readNetChild` cs) (lines $ contents f)
   modify (\s → s {currentFile = name f})
   preprocess (contents f)
+
+readNetChild ∷ String → [NetFile] → PM ()
+readNetChild line cs =
+  case extractFileName line of
+    Nothing → return ()
+    Just f  → mapM_ (`preprocessNetFile` cs) (findFile f)
+ where
+  findFile f = filter (\nf → name nf == f) cs
 
 parseNet ∷ [NetFile] → PM (Tree (FilePath, AbsTree))
 parseNet fs = do
   -- parse all the files
   pfs ← sequence [ do
-    pf ← preprocessNetFile f >>= parse
+    pf ← preprocessNetFile f fs >>= parse
     return (name f, pf)
     | f ← fs ]
 
   -- find what file cointains the main-function.
   let mfs = filter (hasMain . snd) pfs
-  -- TODO: Throw a real CompilerError.
-  unless (length mfs == 1) $ error "unable to locate function `main'."
+  when (length mfs > 1) $ throwError $ UnknownError "too many `main' functions found."
+  when (length mfs < 1) $ throwError $ UnknownError "unable to locate function `main'."
   let main = head mfs
 
   parseNetWithPrelude main pfs
