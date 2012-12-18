@@ -53,6 +53,8 @@ paramToQuals (ParamDefault qs _ _ _) = qs
 qualToPos ∷ Qualifier → Position
 qualToPos (QExternal (TkExternal (p,_))) = p
 qualToPos (QConst (TkConst (p,_))) = p
+qualToPos (QPixelwise tk) = tkpos tk
+qualToPos (QBounded tk) = tkpos tk
 qualToPos (QType _) = (-1,-1)
 
 qualType ∷ [Qualifier] → Maybe Type
@@ -111,6 +113,7 @@ buildAnonFunc name loc ret args = TypeChecker.Types.Function {
     alias = "", -- Hacky, but has to be empty (see renameExp|ECall)
     functionLocation = loc,
     retType = ret,
+    pixelwise = False,
     paramVars = map buildAnonVar args,
     parameters = [],
     statements = []

@@ -177,13 +177,15 @@ tcFun ∷ Toplevel → TCM Function
 tcFun (Abs.Function qs cident params stms) = do
   params' ← mapM paramToVar params
   retType' ← verifyQualsType qs >>= filterTDef
-  sequence_ [ unless (isQType q) $ noFunctionQualifiers cident | q ← qs ]
+  sequence_ [ unless (isQType q || isQPixel q) $ noFunctionQualifiers cident | q ← qs ]
+  unless (length (Prelude.filter isQPixel qs) <= 1) $ invalidQualList qs
   file ← gets currentFile
   let fun = TC.Function {
     functionName = cIdentToString cident,
     alias = "",
     functionLocation = (file, cIdentToPos cident),
     retType = retType',
+    pixelwise = any isQPixelWise qs,
     paramVars = params',
     parameters = params,
     statements = stms
@@ -207,6 +209,17 @@ verifyQualsType qs = verifyQuals qs >> maybe (qualsNoTypeGiven qs) return (qualT
 isQType ∷ Qualifier → Bool
 isQType (QType {}) = True
 isQType _ = False
+
+isQPixel ∷ Qualifier → Bool
+isQPixel q = isQPixelWise q || isQBounded q
+
+isQPixelWise ∷ Qualifier → Bool
+isQPixelWise (QPixelwise {}) = True
+isQPixelWise _ = False
+
+isQBounded ∷ Qualifier → Bool
+isQBounded (QBounded {}) = True
+isQBounded _ = False
 
 isExternal ∷ [Qualifier] → Bool
 isExternal [] = False

@@ -15,6 +15,7 @@ data Variable = Variable {
 data Function = Function {
       functionName ∷ String
     , returnType ∷ Type
+    , pixelwise ∷ Bool
     , parameters ∷ [Variable]
     , statements ∷ [Stm]
   }

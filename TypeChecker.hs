@@ -49,7 +49,7 @@ typeCheck opts tree = do
   check srcTree = unless (rootLabel srcTree `exports` main) noEntryPoint
   rootFile = (fst . rootLabel) tree
   loc = (rootFile,(-1,-1))
-  main = Types.Function "main" "" loc TVec4 [x,y] [] []
+  main = Types.Function "main" "" loc TVec4 False [x,y] [] []
   x = Variable "x" loc TFloat Nothing
   y = Variable "y" loc TFloat Nothing
   noEntryPoint ∷ TCM a
@@ -147,7 +147,8 @@ checkStatement s@(SReturn (TkReturn (pos,_)) e) = do
   if retType fun == t
     then return $ SType t s
     else returnMismatch pos t
-checkStatement (SDecl decl@(Dec _ (DecFun cid ps stms))) = do
+checkStatement (SDecl decl@(Dec qs (DecFun cid ps stms))) = do
+  currFun ← gets currentFunction
   tdecl@(TFun rt _) ← checkDecl decl
   ps' ← mapM paramToVar ps
 
@@ -159,6 +160,7 @@ checkStatement (SDecl decl@(Dec _ (DecFun cid ps stms))) = do
     alias = "",
     functionLocation = (file, cIdentToPos cid),
     retType = rt,
+    pixelwise = any isQPixelWise qs || (pixelwise currFun && none isQBounded qs),
     paramVars = ps',
     parameters = ps,
     statements = stms
@@ -166,7 +168,9 @@ checkStatement (SDecl decl@(Dec _ (DecFun cid ps stms))) = do
   addFunction fun
   fun' ← checkFunction fun
 
-  return $ SFunDecl cid tdecl ps (statements fun')
+  let ibool = if pixelwise fun then ITrue else IFalse
+
+  return $ SFunDecl cid tdecl ibool ps (statements fun')
 checkStatement s@(SDecl decl) = SType <$> checkDecl decl <*> pure s
 checkStatement (SIf tk@(TkIf (pos,_)) cond stm) = do
   condt ← inferExp cond >>= filterTDef
@@ -209,7 +213,7 @@ scopeCheckStatement s = do
 checkDecl ∷ Decl → TCM Type
 checkDecl (Dec qs (DecFun cid ps _)) = do
   t ← verifyQualsType qs >>= filterTDef
-  sequence_ [ unless (isQType q) $ noFunctionQualifiers cid | q ← qs ]
+  sequence_ [ unless (isQType q || isQPixel q) $ noFunctionQualifiers cid | q ← qs ]
   tps ← mapM paramType ps >>= mapM filterTDef
   return (TFun t tps)
 checkDecl (Dec qs post) = do

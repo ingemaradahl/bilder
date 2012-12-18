@@ -24,6 +24,7 @@ data Function = Function {
   , alias ∷ String
   , functionLocation ∷ Location
   , retType ∷ Type
+  , pixelwise ∷ Bool
   , paramVars ∷ [Variable]
   , parameters ∷ [Param]
   , statements ∷ [Stm]
@@ -39,7 +40,7 @@ instance Eq Function where
              map varType (paramVars fa) == map varType (paramVars fb)
 
 instance Show Function where
-  show (TypeChecker.Types.Function name _ _ ret params pars ss) = printf "%s :: %s -> %s\n -- Parameters ------------------\n%s\n -- Function body --------------\n%s\n\n"
+  show (TypeChecker.Types.Function name _ _ ret _ params pars ss) = printf "%s :: %s -> %s\n -- Parameters ------------------\n%s\n -- Function body --------------\n%s\n\n"
     name
     (intercalate " -> " $ map (show . varType) params)
     (show ret)

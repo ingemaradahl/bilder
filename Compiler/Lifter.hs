@@ -141,7 +141,7 @@ liftInnerFunVars (SReturn tk e) = SReturn tk <$> expandECall e
 liftInnerFunVars (SIf tk e s) = SIf tk <$> expandECall e <*> liftInnerFunVars s
 liftInnerFunVars (SIfElse tkif e strue tkelse sfalse) =
   SIfElse tkif <$> expandECall e <*> liftInnerFunVars strue <*> pure tkelse <*> liftInnerFunVars sfalse
-liftInnerFunVars (SFunDecl cid rt ps stms) = do
+liftInnerFunVars (SFunDecl cid rt px ps stms) = do
   sequence_ [ addVarType (paramToString p) ((qualsToType . paramToQuals) p) | p ← ps ]
   stms' ← mapM liftInnerFunVars stms
 
@@ -162,7 +162,7 @@ liftInnerFunVars (SFunDecl cid rt ps stms) = do
   pst ← mapM (varType . paramToString) ps'
   addVarType (cIdentToString cid) (TFun rt pst)
 
-  return $ SFunDecl cid rt ps' (map (mapStmExp (renameExpVars renames)) stms')
+  return $ SFunDecl cid rt px ps' (map (mapStmExp (renameExpVars renames)) stms')
 liftInnerFunVars x = return x -- The rest: SBreak, SContinue, SDiscard
 
 -- | Renames all variables in an expression according to the Map.
@@ -294,10 +294,10 @@ unusedFunDecl stm =
  where
   (line, col) = sFunDeclToPos stm
   sFunDeclToPos ∷ Stm → Position
-  sFunDeclToPos (SFunDecl cid _ _ _) = cIdentToPos cid
+  sFunDeclToPos (SFunDecl cid _ _ _ _) = cIdentToPos cid
   sFunDeclToPos s = maybe (0,0) sFunDeclToPos (findSFunDecl s)
   sFunDeclToName ∷ Stm → String
-  sFunDeclToName (SFunDecl cid _ _ _) = cIdentToString cid
+  sFunDeclToName (SFunDecl cid _ _ _ _) = cIdentToString cid
   sFunDeclToName s = maybe "N/A" sFunDeclToName (findSFunDecl s)
 
 findSFunDecl ∷ Stm → Maybe Stm
@@ -350,21 +350,23 @@ liftSFunDecl (SIfElse tki e strue tke sfalse) = do
  where
   negSIf = SIf tki (ENegSign (TkNegSign ((0,0),"!")) e)
 liftSFunDecl (SType t s) = liftStm s (SType t)
-liftSFunDecl (SFunDecl cid (TFun rt _) ps stms) = do
+liftSFunDecl (SFunDecl cid (TFun rt _) px ps stms) = do
+  let pixelMode = px == ITrue
   -- lift inner inner functions first.
   stms' ← funLifter stms
   -- create a new top level function...
   file ← gets currentFile
-  addSourceFunction $ mkFun file (cIdentToString cid) rt (map (paramToVar file) ps) ps stms'
+  addSourceFunction $ mkFun file (cIdentToString cid) rt pixelMode (map (paramToVar file) ps) ps stms'
   return Nothing
 liftSFunDecl s = return $ Just s
 
-mkFun ∷ String → String → Type → [T.Variable] → [Param] → [Stm] → T.Function
-mkFun f name rt vs ps stms =
+mkFun ∷ String → String → Type → Bool → [T.Variable] → [Param] → [Stm] → T.Function
+mkFun f name rt px vs ps stms =
   T.Function {
     T.functionName = name,
     T.functionLocation = (f, (-1,-1)),
     T.retType = rt,
+    T.pixelwise = px,
     T.paramVars = vs,
     T.parameters = ps,
     T.statements = stms,

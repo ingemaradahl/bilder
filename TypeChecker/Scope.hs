@@ -112,5 +112,5 @@ builtInFuns = fromList $ evalState (mapM buildFuns [
   buildFun n (rt, ts) = do
     i ← gets head
     modify tail
-    return $ TypeChecker.Types.Function n (printf "_x%02d%s" i n) ("predefined", (-1,-1)) rt (map var ts) (map param ts) []
+    return $ TypeChecker.Types.Function n (printf "_x%02d%s" i n) ("predefined", (-1,-1)) rt False (map var ts) (map param ts) []
 

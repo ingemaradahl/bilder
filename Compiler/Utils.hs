@@ -31,13 +31,6 @@ varTypeToParam n t = ParamDec [QType t] name
  where
   name = CIdent ((-1,-1),n)
 
--- | Finds all declared (inner) functions.
-findInnerFuns ∷ [Stm] → [AbsFun]
-findInnerFuns [] = []
-findInnerFuns (SFunDecl cid _ ps stms:rest) =
-  (cIdentToString cid, ps, stms) : findInnerFuns rest ++ findInnerFuns stms
-findInnerFuns (_:rest) = findInnerFuns rest
-
 -- | Extracts a declared variables name.
 declToName ∷ Decl → [String]
 declToName (Dec _ dp) = declPostToName dp
@@ -135,7 +128,7 @@ foldStmM f p s@(SBreak {}) = f p s
 foldStmM f p s@(SContinue {}) = f p s
 foldStmM f p s@(SDiscard {}) = f p s
 foldStmM f p s@(SType _ is) = foldStmM f p is >>= flip f s
-foldStmM f p s@(SFunDecl _ _ _ iss) = foldM (foldStmM f) p iss >>= flip f s
+foldStmM f p s@(SFunDecl _ _ _ _ iss) = foldM (foldStmM f) p iss >>= flip f s
 
 foldStm ∷ (a → Stm → a) → a → Stm → a
 foldStm f p s = runIdentity (foldStmM (liftIdentity f) p s)
@@ -216,7 +209,7 @@ mapStmM _ s@(SBreak {}) = pure s
 mapStmM _ s@(SContinue {}) = pure s
 mapStmM _ s@(SDiscard {}) = pure s
 mapStmM f (SType t s) = SType t <$> f s
-mapStmM f (SFunDecl cid t ps ss) = SFunDecl cid t ps <$> mapM f ss
+mapStmM f (SFunDecl cid t px ps ss) = SFunDecl cid t px ps <$> mapM f ss
 
 mapStm ∷ (Stm → Stm) → Stm → Stm
 mapStm f s = runIdentity $ mapStmM f' s

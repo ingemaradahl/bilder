@@ -86,7 +86,7 @@ finalizeMain shd =
   shd { functions = Map.adjust reworkMain "main" (functions shd) }
 
 reworkMain ∷ Function → Function
-reworkMain (Function name _ [x, y] stms) = Function name TVoid [] (d:stms')
+reworkMain (Function name _ px [x, y] stms) = Function name TVoid px [] (d:stms')
  where
   p = Variable "p" TVec2 True Nothing
   d = SDeclAss p (EDiv gl_FragCoord_xy fl_Resolution)

@@ -116,8 +116,8 @@ replaceFunTDefs fun = do
 
 replaceStm ∷ Stm → Reader [Map String Typedef] Stm
 replaceStm (SType t s) = SType <$> replaceType t <*> replaceStm s
-replaceStm (SFunDecl i t ps ss) =
-  SFunDecl i <$> replaceType t <*> mapM replaceParam ps <*> mapM replaceStm ss
+replaceStm (SFunDecl i t px ps ss) =
+  SFunDecl i <$> replaceType t <*> pure px <*> mapM replaceParam ps <*> mapM replaceStm ss
 replaceStm (SFor tk fds ecs eis s) =
   SFor tk <$> mapM (mapForDeclExpM replaceExp) fds <*> mapM replaceExp ecs <*> mapM replaceExp eis <*> replaceStm s
 replaceStm s = mapStmExpM replaceExp s
@@ -181,7 +181,7 @@ renameStm (SIf tk e s) = SIf tk <$> renameExp e <*> renameStm s
 renameStm (SIfElse tki e st tke sf) = SIfElse tki <$> renameExp e <*>
   renameStm st <*> pure tke <*> renameStm sf
 renameStm (SType t s) = SType <$> filterTDef t <*> renameStm s
-renameStm (SFunDecl cid t ps ss) = do
+renameStm (SFunDecl cid t px ps ss) = do
   ps' ← mapM paramToVar ps
   file ← gets currentFile
   t' ← filterTDef t
@@ -193,6 +193,7 @@ renameStm (SFunDecl cid t ps ss) = do
     , alias = ""
     , functionLocation = (file, cIdentToPos cid)
     , retType = ret
+    , pixelwise = px == ITrue
     , paramVars = ps'
     , parameters = ps
     , statements = ss
@@ -202,7 +203,7 @@ renameStm (SFunDecl cid t ps ss) = do
 
   fun' ← renameFunction fun
 
-  return $ SFunDecl (toCIdent fun') t' (parameters fun') (statements fun')
+  return $ SFunDecl (toCIdent fun') t' px (parameters fun') (statements fun')
 renameStm s = mapStmM renameStm s
 
 renameExp ∷ Exp → TCM Exp

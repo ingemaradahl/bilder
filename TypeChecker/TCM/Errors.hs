@@ -196,7 +196,7 @@ noReturnError f =
 noFunctionQualifiers ∷ CIdent → TCM a
 noFunctionQualifiers cid =
   typeError (cIdentToPos cid) $
-    printf "Function declarations can't take any qualifiers other than types."
+    printf "Function declarations can't take any qualifiers other than types and pixel layout definition."
 
 notAssigned ∷ CIdent → TCM a
 notAssigned cid =

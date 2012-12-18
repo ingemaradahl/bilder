@@ -43,7 +43,7 @@ sampleCount shd = evalState (countSamples mainFun) (emptyState shd)
   mainFun = fromJust $ Map.lookup "main" (functions shd)
 
 countSamples ∷ Function → State Count Int
-countSamples (Function _ _ _ stms) = do
+countSamples (Function _ _ _ _ stms) = do
   c ← mapM countStm stms
   return $ sum c
 
