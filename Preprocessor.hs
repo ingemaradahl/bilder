@@ -1,7 +1,4 @@
 {-# LANGUAGE UnicodeSyntax #-}
-{- Limitation: defines in imported files will be defined first after
-    the preprocessing is done. So defines in imported files will not
-    work as intended. -}
 
 module Preprocessor where
 
@@ -47,6 +44,7 @@ preprocess src = do
   unless (ifs == []) $ syntaxError "unmatched if-statement."
   return $ (concat . catMaybes) ls
 
+-- | Extracts the filename from an import statement.
 extractFileName ∷ String → Maybe String
 extractFileName line = if null ms then Nothing else Just $ head ms
  where
@@ -73,9 +71,9 @@ processLine (n, line) = do
         else return Nothing
  where
     isDirective ∷ String → Bool
-    isDirective = (=="#") . take 1 . dropWhile (==' ')
+    isDirective = (=="#") . take 1 . strip
     extractDeclarative ∷ String → (String, String)
-    extractDeclarative = stripTuple . break (==' ') . drop 1 . strip
+    extractDeclarative = stripTuple . break (==' ') . strip . drop 1 . strip
     stripTuple (a, b) = (strip a, strip b)
     keep ∷ PM Bool
     keep = do
@@ -114,7 +112,7 @@ undefine name = do
   modify (\st → st { defines = delete (strip name) defs })
 
 strip ∷ String → String
-strip = dropWhile (==' ')
+strip = dropWhile (`elem` " \t")
 
 -- | pushAction / popAction keeps actions to take (keep source line or not)
 pushAction ∷ Bool → PM ()
