@@ -63,22 +63,18 @@ processLine (n, line) = do
       ("else", _)      → popAction >>= (pushAction . not)
       ("endif", _)     → void popAction
       (decl, _) → void $ warning (printf "unknown declarative: %s." decl)
-      >> return Nothing
+      >> return (Just $ "//" ++ line ++ "\n")
     else do
-      k ← keep
-      if k
+      ifs ← gets ifStack
+      if all (==True) ifs
         then liftM (Just . (++ "\n")) (subMacros line)
-        else return Nothing
+        else return $ Just ("//" ++ line ++ "\n")
  where
     isDirective ∷ String → Bool
     isDirective = (=="#") . take 1 . strip
     extractDeclarative ∷ String → (String, String)
     extractDeclarative = stripTuple . break (==' ') . strip . drop 1 . strip
     stripTuple (a, b) = (strip a, strip b)
-    keep ∷ PM Bool
-    keep = do
-      ifs ← gets ifStack
-      return $ all (==True) ifs
 
 -- | Substitutes all macros in given string
 subMacros ∷ String → PM String
