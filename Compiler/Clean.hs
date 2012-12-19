@@ -30,7 +30,7 @@ type Variables = Map.Map String Variable
 clean ∷ Shader → Shader
 clean sh = sh { variables = dropVars (variables sh) newFuns, functions = newFuns }
  where
-  newFuns = dropFuns (Map.map cleanFun (functions sh))
+  newFuns = dropFuns (Map.map (cleanFun (variables sh)) (functions sh))
 
 dropFuns ∷ Functions → Functions
 dropFuns funs = Map.filterWithKey (\k _ → k `elem` findCalls mainf ["main"]) funs
@@ -50,13 +50,14 @@ dropVars vs funs = Map.filterWithKey (\k _ → k `elem` references) vs
   references ∷ [String]
   references = nub $ concatMap (usedVars . statements) (Map.elems funs)
 
-
 -- | Removes unnecessary statements from a function.
-cleanFun ∷ Function → Function
-cleanFun fun = fun { statements = cleaned }
+cleanFun ∷ Variables → Function → Function
+cleanFun globs fun = fun { statements = cleaned }
  where
   stms = reverse $ statements fun
-  cleaned = evalState (needed (head stms) (tail stms)) []
+  a = assignedVars stms
+  b = "gl_FragColor":"fl_Resolution":Map.keys globs
+  cleaned = evalState (needed (head stms) (tail stms)) (map Var $ a `intersect` b)
 
 -- | Returns a list of needed statements given a starting statement.
 needed ∷ Stm → [Stm] → State Dependencies [Stm]

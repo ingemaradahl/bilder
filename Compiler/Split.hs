@@ -404,6 +404,7 @@ depends ∷ [Exp] → State St [(SlimFun, [Stm])]
 depends es = do
   -- add all initial dependencies.
   mapM_ (mapM_ (uncurry addDeps) . expDeps) es
+  gets (Map.keys . variables) >>= mapM_ (add . Var)
 
   -- find all needed dependencies
   gb ← gets gobbled

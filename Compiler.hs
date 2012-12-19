@@ -95,17 +95,17 @@ reworkMain ∷ Function → Function
 reworkMain (Function name _ px [x, y] stms) = Function name TVoid px [] (d:stms')
  where
   p = Variable "p" TVec2 True Nothing
-  d = SDeclAss p (EDiv gl_FragCoord_xy fl_Resolution)
+  d = SDeclAss p $ if px then gl_FragCoord_xy else EDiv gl_FragCoord_xy fl_Resolution
   x' = EMember (EVar (variableName p)) "x"
   y' = EMember (EVar (variableName p)) "y"
-  stms' = map (subReturn . mapStmExp subXY) stms
+  stms' = subReturn $ map (mapStmExp subXY) stms
   subXY ∷ Exp → Exp
   subXY (EVar s) | s == variableName x = x'
   subXY (EVar s) | s == variableName y = y'
   subXY e = mapExp subXY e
-  subReturn ∷ Stm → Stm
-  subReturn (SReturn e) = SExp $ EAss gl_FragColor e
-  subReturn s = mapStm subReturn s
+  subReturn ∷ [Stm] → [Stm]
+  subReturn (SReturn e:s) = SExp (EAss gl_FragColor e):SVoidReturn:s
+  subReturn ss = expandStm subReturn ss
 
 renameBuiltin ∷ Shader → Shader
 renameBuiltin sh = sh { functions =

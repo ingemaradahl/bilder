@@ -23,6 +23,13 @@ usedVars = nub . gather collect
   collect e@(EVar s) = tell [s] >> return e
   collect e = mapExpM collect e
 
+assignedVars ∷ [Stm] → [String]
+assignedVars = nub . gather collect
+ where
+  collect ∷ Exp → Writer [String] Exp
+  collect e@(EAss (EVar s) _) = tell [s] >> return e
+  collect e = mapExpM collect e
+
 calls ∷ [Stm] → [String]
 calls = nub . gather collect
  where
