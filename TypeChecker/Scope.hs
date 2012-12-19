@@ -25,7 +25,7 @@ emptyScope ∷ Scope
 emptyScope = Scope { functions = empty, typedefs = empty, variables = empty, assigned = [] }
 
 builtInScope ∷ Scope
-builtInScope = emptyScope { functions = builtInFuns }
+builtInScope = emptyScope { functions = builtInFuns, variables = builtInVars }
 
 -- | Add a function to a scope
 addFunction ∷ Function → Scope → Scope
@@ -75,6 +75,7 @@ lookupTypedef _ [] = Nothing
 isAssigned ∷ String → [Scope] → Bool
 isAssigned _ [] = False
 isAssigned n (s:ss)
+  | n == "fl_Resolution" = True -- HACKHACK
   | n `elem` assigned s = True
   | otherwise           = isAssigned n ss
 
@@ -83,6 +84,9 @@ setAssigned _ [] = []
 setAssigned n ss
   | True `elem` map (\s → n `elem` (keys . variables) s) ss = (head ss) { assigned = n : assigned (head ss) } : setAssigned n (tail ss)
   | otherwise = ss
+
+builtInVars ∷ Map String Variable
+builtInVars = fromList [("fl_Resolution", Variable "fl_Resolution" ("predefined", (-1,-1)) TVec2 (Just (EFloat (CFloat "1.0"))))]
 
 -- | Creates a Map of built in functions
 builtInFuns ∷ Map String [Function]
@@ -112,5 +116,5 @@ builtInFuns = fromList $ evalState (mapM buildFuns [
   buildFun n (rt, ts) = do
     i ← gets head
     modify tail
-    return $ TypeChecker.Types.Function n (printf "_x%02d%s" i n) ("predefined", (-1,-1)) rt (map var ts) (map param ts) []
+    return $ TypeChecker.Types.Function n (printf "_x%02d%s" i n) ("predefined", (-1,-1)) rt False (map var ts) (map param ts) []
 

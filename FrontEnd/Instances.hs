@@ -61,6 +61,14 @@ instance Token TkExternal where
   tkpos (TkExternal (p,_)) = p
   tkident (TkExternal (_,s)) = s
 
+instance Token TkPixelwise where
+  tkpos (TkPixelwise (p,_)) = p
+  tkident (TkPixelwise (_,s)) = s
+
+instance Token TkBounded where
+  tkpos (TkBounded (p,_)) = p
+  tkident (TkBounded (_,s)) = s
+
 instance Token TkTypeDef where
   tkpos (TkTypeDef (p,_)) = p
   tkident (TkTypeDef (_,s)) = s

@@ -22,23 +22,23 @@ simpleInline ss = execState (mapM simpleInlineFun (functions ss)) ss
 
 simpleInlineFun ∷ Function → State Shader ()
 simpleInlineFun f = do
-  stms ← mapM (mapStmExpM simpleInlineExp) $ statements f
+  stms ← mapM (mapStmExpM (simpleInlineExp (pixelwise f))) $ statements f
   modify (\st → st { functions = Map.insert name (f { statements = stms}) (functions st) })
  where
   name = functionName f
 
-simpleInlineExp ∷ Exp → State Shader Exp
-simpleInlineExp e@(ECall f es) = do
-  es' ← mapM simpleInlineExp es
+simpleInlineExp ∷ Bool → Exp → State Shader Exp
+simpleInlineExp px e@(ECall f es) = do
+  es' ← mapM (simpleInlineExp px) es
   funs ← gets functions
-  case Map.lookup f funs >>= (\x → mayhaps (simpleEnough x) x) of
+  case Map.lookup f funs >>= (\x → mayhaps (simpleEnough x px) x) of
     Just fun → do
       let (SReturn ex) = head (statements fun)
       return $ replaceVars
                   (Map.fromList $ zip (map variableName (parameters fun)) es')
                   ex
     Nothing → return e
-simpleInlineExp e = mapExpM simpleInlineExp e
+simpleInlineExp px e = mapExpM (simpleInlineExp px) e
 
 replaceVars ∷ Map.Map String Exp → Exp → Exp
 replaceVars trans = replace
@@ -48,12 +48,12 @@ replaceVars trans = replace
   replace e = mapExp replace e
 
 -- Sanity check
-simpleEnough ∷ Function → Bool
-simpleEnough f | countStms f == 1 =
+simpleEnough ∷ Function → Bool → Bool
+simpleEnough f px | countStms f == 1 && pixelwise f == px =
   case head (statements f) of
     SReturn _ → True
     _ → False
-simpleEnough _ = False
+simpleEnough _ _ = False
 
 countStms ∷ Function → Int
 countStms = length . statements

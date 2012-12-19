@@ -22,6 +22,7 @@ import TypeChecker.Types as Types hiding (
     functionName
   , statements
   , retType
+  , pixelwise
   , paramVars
   , functions
   , variables
@@ -32,6 +33,7 @@ import qualified TypeChecker.Types as Function (
     functionName
   , statements
   , retType
+  , pixelwise
   , paramVars
   )
 
@@ -44,13 +46,14 @@ type Chunk = ([(SlimFun, [Stm])], String, SlimFun)
 data SlimFun = SlimFun {
     functionName ∷ String
   , retType ∷ Type
+  , pixelwise ∷ Bool
   , args ∷ [SlimVar]
   , statements ∷ [Stm]
 }
  deriving (Eq)
 
 instance Show SlimFun where
- show (SlimFun name ret params stms) = printf "%s %s(%s)\n{%s\n}\n"
+ show (SlimFun name ret _ params stms) = printf "%s %s(%s)\n{%s\n}\n"
   (show ret)
   name
   (show params)
@@ -146,6 +149,7 @@ stripFun ∷ Function → SlimFun
 stripFun f = SlimFun {
     functionName = Function.functionName f
   , retType = Function.retType f
+  , pixelwise = Function.pixelwise f
   , args = map stripVar $ Function.paramVars f
   , statements = Function.statements f
 }

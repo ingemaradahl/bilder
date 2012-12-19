@@ -36,8 +36,8 @@ splitShaderToSimple shd = Shader {
   }
 
 slimFunToSimple ∷ Split.SlimFun → Function
-slimFunToSimple (Split.SlimFun name ret args stms) =
-  Function name (translate ret) (map slimVarToSimple args) (map translate stms)
+slimFunToSimple (Split.SlimFun name ret px args stms) =
+  Function name (translate ret) px (map slimVarToSimple args) (map translate stms)
 
 slimVarToSimple ∷ Split.SlimVar → Variable
 slimVarToSimple (Split.SlimVar name typ e) =

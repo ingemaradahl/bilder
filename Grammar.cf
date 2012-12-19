@@ -24,6 +24,8 @@ position token TkContinue {"contiune"} ;
 position token TkDiscard {"discard"} ;
 position token TkConst {"const"} ;
 position token TkExternal {"external"} ;
+position token TkPixelwise {"pixelwise"} ;
+position token TkBounded {"bounded"} ;
 position token TkTypeDef {"typedef"} ;
 
 
@@ -92,6 +94,8 @@ separator StructVarDecl "" ;
 QExternal.    Qualifier ::= TkExternal ;
 QConst.       Qualifier ::= TkConst ;
 QType.        Qualifier ::= Type ;
+QPixelwise.   Qualifier ::= TkPixelwise ;
+QBounded.     Qualifier ::= TkBounded ;
 separator nonempty Qualifier "" ;
 
 Vars.   DeclPost  ::= [CIdent] ;
@@ -122,9 +126,14 @@ SContinue. Stm ::= TkContinue ";" ;
 SDiscard.  Stm ::= TkDiscard ";" ;
 terminator Stm "" ;
 
+
+-- For internal use only (however, internal keyword cannot be used)
+ITrue.  IBool ::= ;
+IFalse. IBool ::= ;
+
 -- Enable annotation of types on statements
 internal SType. Stm ::= Type Stm ;
-internal SFunDecl. Stm ::= CIdent Type [Param] [Stm] ;
+internal SFunDecl. Stm ::= CIdent Type IBool [Param] [Stm] ;
 
 
 -- For-specific initiation declarations -----------------------------

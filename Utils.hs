@@ -38,3 +38,8 @@ traverse f (Node r bs) = do
 depthFold ∷ (Monad m, Monoid b) => (a → b → m b) → Tree a → m b
 depthFold f (Node r ts) = liftM mconcat (mapM (depthFold f) ts) >>= f r
 
+none ∷ (a → Bool) → [a] → Bool
+none f = not . any f
+
+leave ∷ Int → [a] → [a]
+leave n xs = drop (length xs - n) xs

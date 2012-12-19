@@ -53,6 +53,8 @@ paramToQuals (ParamDefault qs _ _ _) = qs
 qualToPos ∷ Qualifier → Position
 qualToPos (QExternal (TkExternal (p,_))) = p
 qualToPos (QConst (TkConst (p,_))) = p
+qualToPos (QPixelwise tk) = tkpos tk
+qualToPos (QBounded tk) = tkpos tk
 qualToPos (QType _) = (-1,-1)
 
 qualType ∷ [Qualifier] → Maybe Type
@@ -68,6 +70,7 @@ isConst _ = False
 declPostIdents ∷ DeclPost → [CIdent]
 declPostIdents (Vars i) = i
 declPostIdents (DecAss i _ _) = i
+declPostIdents (DecFun i _ _) = [i]
 
 declPostExp ∷ DeclPost → Maybe Exp
 declPostExp (DecAss _ _ e) = Just e
@@ -92,6 +95,9 @@ stmPos (SBlock ss) = stmPos $ head ss
 stmPos (SDecl (Dec _ decpost)) = cIdentToPos $ head $ declPostIdents decpost
 stmPos _ = (-1,-1)
 
+okForPixelQuals ∷ Type → [Type] → Bool
+okForPixelQuals ret ts | length ts < 2 || ret /= TVec4 = False
+                       | otherwise = all isNum $ leave 2 ts
 
 -- }}}
 -- Function checking {{{
@@ -111,6 +117,7 @@ buildAnonFunc name loc ret args = TypeChecker.Types.Function {
     alias = "", -- Hacky, but has to be empty (see renameExp|ECall)
     functionLocation = loc,
     retType = ret,
+    pixelwise = False,
     paramVars = map buildAnonVar args,
     parameters = [],
     statements = []

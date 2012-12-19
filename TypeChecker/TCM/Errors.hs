@@ -115,6 +115,16 @@ qualsNoTypeGiven qs =
  where
   pos = qualToPos $ head qs
 
+pixelQualsOnImageonly ∷ CIdent → TCM a
+pixelQualsOnImageonly cid =
+  typeError pos $
+    printf ("In definition of function '%s',\n" ++
+            "Pixel layout qualifier only allowed on image-like functions")
+    (cIdentToString cid)
+ where
+  pos = cIdentToPos cid
+
+
 decAssError ∷ CIdent → Type → Type → TCM a
 decAssError cid inferred expected =
   typeError (cIdentToPos cid) $
@@ -196,7 +206,7 @@ noReturnError f =
 noFunctionQualifiers ∷ CIdent → TCM a
 noFunctionQualifiers cid =
   typeError (cIdentToPos cid) $
-    printf "Function declarations can't take any qualifiers other than types."
+    printf "Function declarations can't take any qualifiers other than types and pixel layout definition."
 
 notAssigned ∷ CIdent → TCM a
 notAssigned cid =
