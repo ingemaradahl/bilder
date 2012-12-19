@@ -249,7 +249,7 @@ expandStmM f (SIfElse e st sf:ss) = do
   sf' ← f sf
   ss' ← f ss
   return $ SIfElse e st' sf':ss'
-expandStmM f (s:ss) = (:) <$> pure s <*> expandStmM f ss
+expandStmM f (s:ss) = (:) <$> pure s <*> f ss
 expandStmM _ [] = return []
 
 expandStm ∷ ([Stm] → [Stm]) → [Stm] → [Stm]
