@@ -10,7 +10,6 @@ import Control.Monad.Reader
 import Data.Tree
 import Data.Map as Map hiding (fold)
 import Data.Monoid
-import Data.Maybe
 
 import TypeChecker.TCM
 import TypeChecker.TCM.Utils hiding (initScope)
@@ -148,7 +147,7 @@ replaceType (TDefined (TypeIdent (_, i))) = do
   ms ← ask
   case Prelude.map (Map.lookup i) ms of
     [] → error $ "could not find any typedef for " ++ show i
-    ts → return $ typedefType $ fromJust $ head ts
+    (Just t:_) → return $ typedefType t
 replaceType (TArray t) = replaceType t
 replaceType (TFunc tl tk tr) =
   TFunc <$> replaceType tl <*> pure tk <*> replaceType tr

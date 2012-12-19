@@ -83,7 +83,7 @@ addVarType n t = do
 varType ∷ String → LM Type
 varType n = do
   vt ← gets varTypes
-  return $ fromJust $ Data.Map.lookup n vt
+  return $ let Just y = Data.Map.lookup n vt in y
 
 clearVarTypes ∷ LM (Map String Type)
 clearVarTypes = do
@@ -147,7 +147,7 @@ liftInnerFunVars (SFunDecl cid rt px ps stms) = do
 
   -- Calculate free variables in the function.
   vars ← sourceVariables
-  let globals = map fst $ toList vars
+  let globals = (map fst $ toList vars) ++ ["fl_Resolution"]
   let frees = freeFunctionVars globals (cIdentToString cid, ps, stms')
 
   -- Add the free variables as parameters and return type.

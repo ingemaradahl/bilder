@@ -8,8 +8,10 @@ import Control.Monad.Identity
 import Control.Monad.Writer
 
 import Data.List
+import qualified Data.Map as Map
 
 import Compiler.Simple.AbsSimple
+import Compiler.Simple.Types
 
 gather ∷ Monoid a => (Exp → Writer a Exp) → [Stm] → a
 gather f ss = execWriter (mapM_ (mapStmExpM f) ss)
@@ -28,6 +30,8 @@ calls = nub . gather collect
   collect e@(ECall s es) = tell [s] >> mapM_ collect es >> return e
   collect e = mapExpM collect e
 
+mapFuns ∷ (Function → Function) → [Shader] → [Shader]
+mapFuns f = map (\s → s { functions = Map.map f (functions s)})
 
 foldExpM ∷ Monad m => (a → Exp → m a) → a → Exp → m a
 foldExpM f p e@(EAss el er) = foldM (foldExpM f) p [el,er] >>= flip f e
@@ -246,3 +250,9 @@ expandStm f s = runIdentity $ expandStmM f' s
  where
   f' ∷ [Stm] → Identity [Stm]
   f' s' = return $ f s'
+
+
+isNum ∷ Type → Bool
+isNum TFloat = True
+isNum TInt = True
+isNum _ = False

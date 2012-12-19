@@ -2,10 +2,17 @@
 
 module Compiler where
 
+import Prelude hiding (mapM)
+
 import Control.Monad.State hiding (mapM)
+import Control.Monad.Reader hiding (mapM)
 
 import Control.Arrow
+import Control.Applicative
 import qualified Data.Map as Map
+import Data.Traversable
+
+import Utils
 
 import TypeChecker.Types (Source)
 
@@ -67,6 +74,7 @@ compile src =
     >>> splitSource       -- Split to [Shader] with AbsGrammar
     >>> absToSimple       -- Convert to SimpleGrammar
     >>> mergeShaders      -- Try to merge shaders based on sample count
+    >>> map pixelMode     -- Set pixel mode of functions
     >>> map finalizeMain  -- Replace main-function with GLSL-variant
     >>> map clean         -- Removes unnecessary statements and functions
     >>> map simpleInline  -- Performes simple inlining
@@ -77,8 +85,6 @@ compile src =
     >>> map texture2D
     >>> simpleToGLSL      -- Translate to GLSL
   ) $ lambdaLift src
-
-
 
 
 finalizeMain ∷ Shader → Shader
@@ -106,6 +112,42 @@ renameBuiltin sh = sh { functions =
     Map.map (\f → f { statements = map (mapStmExp cleanBuiltin) (statements f)})
     (functions sh)
   }
+
+-- Adding argument and exit point conversion to pixelwise functions
+pixelMode ∷ Shader → Shader
+pixelMode s = s { functions = Map.map (\f → runReader (pixelModeF f) (f, s)) (functions s) }
+
+pixelModeF ∷ Function → Reader (Function, Shader) Function
+pixelModeF f | pixelwise f = do
+  let stmHead = mkAss (leave 2 (parameters f))
+  stmTail ← mapM (mapStmExpM rewriteExits) (statements f)
+  return $ f { statements = stmHead ++ stmTail }
+             | otherwise = return f
+ where
+  mkAss ∷ [Variable] → [Stm]
+  mkAss (Variable x _ _ _:Variable y _ _ _:[]) =
+    [SExp (EAssMul (EVar x) fl_Resolution_x), SExp (EAssMul (EVar y) fl_Resolution_y) ]
+
+rewriteExits ∷ Exp → Reader (Function,Shader) Exp
+rewriteExits (ECall n es) | length es >= 2 = do
+  f ← asks (Map.lookup n . functions . snd)
+  case f of
+    Just fun →
+      if all isNum $ leave 2 $ map variableType (parameters fun)
+        then return $ ECall n $ take (length es - 2) es ++ divByRes (leave 2 es)
+        else ECall n <$> mapM rewriteExits es
+    Nothing → do
+      ins  ← asks (Map.lookup n . inputs . snd)
+      pars ← asks (lookup n . map (variableName &&& id) . parameters . fst)
+      case ins `mplus` pars of
+        Just (Variable _ TSampler _ _) → do
+          unless (length es == 2) $ error "Should not happen! D:"
+          return $ ECall n $ divByRes es
+rewriteExits e = mapExpM rewriteExits e
+
+divByRes ∷ [Exp] → [Exp]
+divByRes (ex:ey:_) = [EDiv ex fl_Resolution_x, EDiv ey fl_Resolution_y]
+--
 
 -- Worlds ugliest hack below, don't read
 cleanBuiltin ∷ Exp → Exp

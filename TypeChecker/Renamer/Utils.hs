@@ -46,6 +46,7 @@ popAlias ∷ TCM ()
 popAlias = modify (\st → st { aliases = tail (aliases st)})
 
 lookupAlias'' ∷ String → Position → TCM String
+lookupAlias'' "fl_Resolution" _ = return "fl_Resolution"
 lookupAlias'' s pos = do
   as ← gets aliases
   case lookupAlias' as of
