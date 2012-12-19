@@ -90,19 +90,27 @@ builtInVars = fromList [("fl_Resolution", Variable "fl_Resolution" ("predefined"
 
 -- | Creates a Map of built in functions
 builtInFuns ∷ Map String [Function]
-builtInFuns = fromList $ evalState (mapM buildFuns [
-    ("pow", map (\t → (t, [("b",t), ("n",t)])) vecs ++
-            map (\t → (t, [("b",t), ("n",TFloat)])) (TFloat : vecs)
-    ),
-    ("length", map (\t → (TFloat, [("v",t)])) vecs),
-    ("min", map (\t → (t, [("a", t), ("b", t)])) vecnums ),
-    ("sin", [(TFloat, [("phi", TFloat)])]),
-    ("cos", [(TFloat, [("phi", TFloat)])]),
-    ("dot", [(TFloat, [("x", TVec4), ("y", TVec4)])
-            ,(TFloat, [("x", TVec3), ("y", TVec3)])
-            ,(TFloat, [("x", TVec2), ("y", TVec2)])
-            ])
-  ]) [1..]
+builtInFuns = fromListWith (++) $ evalState (mapM buildFuns (
+    map (mkStdFuns 1) [ -- genType f (genType)
+      "radians", "degrees", "sin", "cos", "tan", "asin", "acos", "exp", "log",
+      "exp2", "log2", "sqrt", "inversesqrt", "abs", "sign", "floor", "ceil",
+      "fract", "atan"
+      ] ++
+    map (mkStdFuns 2) [ -- genType f (genType, genType)
+      "atan", "pow", "mod", "min", "max", "step"
+      ] ++
+    map (mkStdFuns 3) [ -- genType f (genType, genType, genType)
+      "clamp", "mix", "smoothstep"
+      ] ++
+    [
+      ("length", map (\t → (TFloat, [("v",t)])) vecs),
+      ("mod", map (\t → (t, [("v",t), ("a", TFloat)])) vecs),
+      ("min", map (\t → (t, [("v",t), ("a", t), ("b", TFloat)])) vecs),
+      ("max", map (\t → (t, [("v",t), ("a", t), ("b", TFloat)])) vecs),
+      ("clamp", map (\t → (t, [("v",t), ("a", TFloat)])) vecs),
+      ("step", map (\t → (t, [("v",TFloat), ("a", t)])) vecs),
+      ("smoothstep", map (\t → (t, [("v",TFloat), ("b", TFloat), ("a", t)])) vecs)
+  ])) [1..]
  where
   vecs = [ TVec2, TVec3, TVec4 ]
   vecnums = TFloat : vecs
@@ -110,6 +118,10 @@ builtInFuns = fromList $ evalState (mapM buildFuns [
   var (n, t) = Variable n ("predefined", (-1,-1)) t Nothing
   param ∷ (String, Type) → Param
   param (n, _) = ParamDec [] (CIdent ((-1,-1), n))
+  mkStdFuns ∷ Int → String → (String, [(Type, [(String, Type)])])
+  mkStdFuns n s = (s, stdFunTypes n)
+  stdFunTypes ∷ Int → [(Type, [(String, Type)])]
+  stdFunTypes n = map (\t → (t, replicate n ("a", t))) vecnums
   buildFuns ∷ (String, [(Type, [(String, Type)])]) → State [Int] (String, [Function])
   buildFuns (n, ts) = liftM ((,) n) $ mapM (buildFun n) ts
   buildFun ∷ String → (Type, [(String, Type)]) → State [Int] Function
