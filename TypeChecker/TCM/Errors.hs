@@ -188,6 +188,18 @@ typeMismatch pos ta tb =
     (show ta)
     (show tb)
 
+numExpected ∷ Token a => a → TCM b
+numExpected tk =
+  typeError (tkpos tk) $
+    printf "Numerical value expected in '%s' operator"
+    (tkident tk)
+
+numOrBoolExpected ∷ Token a => a → TCM b
+numOrBoolExpected tk =
+  typeError (tkpos tk) $
+    printf "Numerical or boolean value expected in '%s' operator"
+    (tkident tk)
+
 expTypeMismatch ∷ Token a => a → Type → Type → TCM b
 expTypeMismatch tk expected actual =
   typeError (tkpos tk) $
@@ -197,6 +209,19 @@ expTypeMismatch tk expected actual =
     (show expected)
     (show actual)
     (tkident tk)
+
+notSupportedError ∷ Token a => a → TCM b
+notSupportedError tk =
+  typeError (tkpos tk) $
+    printf "%s operator not supported"
+    (tkident tk)
+
+lhsMustBeVar ∷ Token a => a → TCM b
+lhsMustBeVar tk =
+  typeError (tkpos tk) $
+  printf "Left hand side in '%s' assignment must be a variable"
+  (tkident tk)
+
 
 noReturnError ∷ Function → TCM a
 noReturnError f =

@@ -202,6 +202,13 @@ isNum TInt = True
 isNum TFloat = True
 isNum _ = False
 
+isBool ∷ Type → Bool
+isBool TBool = True
+isBool _ = False
+
+isBoolish ∷ Type → Bool
+isBoolish t = isNum t || isBool t
+
 vecLength ∷ Type → Int
 vecLength TVec2 = 2
 vecLength TVec3 = 3

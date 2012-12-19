@@ -38,26 +38,36 @@ inferExp (ECond ec tkq etrue tkc efalse) = do
   tefalse ← inferExp efalse
   unless (tetrue == tefalse) $ typeMismatch (tkpos tkc) tetrue tefalse
   return tetrue
-inferExp (EAss (EVar cid) tk e) = do
-  setCIdentAssigned cid
-  targetType ← liftM varType $ lookupVar cid
-  valueType ← inferExp e
-  case compAssType targetType valueType of
-    Just _ → return targetType
-    Nothing → expTypeMismatch tk targetType valueType
 inferExp (EAss m@(EMember {}) tk e) = do
   memType ← inferExp m
   valueType ← inferExp e
   unless (memType == valueType) $ expTypeMismatch tk memType valueType
   return valueType
--- TODO: Copy paste technology (.js), generalize cases like this
-inferExp (EAssAdd (EVar cid) tk e) = do
-  setCIdentAssigned cid
-  targetType ← liftM varType $ lookupVar cid
-  valueType ← inferExp e
-  case compAssType targetType valueType of
-    Just _ → return targetType
-    Nothing → expTypeMismatch tk targetType valueType
+inferExp (EAss (EVar cid) tk e) = inferAssignment tk cid e
+inferExp (EAssAdd (EVar cid) tk e) = inferAssignment tk cid e
+inferExp (EAssSub (EVar cid) tk e) = inferAssignment tk cid e
+inferExp (EAssMul (EVar cid) tk e) = inferAssignment tk cid e
+inferExp (EAssDiv (EVar cid) tk e) = inferAssignment tk cid e
+inferExp (EAssMod (EVar cid) tk e) = inferAssignment tk cid e
+inferExp (EAss _ tk _) = lhsMustBeVar tk 
+inferExp (EAssAdd _ tk _) = lhsMustBeVar tk 
+inferExp (EAssSub _ tk _) = lhsMustBeVar tk 
+inferExp (EAssMul _ tk _) = lhsMustBeVar tk 
+inferExp (EAssDiv _ tk _) = lhsMustBeVar tk 
+inferExp (EAssMod _ tk _) = lhsMustBeVar tk 
+inferExp (EAssBWAnd _ tk _) = notSupportedError tk
+inferExp (EAssBWXOR _ tk _) = notSupportedError tk
+inferExp (EAssBWOR _ tk _) = notSupportedError tk
+inferExp (EOR el tk er) = inferBoolexp tk el er
+inferExp (EXOR el tk er) = inferBoolexp tk el er
+inferExp (EAnd el tk er) = inferBoolexp tk el er
+inferExp (EBWOR _ tk _) = notSupportedError tk
+inferExp (EBWXOR _ tk _) = notSupportedError tk
+inferExp (EBWAnd _ tk _) = notSupportedError tk
+inferExp (EEqual el tk er) = inferConditional tk el er
+inferExp (ENEqual el tk er) = inferConditional tk el er
+inferExp (EBWShiftLeft _ tk _) = notSupportedError tk
+inferExp (EBWShiftRight _ tk _) = notSupportedError tk
 inferExp (ECall cid es) = do
   args ← mapM inferExp es
   funs ← lookupFunction (cIdentToString cid)
@@ -74,7 +84,22 @@ inferExp (EAdd el tk er) = inferBinaryExp tk el er
 inferExp (EMul el tk er) = inferBinaryExp tk el er
 inferExp (ESub el tk er) = inferBinaryExp tk el er
 inferExp (EDiv el tk er) = inferBinaryExp tk el er
+inferExp (EMod _ tk _) = notSupportedError tk -- TODO: implement? :S
+inferExp (ENeg tk e) = inferBinaryNumExp tk e
+inferExp (EPos tk e) = inferBinaryNumExp tk e
+inferExp (ENegSign tk e) = do
+  t ← inferExp e
+  unless (isBoolish t) $ numOrBoolExpected tk
+  return TBool
+inferExp (EPreInc tk e) = inferUnaryNumExp tk e
+inferExp (EPreDec tk e) = inferUnaryNumExp tk e
+inferExp (EPostInc e tk) = inferUnaryNumExp tk e
+inferExp (EPostDec e tk) = inferUnaryNumExp tk e
+inferExp (EComplement tk _) = notSupportedError tk
 inferExp (ELt el tk er) = inferConditional tk el er
+inferExp (EGt el tk er) = inferConditional tk el er
+inferExp (ELEt el tk er) = inferConditional tk el er
+inferExp (EGEt el tk er) = inferConditional tk el er
 inferExp (EMember el cid) = do
   t ← inferExp el
   let pos = memberComponents t
@@ -103,7 +128,7 @@ inferConditional ∷ Token a => a → Exp → Exp → TCM Type
 inferConditional tk el er = do
   tl ← inferExp el
   tr ← inferExp er
-  if all (`elem` [TInt,TFloat]) [tl,tr]
+  if all isNum [tl,tr]
     then return TBool
     else badCondTypes tk tl tr
 
@@ -114,5 +139,35 @@ inferBinaryExp tk el er = do
   case compNumType tl tr of
     Just t  → return t
     Nothing → badBinaryTypes tk tl tr
+
+inferBinaryNumExp ∷ Token a => a → Exp → TCM Type
+inferBinaryNumExp tk e = do
+  t ← inferExp e
+  unless (isNum t) $ numExpected tk
+  return t
+
+inferUnaryNumExp ∷ Token a => a → Exp → TCM Type
+inferUnaryNumExp tk (EVar n) = do
+  t ← liftM varType $ lookupVar n
+  unless (isNum t) $ numExpected tk
+  return t
+inferUnaryNumExp tk _ = numExpected tk
+
+inferAssignment ∷ Token a => a → CIdent → Exp → TCM Type
+inferAssignment tk cid e = do
+  setCIdentAssigned cid
+  targetType ← liftM varType $ lookupVar cid
+  valueType ← inferExp e
+  case compAssType targetType valueType of
+    Just _ → return targetType
+    Nothing → expTypeMismatch tk targetType valueType
+
+inferBoolexp ∷ Token a => a → Exp → Exp → TCM Type
+inferBoolexp tk el er = do
+  tl ← inferExp el
+  tr ← inferExp er
+  if all isBoolish [tl,tr]
+    then return TBool
+    else badBinaryTypes tk tl tr
 
 -- vi:fdm=marker
