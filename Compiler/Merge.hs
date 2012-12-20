@@ -242,7 +242,7 @@ inline shd ex ey = do
   let shd' = shd {
     functions = (Map.insert (functionName main') main' . Map.delete "main") (functions shd)}
   modify (\st → st { currentShader = mergeShader (currentShader st) shd', dirty = True})
-  return $ ECall (functionName main') [ey,ex]
+  return $ ECall (functionName main') [ex,ey]
 
 -- Merge the second shader into the first, removing unneccecary in/outs
 mergeShader ∷ Shader → Shader → Shader

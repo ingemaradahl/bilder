@@ -74,10 +74,12 @@ compile src =
     >>> splitSource       -- Split to [Shader] with AbsGrammar
     >>> absToSimple       -- Convert to SimpleGrammar
     >>> mergeShaders      -- Try to merge shaders based on sample count
-    >>> map pixelMode     -- Set pixel mode of functions
-    >>> map finalizeMain  -- Replace main-function with GLSL-variant
     >>> map clean         -- Removes unnecessary statements and functions
     >>> map simpleInline  -- Performes simple inlining
+    >>> map clean
+    >>> map avoidAlias    -- Reduces unneccecary aliases, such as Image a = b;
+    >>> map pixelMode     -- Set pixel mode of functions
+    >>> map finalizeMain  -- Replace main-function with GLSL-variant
     >>> map clean
     >>> map avoidAlias    -- Reduces unneccecary aliases, such as Image a = b;
     >>> map renameBuiltin -- Re-renames built in functions
@@ -133,7 +135,7 @@ rewriteExits (ECall n es) | length es >= 2 = do
   f ← asks (Map.lookup n . functions . snd)
   case f of
     Just fun →
-      if all isNum $ leave 2 $ map variableType (parameters fun)
+      if (returnType fun == TVec4) && all isNum (leave 2 $ map variableType (parameters fun))
         then return $ ECall n $ take (length es - 2) es ++ divByRes (leave 2 es)
         else ECall n <$> mapM rewriteExits es
     Nothing → do
