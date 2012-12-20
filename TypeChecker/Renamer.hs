@@ -192,7 +192,7 @@ renameStm (SFunDecl cid t px ps ss) = do
   file ← gets currentFile
   t' ← filterTDef t
   let (TFun ret _) = t'
-  addCIdentVariable cid (TFun t' (Prelude.map varType ps')) Nothing
+  addCIdentVariable cid (TFun ret (Prelude.map varType ps')) Nothing
 
   fun ← annotateFunction Types.Function {
       functionName = cIdentToString cid
@@ -208,6 +208,8 @@ renameStm (SFunDecl cid t px ps ss) = do
   addFunction fun
 
   fun' ← renameFunction fun
+
+  setCIdentAssigned cid
 
   return $ SFunDecl (toCIdent fun') t' px (parameters fun') (statements fun')
 renameStm s = mapStmM renameStm s

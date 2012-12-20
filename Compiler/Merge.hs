@@ -170,7 +170,7 @@ mergeFun f args = do
   -- Add sampler aliases to state
   modify (\st → st {
     samplers = Map.union (samplers st) $ Map.fromList
-      [ (alias, fromJust (Map.lookup sampler (samplers st)))
+      [ (alias, let Just v = (Map.lookup sampler (samplers st)) in v)
         | (Variable alias TSampler _ _, EVar sampler)
         ← zip (parameters f) args
       ]

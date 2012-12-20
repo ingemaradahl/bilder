@@ -172,6 +172,8 @@ checkStatement (SDecl decl@(Dec qs (DecFun cid ps stms))) = do
 
   let ibool = if pixelwise fun then ITrue else IFalse
 
+  setCIdentAssigned cid
+
   return $ SFunDecl cid tdecl ibool ps (statements fun')
 checkStatement s@(SDecl decl) = SType <$> checkDecl decl <*> pure s
 checkStatement (SIf tk@(TkIf (pos,_)) cond stm) = do

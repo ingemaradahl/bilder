@@ -194,13 +194,13 @@ renameCIdent rm (CIdent (pos,n)) =
 expandECall ∷ Exp → LM Exp
 expandECall (ECall cid es) = do
   eps ← gets callExpansions
-  es' ← mapM (mapExpM expandECall) es
+  es' ← mapM expandECall es
   case Data.Map.lookup (cIdentToString cid) eps of
     Nothing → return $ ECall cid es'
     Just vs → return $ ECall cid (map nameToEVar vs ++ es')
 expandECall (EPartCall cid es ts) = do
   eps ← gets callExpansions
-  es' ← mapM (mapExpM expandECall) es
+  es' ← mapM expandECall es
   case Data.Map.lookup (cIdentToString cid) eps of
     Nothing → return $ EPartCall cid es' ts
     Just vs → EPartCall cid (map nameToEVar vs ++ es') <$> ((++) ts <$> mapM varType vs)
