@@ -97,7 +97,7 @@ stmPos _ = (-1,-1)
 
 okForPixelQuals ∷ Type → [Type] → Bool
 okForPixelQuals ret ts | length ts < 2 || ret /= TVec4 = False
-                       | otherwise = all isNum $ leave 2 ts
+                       | otherwise = ret == TVec4 && all isNum (leave 2 ts)
 
 -- }}}
 -- Function checking {{{
