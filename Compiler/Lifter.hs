@@ -2,7 +2,7 @@
 
 module Compiler.Lifter where
 
-import Data.Map (Map, toList, insert, lookup, empty, adjust, fromList)
+import Data.Map (Map, toList, insert, lookup, empty, adjust, fromList, keys)
 import Data.Maybe (fromJust, isNothing, isJust, catMaybes)
 import Control.Monad.State
 import Control.Applicative ((<$>), (<*>), pure)
@@ -143,24 +143,30 @@ liftInnerFunVars (SIfElse tkif e strue tkelse sfalse) =
   SIfElse tkif <$> expandECall e <*> liftInnerFunVars strue <*> pure tkelse <*> liftInnerFunVars sfalse
 liftInnerFunVars (SFunDecl cid rt px ps stms) = do
   sequence_ [ addVarType (paramToString p) ((qualsToType . paramToQuals) p) | p ← ps ]
+
+  outerScopeVars ← gets (keys . varTypes)
   stms' ← mapM liftInnerFunVars stms
 
   -- Calculate free variables in the function.
   vars ← sourceVariables
-  let globals = (map fst $ toList vars) ++ ["fl_Resolution"]
+  let globals = Data.Map.keys vars ++ ["fl_Resolution"]
   let frees = freeFunctionVars globals (cIdentToString cid, ps, stms')
 
+  -- Filter out "real" function calls
+  let frees' = filter (`elem` outerScopeVars) frees
+
   -- Add the free variables as parameters and return type.
-  (ps', renames) ← prependFreeVars ps frees
+  (ps', renames) ← prependFreeVars ps frees'
 
   -- Add all renamed variables as types aswell
   sequence_ [varType old >>= addVarType new | (old,new) ← toList renames]
 
   -- Remember the expansion so that all calls can be expanded.
-  addCallExpansion (cIdentToString cid) frees
+  addCallExpansion (cIdentToString cid) frees'
 
-  pst ← mapM (varType . paramToString) ps'
-  addVarType (cIdentToString cid) (TFun rt pst)
+  -- TODO: Examine why this doesn't work
+  -- pst ← mapM (varType . paramToString) ps'
+  -- addVarType (cIdentToString cid) (TFun rt pst)
 
   return $ SFunDecl cid rt px ps' (map (mapStmExp (renameExpVars renames)) stms')
 liftInnerFunVars x = return x -- The rest: SBreak, SContinue, SDiscard
@@ -168,6 +174,7 @@ liftInnerFunVars x = return x -- The rest: SBreak, SContinue, SDiscard
 -- | Renames all variables in an expression according to the Map.
 renameExpVars ∷ Map String String → Exp → Exp
 renameExpVars rm (EVar cid) = EVar (renameCIdent rm cid)
+renameExpVars rm (ECall cid es) = ECall (renameCIdent rm cid) (map (renameExpVars rm) es)
 renameExpVars rm (EIndex cid e) = EIndex (renameCIdent rm cid) (renameExpVars rm e)
 renameExpVars rm e = mapExp (renameExpVars rm) e
 

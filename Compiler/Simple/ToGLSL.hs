@@ -33,7 +33,7 @@ stmToGLSL (S.SDoWhile ss e) =
   G.SDoWhile (G.SBlock $ map stmToGLSL ss) (expToGLSL e)
 stmToGLSL (S.SFor dss ec el ss)
   | not $ isForDecl dss && dss /= []  = error $ "compiler error - for statements must only contain SDeclAss or SExp: " ++ show dss
-  | otherwise  = G.SFor [] (map expToGLSL ec) (map expToGLSL el) (G.SBlock $ map stmToGLSL ss)
+  | otherwise  = G.SFor (map stmToForDecl dss) (map expToGLSL ec) (map expToGLSL el) (G.SBlock $ map stmToGLSL ss)
 stmToGLSL (S.SReturn e) = G.SReturn (expToGLSL e)
 stmToGLSL (S.SVoidReturn) = G.SVoidReturn
 stmToGLSL (S.SIf e ss) = G.SIf (expToGLSL e) (G.SBlock $ map stmToGLSL ss)
@@ -41,6 +41,10 @@ stmToGLSL (S.SIfElse e sst ssf) = G.SIfElse (expToGLSL e) (G.SBlock $ map stmToG
 stmToGLSL (S.SBreak) = G.SBreak
 stmToGLSL (S.SContinue) = G.SContinue
 stmToGLSL (S.SDiscard) = G.SDiscard
+
+stmToForDecl ∷ S.Stm → G.ForDecl
+stmToForDecl (S.SDeclAss v e) = G.FDecl (varToGLSLDeclAss v (expToGLSL e))
+stmToForDecl (S.SExp e) = G.FExp (expToGLSL e)
 
 isForDecl ∷ [S.Stm] → Bool
 isForDecl [] = True

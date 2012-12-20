@@ -9,7 +9,7 @@ import Control.Arrow
 
 import Data.Maybe
 import qualified Data.Map as Map
-import Data.List (nub, intercalate)
+import Data.List
 
 import Compiler.Utils
 import TypeChecker.Utils
@@ -90,6 +90,7 @@ data St = St {
   , gobbledFuns ∷ Map.Map String SlimFun
   , inlineAssigns ∷ Map.Map String [Stm]
   , freeRefs ∷ [Int]
+  , pendingRef ∷ [String]
   , chunks ∷ [Chunk]
   , dependencies ∷ [Dep]
 }
@@ -107,14 +108,13 @@ addStm ∷ Stm → State St ()
 addStm stm = do
   gobs ← gets gobbled
   f ← gets currentFun
-  stejt ← gets gobbled
   if null gobs
     then modify (\st → st { gobbled = [(f, [stm])]})
-    else unless (f == fst (head gobs)) (error $ printf "TRIST FEL VA? ⊃:\nska lägga till:%s \n\ncurrentFun\n%s\n\ngobblefun:\n%s\n\nstate:\n%s" (show stm) (show f) (show (fst (head gobs))) (intercalate "\n" (map (show . first functionName) stejt))) >>
+    else unless (f == fst (head gobs)) undefined >>
           modify (\st → st { gobbled = (f, stm:snd (head gobs)):tail (gobbled st)})
 
 getFun ∷ String → State St SlimFun
-getFun s = liftM (fromJust . Map.lookup s) $ gets functions
+getFun s = liftM (\x → let Just v = Map.lookup s x in v) $ gets functions
 
 getFunMaybe ∷ String → State St (Maybe SlimFun)
 getFunMaybe s = liftM (Map.lookup s) $ gets functions
@@ -168,6 +168,7 @@ splitShader sh = do
       , gobbledFuns = Map.empty
       , inlineAssigns = Map.empty
       , freeRefs = cfree
+      , pendingRef = []
       , chunks = []
       , dependencies = []
     }
@@ -175,7 +176,7 @@ splitShader sh = do
   return $ (head ss) { output = output sh } : tail ss
  where
   mainFun ∷ SlimFun
-  mainFun = fromJust $ Map.lookup "main" (funs sh)
+  mainFun = let Just v = Map.lookup "main" (funs sh) in v
 
 splitSource ∷ Source → [Shader]
 splitSource src = map stripExternals $ evalState (split mainFun)
@@ -187,12 +188,13 @@ splitSource src = map stripExternals $ evalState (split mainFun)
     , gobbledFuns = Map.empty
     , inlineAssigns = Map.empty
     , freeRefs = [1..]
+    , pendingRef = []
     , chunks = []
     , dependencies = []
   }
  where
   mainFun ∷ SlimFun
-  mainFun = stripFun $ fromJust $ Map.lookup "main" (Source.functions src)
+  mainFun = stripFun $ let Just v = Map.lookup "main" (Source.functions src) in v
 
 stripExternals ∷ Shader → Shader
 stripExternals shd = shd { funs = Map.map stripExt (funs shd)}
@@ -207,8 +209,9 @@ stripExt fun = fun { statements = expandStm stripExt' (statements fun)}
 newRef ∷ String → State St String
 newRef s = do
   newId ← gets (head . freeRefs)
-  modify (\st → st { freeRefs = tail (freeRefs st)})
-  return $ printf "img%03d%s" newId s
+  let ref = printf "img%03d%s" newId s
+  modify (\st → st { freeRefs = tail (freeRefs st), pendingRef = ref:pendingRef st})
+  return ref
 
 split ∷ SlimFun → State St [Shader]
 split fun = do
@@ -233,13 +236,15 @@ buildShader (gs,ref,fun) = do
   -- find all functions that will form the new "main".
   inlinable ← addAssignments $ reverse $ dropWhile (\(f,_) → functionName f /= "main") (reverse gs)
   let fs = Map.fromList $ (functionName fun, fun) : map ((functionName &&& stripArgs) . buildFun) gs
-      mainFun = (fromJust $ Map.lookup "main" fs) { statements = concatMap snd (reverse inlinable) }
+      mainFun = (let Just v = Map.lookup "main" fs in v) { statements = concatMap snd (reverse inlinable) }
       -- fetch the rest of the functions that are not to be inlined.
       restFuns = map (\(f,_) → (functionName f, f)) (takeWhile (\(f,_) → functionName f /= "main") (reverse gs))
 
+  fs' ← gets functions
+
   vs ← gets variables
   return Shader {
-      funs = Map.fromList $ ("main", mainFun) : restFuns
+      funs = Map.unionWith (\vl _ → vl) (Map.fromList $ ("main", mainFun) : restFuns) fs'
     , vars = vs
     , output = ref
     , inputs = nub $ findExternals (statements mainFun)
@@ -277,13 +282,15 @@ buildMain oldMain stms = do
   -- get rid of statements nothing depends on.
   stms' ← depends []
   let fs' = Map.fromList $ map (\(f, st) → (functionName f, f { statements = st})) stms'
-  let mainFun' = fromJust $ Map.lookup "main" fs'
+  let mainFun' = let Just v = Map.lookup "main" fs' in v
+  ref ← gets pendingRef
+  modify (\st → st { pendingRef = [] })
 
   vs ← gets variables
   return Shader {
       funs = fs'
     , vars = vs
-    , inputs = findExternals (statements mainFun')
+    , inputs = findExternals (statements mainFun') ++ map (\v → SlimVar v TImage Nothing) ref
     , output = "result_image"
   }
 
@@ -431,9 +438,9 @@ calledFun f = do
   -- if it creates an image it has been gobbled and the new version should be used.
   if True `elem` map createsImg (statements f)
     then case Map.lookup name gfs of
-      Just gf → return [(gf, statements gf)]
+      Just gf → (:) (gf, statements gf) <$> calledFuns (statements gf)
       -- unless it's an nestled partial application - then it's not yet gobbled.
-      Nothing → return [(f, statements f)]
+      Nothing → (:) (f, statements f) <$> calledFuns (statements f)
     else (:) (f, statements f) <$> calledFuns (statements f)
  where
   name = functionName f
@@ -479,7 +486,7 @@ isNeeded p stm = do
     then do
       mapM_ (uncurry addDeps) stmdeps
       return $ stm:p
-    else return p
+    else return $ stm:p
  where
   affected ∷ DepList → [Dep]
   affected = map fst

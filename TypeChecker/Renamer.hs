@@ -173,8 +173,15 @@ renameStm (SBlock ss) = SBlock <$> mapM renameStm ss
 renameStm (SWhile tk e s) = SWhile tk <$> renameExp e <*> renameStm s
 renameStm (SDoWhile tkdo s tkwh e) = SDoWhile tkdo <$> renameStm s <*>
   pure tkwh <*> renameExp e
-renameStm (SFor tk decls esl esr s) = SFor tk <$> mapM renameForDecl decls <*>
-  mapM renameExp esl <*> mapM renameExp esr <*> renameStm s
+renameStm (SFor tk decls esl esr s) = do
+  pushScope
+  mapM_ addToScope [ d | (FDecl d) ← decls ]
+  decls' ← mapM renameForDecl decls
+  esl' ← mapM renameExp esl
+  esr' ← mapM renameExp esr
+  s' ← renameStm s
+  popScope
+  return $ SFor tk decls' esl' esr' s'
 renameStm (SReturn t e) = SReturn t <$> renameExp e
 renameStm (SIf tk e s) = SIf tk <$> renameExp e <*> renameStm s
 renameStm (SIfElse tki e st tke sf) = SIfElse tki <$> renameExp e <*>

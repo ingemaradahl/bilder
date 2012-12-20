@@ -102,6 +102,8 @@ instance Translate G.Exp Exp where
   translate (G.EPos _ e) = EPos (translate e)
   translate (G.EPreInc _ e) = EPreInc (translate e)
   translate (G.EPreDec _ e) = EPreDec (translate e)
+  translate (G.EPostInc e _) = EPostInc (translate e)
+  translate (G.EPostDec e _) = EPostDec (translate e)
   translate (G.ECall cid es) = ECall (cIdentToString cid) (map translate es)
   translate (G.ETypeCall t es) = ETypeCall (translate t) (map translate es)
   translate (G.EFloat (G.CFloat s)) = EFloat (read s ∷ Float)

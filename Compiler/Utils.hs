@@ -5,6 +5,7 @@ module Compiler.Utils where
 import Control.Applicative
 import Control.Monad.Identity
 import Control.Monad.State
+import Control.Monad.Writer
 
 import CompilerError
 
@@ -295,9 +296,15 @@ freeFunctionVars global (_, ps, stms) = nub . snd $ foldl stmVars (bound, []) st
 -- | Calculates a statements bound and free variables
 --   (given already known bound and free variables)
 stmVars ∷ ([String], [String]) → Stm → ([String], [String])
-stmVars (b, f) (SDecl d) = (declToName d ++ b, f)
+stmVars (b, f) s@(SDecl d) = (declToName d ++ b, f ++ filterBound b (usedVars' [s]))
 stmVars (b, f) (SExp e) = (b, f ++ filterBound b (expVars e))
 stmVars vs (SBlock stms) = foldl stmVars vs stms
+stmVars vs (SFor _ fd el er s) = (b' ++ b, filterBound (b' ++ b) (f'' ++ f' ++ f))
+ where
+  b' = concatMap declToName [ d | FDecl d ← fd ]
+  f'' = concatMap expVars [ e | FExp e ← fd ]
+  f' = concatMap expVars (el ++ er)
+  (b, f) = stmVars vs s
 stmVars vs (SWhile _ e s) = (b, f ++ filterBound b (expVars e))
  where
   (b, f) = stmVars vs s -- Order does not matter because of unique names
@@ -326,9 +333,24 @@ expVars ∷ Exp → [String]
 expVars = foldExp expVar []
  where
   expVar ∷ [String] → Exp → [String]
+  expVar p (ECall cid es) = concatMap expVars es ++ cIdentToString cid : p
   expVar p (EVar cid) = cIdentToString cid : p
-  expVar p (EIndex cid _) = cIdentToString cid : p
+  expVar p (EIndex cid e) = expVars e ++ cIdentToString cid : p
   expVar p _ = p
+
+gather' ∷ Monoid a => (Exp → Writer a Exp) → [Stm] → a
+gather' f ss = execWriter (mapM_ (mapStmExpM f) ss)
+
+-- Get a list of all variables references
+usedVars' ∷ [Stm] → [String]
+usedVars' = nub . gather' collect
+ where
+  collect ∷ Exp → Writer [String] Exp
+  collect e@(EVar cid) = tell [cIdentToString cid] >> return e
+  collect e@(ECall cid es) = tell [cIdentToString cid] >> mapM_ collect es >> return e
+  collect e@(EIndex cid es) = tell [cIdentToString cid] >> collect es >> return e
+  collect e = return e
+
 -- }}}
 
 -- vi:fdm=marker
