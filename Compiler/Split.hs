@@ -360,6 +360,9 @@ gobble (EPartCall cid es _) = do
   -- add a dependency to the called function (and all its dependencies).
   f ← getFun name
 
+  unless (all isNum $ map varType (drop (length es) (args f))) $
+    error "EPartCall with invalid type."
+
   modify (\st → st { dependencies = [] })
   depFun f
 
@@ -388,10 +391,11 @@ addChunk ∷ Chunk → State St ()
 addChunk c = modify (\st → st { chunks = c:chunks st })
 
 createsImg ∷ Stm → Bool
-createsImg (SDecl (Dec qs (DecAss _ _ (EPartCall {})))) = qualsToType qs == imgType
-createsImg (SExp (EAss _ _ (EPartCall {}))) = True
-createsImg (SType t s) = t == imgType && createsImg s
-createsImg _ = False
+createsImg s = or $ gather collect [s]
+ where
+  collect ∷ Exp → Writer [Bool] Exp
+  collect e@(EPartCall _ es _) = tell [True] >> mapM collect es >> return e
+  collect e = mapExpM collect e
 
 branches ∷ Exp → Bool
 branches = isJust . branchTarget
