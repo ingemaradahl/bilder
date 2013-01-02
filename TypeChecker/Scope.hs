@@ -88,6 +88,10 @@ setAssigned n ss
 builtInVars ∷ Map String Variable
 builtInVars = fromList [("fl_Resolution", Variable "fl_Resolution" ("predefined", (-1,-1)) TVec2 (Just (EFloat (CFloat "1.0"))))]
 
+-- TODO: Matrix versions.
+-- TODO: Pure matrix functions: matrixCompMult
+-- TODO: Functions that use bvec: lessThan, lessThanEqual, greaterThan,
+--        greaterThanEqual, equal, notEqual, not, any, all.
 -- | Creates a Map of built in functions
 builtInFuns ∷ Map String [Function]
 builtInFuns = fromListWith (++) $ evalState (mapM buildFuns (
@@ -104,6 +108,13 @@ builtInFuns = fromListWith (++) $ evalState (mapM buildFuns (
       ] ++
     [
       ("length", map (\t → (TFloat, [("v",t)])) vecs),
+      ("distance", map (\t → (TFloat, [("p0",t),("p1",t)])) vecs),
+      ("dot", map (\t → (TFloat, [("x",t), ("y",t)])) vecs),
+      ("cross", [(TVec3, [("x", TVec3), ("y", TVec3)])]),
+      ("normalize", map (\t → (t, [("x",t)])) vecs),
+      ("faceforward", map (\t → (t, [("N",t), ("I",t), ("Nref",t)])) vecs),
+      ("reflect", map (\t → (t, [("I",t), ("N",t)])) vecs),
+      ("refract", map (\t → (t, [("I",t), ("N",t), ("eta",TFloat)])) vecs),
       ("mod", map (\t → (t, [("v",t), ("a", TFloat)])) vecs),
       ("min", map (\t → (t, [("v",t), ("a", t), ("b", TFloat)])) vecs),
       ("max", map (\t → (t, [("v",t), ("a", t), ("b", TFloat)])) vecs),
