@@ -107,27 +107,13 @@ instance Translate G.Exp Exp where
   translate (G.ECall cid es) = ECall (cIdentToString cid) (map translate es)
   translate (G.ETypeCall t es) = ETypeCall (translate t) (map translate es)
   translate (G.EFloat (G.CFloat s)) = EFloat (read s ∷ Float)
+  translate (G.EInt i) = EInt i
   translate (G.EMemberCall e cid es) = EMemberCall (translate e)
     (cIdentToString cid) (map translate es)
   translate (G.EMember e cid) = EMember (translate e) (cIdentToString cid)
   translate (G.EVar cid) = EVar (cIdentToString cid)
   translate (G.EVarType cid _) = EVar (cIdentToString cid)
+  translate (G.EIndex cid e) = EIndex (cIdentToString cid) (translate e)
+  translate (G.ETrue) = ETrue
+  translate (G.EFalse) = EFalse
   translate e = error $ "Not implemented " ++ show e
-{-
- -EPostInc
- -EPostDec
- -EMember
- -EMemberCall
- -ECall
- -ETypeCall
- -EVar
- -EIndex
- -EFloat
- -EInt
- -ETrue
- -EFalse
- -EPartCall
- -ECurryCall
- -EVarType
- -}
-

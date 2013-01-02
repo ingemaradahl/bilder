@@ -79,8 +79,25 @@ expand (SDoWhile tkd stm tkw e:ss) = do
   let stm' = makeBlock $ stms ++ sdecs
   ss' ← expand ss
   return $ SDoWhile tkd stm' tkw e':ss'
---expand SFor ...
---expand SIf|SIfElse..
+expand (SFor tkf fds els ers stm:ss) = do
+  fds' ← mapM extractForDecl fds
+  els' ← mapM extractCalls els
+  ers' ← mapM extractCalls ers
+  sdecs ← getPendings
+  stm' ← liftM makeBlock $ expand [stm]
+  ss' ← expand ss
+  return $ sdecs ++ [SFor tkf fds' els' ers' stm'] ++ ss'
+expand (SIf tk e stm:ss) = do
+  (e', sdecs) ← expandExp e
+  stm' ← liftM makeBlock $ expand [stm]
+  ss' ← expand ss
+  return $ sdecs ++ [SIf tk e' stm'] ++ ss'
+expand (SIfElse tki e strue tke sfalse:ss) = do
+  (e', sdecs) ← expandExp e
+  strue' ← liftM makeBlock $ expand [strue]
+  sfalse' ← liftM makeBlock $ expand [sfalse]
+  ss' ← expand ss
+  return $ sdecs ++ [SIfElse tki e' strue' tke sfalse'] ++ ss'
 expand (SReturn tkr e:ss) = do
   (e',sdecs) ← expandExp e
   ss' ← expand ss
@@ -89,6 +106,14 @@ expand ss = expandStmM expand ss
 
 expandExp ∷ Exp → State Ids (Exp,[Stm])
 expandExp e = (,) <$> extractCalls e <*> getPendings
+
+extractForDecl ∷ ForDecl → State Ids ForDecl
+extractForDecl (FDecl (Dec qs (DecAss cds tk e))) =
+  FDecl <$> Dec qs <$> DecAss cds tk <$> extractCalls e
+extractForDecl (FExp e) = FExp <$> extractCalls e
+-- DecFun is not allowed here - no need to handle it.
+-- TODO: Structs.
+extractForDecl fd = return fd
 
 extractCalls ∷ Exp → State Ids Exp
 extractCalls (EAss el tk (EPartCall cid es ts)) = do
