@@ -83,6 +83,8 @@ addTypedefs (AbsTree tree) = sequence_
 -- | Adds function type definitions to the state
 addFunctions ∷ AbsTree → TCM ()
 addFunctions (AbsTree tree) = do
+  -- Check for top level functions with trailing semicolons.
+  sequence_ [ trailingSemicolon cid | Abs.TopDecl (Dec _ (DecFun cid _ _)) ← tree ]
 
   -- Checks function parameter types, and adds function to environment
   funs ← sequence [ tcFun f | f@(Abs.Function {}) ← tree ]

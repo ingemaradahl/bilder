@@ -233,6 +233,11 @@ noFunctionQualifiers cid =
   typeError (cIdentToPos cid) $
     printf "Function declarations can't take any qualifiers other than types and pixel layout definition."
 
+trailingSemicolon ∷ CIdent → TCM a
+trailingSemicolon cid =
+  syntaxError (cIdentToPos cid) $
+    printf "Top level function declarations must not have trailing semicolon."
+
 notAssigned ∷ CIdent → TCM a
 notAssigned cid =
   compileError (cIdentToPos cid) $
