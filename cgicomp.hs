@@ -127,5 +127,10 @@ handleException e = do
  where
   exc = UnknownError $ "Exception in compiler: " ++ show e
 
+handleIOException ∷ Control.Exception.SomeException → IO ()
+handleIOException e = putStrLn ("Exception in compiler: " ++ show e)
+
 main ∷ IO ()
-main = runCGI (catchCGI handleRequest handleException)
+main = Control.Exception.catch 
+  (runCGI (catchCGI handleRequest handleException))
+  handleIOException 
