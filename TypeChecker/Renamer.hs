@@ -250,7 +250,7 @@ renameExp e = mapExpM renameExp e
 
 renameVariable ∷ Variable → TCM Variable
 renameVariable (Variable name loc typ e) = Variable <$> newAlias name <*>
-  pure loc <*> pure typ <*> pure e
+  pure loc <*> pure typ <*> maybe (pure Nothing) (liftM Just . renameExp) e
 
 filterQuals ∷ [Qualifier] → TCM [Qualifier]
 filterQuals (QType t:qs) = (:) <$> (QType <$> filterTDef t) <*> filterQuals qs
