@@ -28,9 +28,15 @@ type Variables = Map.Map String Variable
 
 -- | Cleans all the functions in all shaders from unnecessary statements.
 clean ∷ Shader → Shader
-clean sh = sh { variables = dropVars (variables sh) newFuns, functions = newFuns }
+clean sh = sh {
+    variables = Map.filterWithKey (\k _ → k `elem` referenced) (variables sh),
+    functions = newFuns,
+    inputs = Map.filterWithKey (\k _ → k `elem` referenced) (inputs sh)
+  }
  where
-  newFuns = dropFuns (Map.map (cleanFun (variables sh)) (functions sh))
+  newFuns = dropArgs $ dropFuns (Map.map (cleanFun (variables sh)) (functions sh))
+  referenced = usedVars (concatMap statements (Map.elems $ functions sh)) ++ -- variables in functions
+                concatMap varUsedVars (Map.elems $ variables sh) -- expressions in top level variables
 
 dropFuns ∷ Functions → Functions
 dropFuns funs = Map.filterWithKey (\k _ → k `elem` findCalls mainf ["main"]) funs
@@ -44,11 +50,34 @@ dropFuns funs = Map.filterWithKey (\k _ → k `elem` findCalls mainf ["main"]) f
     let toCheck = mapMaybe (`Map.lookup` funs) new in
     nub (concatMap (`findCalls` known) toCheck) ++ known'
 
-dropVars ∷ Variables → Functions → Variables
-dropVars vs funs = Map.filterWithKey (\k _ → k `elem` references) vs
+-- | Removes unreferenced function arguments.
+dropArgs ∷ Functions → Functions
+dropArgs funs = Map.foldlWithKey drops funs funs
+
+drops ∷ Functions → String → Function → Functions
+drops fs name _ = Map.insert name f' fs'
  where
-  references ∷ [String]
-  references = nub $ concatMap (usedVars . statements) (Map.elems funs)
+  f = fromJust (Map.lookup name fs)
+  (f', args') = dropFunArgs f
+  fs' = Map.map replaceStms fs
+  replaceStms fun = fun { statements = map (mapStmExp (replaceCalls name args')) (statements fun) }
+
+replaceCalls ∷ String → [Bool] → Exp → Exp
+replaceCalls name keep ecall@(ECall ident es) =
+  if name == ident
+    then ECall ident kept
+    else ecall
+ where
+  es' = map (replaceCalls name keep) es
+  kept = [ e | (e, k) ← zip es' keep, k ]
+replaceCalls name keep e = mapExp (replaceCalls name keep) e
+
+dropFunArgs ∷ Function → (Function, [Bool])
+dropFunArgs fun = (fun', map (\a → variableName a `elem` referenced) args)
+ where
+  args = parameters fun
+  referenced = usedVars $ statements fun
+  fun' = fun { parameters = filter (\a → variableName a `elem` referenced) args }
 
 -- | Removes unnecessary statements from a function.
 cleanFun ∷ Variables → Function → Function

@@ -23,6 +23,16 @@ usedVars = nub . gather collect
   collect e@(EVar s) = tell [s] >> return e
   collect e = mapExpM collect e
 
+varUsedVars ∷ Variable → [String]
+varUsedVars var =
+  case value var of
+    Nothing → []
+    Just e  → execWriter $ collect e
+ where
+  collect ∷ Exp → Writer [String] Exp
+  collect e@(EVar s) = tell [s] >> return e
+  collect e = mapExpM collect e
+
 assignedVars ∷ [Stm] → [String]
 assignedVars = nub . gather collect
  where
