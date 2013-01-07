@@ -21,7 +21,7 @@ usedVars = nub . gather collect
  where
   collect ∷ Exp → Writer [String] Exp
   collect e@(EVar s) = tell [s] >> return e
-  collect e@(ECall s _) = tell [s] >> return e
+  collect e@(ECall s es) = tell [s] >> mapM collect es >> return e
   collect e = mapExpM collect e
 
 varUsedVars ∷ Variable → [String]
