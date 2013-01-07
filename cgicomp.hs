@@ -128,7 +128,11 @@ handleException e = do
   exc = UnknownError $ "Exception in compiler: " ++ show e
 
 handleIOException ∷ Control.Exception.SomeException → IO ()
-handleIOException e = putStrLn ("Exception in compiler: " ++ show e)
+handleIOException e = runCGI $ do
+  setHeader "Content-Type" "application/json"
+  output $ encode $ Compiled [] (Just exc) (makeObj [])
+ where
+  exc = UnknownError $ "IO Exception in compiler: " ++ show e
 
 main ∷ IO ()
 main = Control.Exception.catch 
