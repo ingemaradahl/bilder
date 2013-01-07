@@ -145,6 +145,7 @@ rewriteExits (ECall n es) | length es >= 2 = do
         Just (Variable _ TSampler _ _) → do
           unless (length es == 2) $ error "Should not happen! D:"
           return $ ECall n $ divByRes es
+        Nothing → ECall n <$> mapM rewriteExits es
 rewriteExits e = mapExpM rewriteExits e
 
 divByRes ∷ [Exp] → [Exp]
