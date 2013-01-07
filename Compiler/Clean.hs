@@ -53,14 +53,14 @@ dropFuns funs = Map.filterWithKey (\k _ → k `elem` findCalls mainf ["main"]) f
 -- | Removes unreferenced function arguments.
 dropArgs ∷ Functions → Functions
 dropArgs funs = Map.foldlWithKey drops funs funs
-
-drops ∷ Functions → String → Function → Functions
-drops fs name _ = Map.insert name f' fs'
  where
-  f = fromJust (Map.lookup name fs)
-  (f', args') = dropFunArgs f
-  fs' = Map.map replaceStms fs
-  replaceStms fun = fun { statements = map (mapStmExp (replaceCalls name args')) (statements fun) }
+  drops ∷ Functions → String → Function → Functions
+  drops fs name _ = Map.insert name f' fs'
+   where
+    f = fromJust (Map.lookup name fs)
+    (f', args') = dropFunArgs f
+    fs' = Map.map replaceStms fs
+    replaceStms fun = fun { statements = map (mapStmExp (replaceCalls name args')) (statements fun) }
 
 replaceCalls ∷ String → [Bool] → Exp → Exp
 replaceCalls name keep ecall@(ECall ident es) =
@@ -73,11 +73,13 @@ replaceCalls name keep ecall@(ECall ident es) =
 replaceCalls name keep e = mapExp (replaceCalls name keep) e
 
 dropFunArgs ∷ Function → (Function, [Bool])
-dropFunArgs fun = (fun', map (\a → variableName a `elem` referenced) args)
+dropFunArgs fun = (fun', map keep args)
  where
+  isCoordinate a = length a == 5 && ("x" `isSuffixOf` a || "y" `isSuffixOf` a)
   args = parameters fun
   referenced = usedVars $ statements fun
-  fun' = fun { parameters = filter (\a → variableName a `elem` referenced) args }
+  keep a = variableName a `elem` referenced || isCoordinate (variableName a)
+  fun' = fun { parameters = filter keep args }
 
 -- | Removes unnecessary statements from a function.
 cleanFun ∷ Variables → Function → Function
