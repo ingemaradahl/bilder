@@ -119,13 +119,13 @@ extractCalls ∷ Exp → State Ids Exp
 extractCalls (EAss el tk (EPartCall cid es ts)) = do
   es' ← mapM extractCalls es
   return $ EAss el tk (EPartCall cid es' ts)
--- Built in functions not included in source, thus can't get return type of call
---extractCalls (ECall cid es) = do
---  es' ← mapM extractCalls es
---  var@(EVar varCid) ← newVar
---  ret ← liftM retType $ getFun (cIdentToString cid)
---  putDec $ makeDec varCid ret (ECall cid es')
---  return var
+extractCalls ecall@(ECall cid es) = do
+  es' ← mapM extractCalls es
+  var@(EVar varCid) ← newVar
+  fs ← gets funs
+  case Map.lookup (cIdentToString cid) fs of
+    Nothing  → return ecall
+    Just fun → putDec (makeDec varCid (retType fun) (ECall cid es')) >> return var
 extractCalls (EPartCall cid es ts) = do
   es' ← mapM extractCalls es
   var@(EVar varCid) ← newVar
