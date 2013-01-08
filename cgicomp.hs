@@ -5,11 +5,19 @@ import CompilerTypes
 import FrontEnd
 import Compiler hiding (compile)
 
+import Control.DeepSeq
 import Control.Exception
 
 import TypeChecker
 
 import Network.CGI
+import Network.CGI.Protocol
+import Network.CGI.Monad
+import Control.Monad
+import Control.Monad.Writer
+import Control.Monad.Reader
+import System.IO
+import qualified Data.ByteString.Lazy.Char8 as BS
 import NetTypes
 
 import Data.Char
@@ -22,10 +30,6 @@ data Compiled = Compiled {
   , cerror ∷ Maybe CompilerError
   , compiledData ∷ JSValue
   }
-
--- | Index page - a form where one can submit JSON containing shaders.
-index ∷ CGI CGIResult
-index = output "<html><body><form method=\"post\" action=\"/\">Shader:<br/><textarea rows=\"30\" cols=\"100\" name=\"files\" /></textarea></br><input type=\"submit\" /></form></body></html>"
 
 -- | Parses given JSON dict, compiles containing files and return the
 --    compiled shaders in a new JSON dict.
@@ -80,32 +84,23 @@ compileFiles fs = do
   os = Options "zeh cloud, awh yeah"
 
 instance JSON CompilerError where
-  showJSON (SyntaxError (l,c) f s) = makeObj [
-      ("line", showJSON l)
-    , ("column", showJSON c)
-    , ("file", showJSON f)
-    , ("type", showJSON "syntax")
-    , ("message", showJSON s)
-    ]
-  showJSON (TypeError (l,c) f s) = makeObj [
-      ("line", showJSON l)
-    , ("column", showJSON c)
-    , ("file", showJSON f)
-    , ("type", showJSON "type")
-    , ("message", showJSON s)
-    ]
-  showJSON (CompileError (l,c) f s) = makeObj [
-      ("line", showJSON l)
-    , ("column", showJSON c)
-    , ("file", showJSON f)
-    , ("type", showJSON "compiler")
-    , ("message", showJSON s)
-    ]
+  showJSON (SyntaxError (l,c) f s) = absJSON l c f "syntax" s
+  showJSON (TypeError (l,c) f s) = absJSON l c f "type" s
+  showJSON (CompileError (l,c) f s) = absJSON l c f "compiler" s
   showJSON (UnknownError s) = makeObj [
       ("message", showJSON s)
     , ("type", showJSON "unknown")
     ]
   readJSON _ = error "CompilerError: show only"
+
+absJSON ∷ Int → Int → FilePath → String → String → JSValue
+absJSON l c f t s = makeObj [
+    ("line", showJSON l)
+  , ("column", showJSON c)
+  , ("file", showJSON f)
+  , ("type", showJSON t)
+  , ("message", showJSON s)
+  ]
 
 instance JSON Compiled where
   showJSON (Compiled ws e c) = makeObj [
@@ -117,24 +112,28 @@ instance JSON Compiled where
 
 formResult ∷ [Warning] → CError JSValue → IO String
 formResult ws r = case r of
-  Pass s → return $ encode $ Compiled ws Nothing s
+  Pass s → s `seq` return $ encode $ Compiled ws Nothing s
   Fail e → return $ encode $ Compiled ws (Just e) (makeObj [])
 
-handleException ∷ Exception a => a → CGI CGIResult
-handleException e = do
-  setHeader "Content-Type" "application/json"
-  output $ encode $ Compiled [] (Just exc) (makeObj [])
+handleException ∷ Control.Exception.SomeException → IO BS.ByteString
+handleException e = return $ BS.pack $
+  "Content-Type: application/json\r\n\r\n" ++
+  encode (Compiled [] (Just exc) (makeObj []))
  where
   exc = UnknownError $ "Exception in compiler: " ++ show e
 
-handleIOException ∷ Control.Exception.SomeException → IO ()
-handleIOException e = runCGI $ do
-  setHeader "Content-Type" "application/json"
-  output $ encode $ Compiled [] (Just exc) (makeObj [])
- where
-  exc = UnknownError $ "IO Exception in compiler: " ++ show e
-
 main ∷ IO ()
-main = Control.Exception.catch 
-  (runCGI (catchCGI handleRequest handleException))
-  handleIOException 
+main = do
+  env ← getCGIVars
+  hSetBinaryMode stdin True
+  inp ← BS.hGetContents stdin
+  outp ← Control.Exception.catch (runCGIEnvFPS env inp (runCGIT' handleRequest)) handleException
+  BS.hPut stdout outp
+  hFlush stdout
+
+runCGIT' :: CGI CGIResult -> CGIRequest -> IO (Headers, CGIResult)
+runCGIT' (CGIT c) r = do
+  aoeu ← (liftM (uncurry (flip (,))) . runWriterT . runReaderT c) r
+  case snd aoeu of
+    CGIOutput bs → BS.unpack bs `deepseq` return aoeu
+    _ → return aoeu
