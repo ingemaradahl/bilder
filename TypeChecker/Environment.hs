@@ -81,7 +81,7 @@ showDef (name,Typedef _ _ (TFun ret args)) = name ++ " = " ++ showTFun ret args
 showDef (name,t) = name ++ " = " ++ show (typedefType t)
 
 showFuns ∷ [Scope.Scope] → String
-showFuns scope = showFuns' scope 0
+showFuns scope = showFuns' (tail scope) 0
  where
   showFuns' ∷ [Scope.Scope] → Int → String
   showFuns' (s:sc) l = showFunsLevel (Scope.functions s) l ++ showFuns' sc (l+1)
