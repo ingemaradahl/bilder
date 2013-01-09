@@ -99,12 +99,23 @@ needed start stms = do
 
 isNeeded ∷ [Stm] → Stm → State Dependencies [Stm]
 isNeeded p stm = do
-  let stmdeps = stmDeps stm
+  -- clean inner statements
+  stm' <- case stm of
+    -- ds, cs and ls need not be cleaned - cs and ls may only change variables declared in ds
+    (SFor ds cs ls ss) → SFor ds cs ls <$> foldM isNeeded [] (reverse ss)
+    -- some with e
+    (SWhile e ss) → SWhile e <$> foldM isNeeded [] (reverse ss)
+    (SDoWhile ss e) → SDoWhile <$> foldM isNeeded [] (reverse ss) <*> pure e
+    (SIf e ss) → SIf e <$> foldM isNeeded [] (reverse ss)
+    (SIfElse e trues falses) → SIfElse e <$> foldM isNeeded [] (reverse trues) <*> foldM isNeeded [] (reverse falses)
+    _ → return stm
+
+  let stmdeps = stmDeps stm'
   deps ← get
-  if isReturn stm || True `elem` [a `elem` deps | a ← affected stmdeps]
+  if isReturn stm' || True `elem` [a `elem` deps | a ← affected stmdeps]
     then do
       mapM_ (uncurry addDeps) stmdeps
-      return $ stm:p
+      return $ stm':p
     else return p
  where
   affected ∷ DepList → [Dep]
@@ -138,7 +149,7 @@ stmDeps (SExp e) = expDeps e
 stmDeps (SWhile e ss) = expDeps e ++ concatMap stmDeps ss
 stmDeps (SDoWhile ss e) = concatMap stmDeps ss ++ expDeps e
 stmDeps (SFor decls cones loopes ss) =
-  concatMap stmDeps (decls ++ ss) ++ concatMap expDeps (cones ++ loopes)
+  concatMap stmDeps (decls ++ reverse ss) ++ concatMap expDeps (cones ++ loopes)
 stmDeps (SReturn e) = expDeps e
 stmDeps (SVoidReturn) = []
 stmDeps (SIf e ss) = expDeps e ++ concatMap stmDeps ss
