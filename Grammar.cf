@@ -205,6 +205,7 @@ ETypeCall.     Exp17 ::= Type "(" [Exp] ")" ;
 
 EVar.          Exp18 ::= CIdent ;
 EIndex.        Exp18 ::= CIdent "[" Exp "]" ;
+EIndexDouble.  Exp18 ::= CIdent "[" Exp "]" "[" Exp "]" ;
 
 EFloat.        Exp19 ::= CFloat ;
 EInt.          Exp19 ::= Integer ;

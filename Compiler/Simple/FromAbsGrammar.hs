@@ -32,6 +32,9 @@ instance Translate G.Type Type where
  translate G.TVec4 = TVec4
  translate (G.TFun G.TVec4 [G.TFloat, G.TFloat]) = TSampler
  translate G.TImage = TSampler
+ translate G.TMat2 = TMat2
+ translate G.TMat3 = TMat3
+ translate G.TMat4 = TMat4
  translate t = error $ "Not implemented: " ++ show t
 
 instance Translate G.ForDecl Stm where
@@ -113,7 +116,8 @@ instance Translate G.Exp Exp where
   translate (G.EMember e cid) = EMember (translate e) (cIdentToString cid)
   translate (G.EVar cid) = EVar (cIdentToString cid)
   translate (G.EVarType cid _) = EVar (cIdentToString cid)
-  translate (G.EIndex cid e) = EIndex (cIdentToString cid) (translate e)
+  translate (G.EIndex cid e) = EIndex (EVar $ cIdentToString cid) (translate e)
+  translate (G.EIndexDouble cid e1 e2) = EIndex (EIndex (EVar $ cIdentToString cid) (translate e1)) (translate e2)
   translate (G.ETrue) = ETrue
   translate (G.EFalse) = EFalse
   translate e = error $ "Not implemented " ++ show e

@@ -10,6 +10,9 @@ typeConstuctors TVec3 = [[TFloat],[TVec3]] ++
   map (++ [TFloat]) (tail $ typeConstuctors TVec2)
 typeConstuctors TVec4 = [[TFloat],[TVec4],[TVec2, TVec2]] ++
   map (++ [TFloat]) (tail $ typeConstuctors TVec3)
+typeConstuctors TMat2 = [[TFloat], replicate 2 TVec2, replicate 4 TFloat]
+typeConstuctors TMat3 = [[TFloat], replicate 3 TVec3, replicate 9 TFloat]
+typeConstuctors TMat4 = [[TFloat], replicate 4 TVec4, replicate 16 TFloat]
 typeConstuctors _ = []
 
 -- | Member-functions (e.g. .map)

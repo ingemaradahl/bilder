@@ -154,7 +154,7 @@ ECall.         Exp16 ::= Ident "(" [Exp] ")" ;
 ETypeCall.     Exp17 ::= Type "(" [Exp] ")" ;
 
 EVar.          Exp19 ::= Ident ;
-EIndex.        Exp19 ::= Ident "[" Exp "]" ;
+EIndex.        Exp19 ::= Exp "[" Exp "]" ;
 
 EFloat.        Exp19 ::= CFloat ;
 EStr.          Exp19 ::= String ;

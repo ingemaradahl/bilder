@@ -87,7 +87,7 @@ data Exp =
  | ECall Ident [Exp]
  | ETypeCall Type [Exp]
  | EVar Ident
- | EIndex Ident Exp
+ | EIndex Exp Exp
  | EFloat Float
  | EInt Integer
  | ETrue

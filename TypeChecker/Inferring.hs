@@ -49,12 +49,12 @@ inferExp (EAssSub (EVar cid) tk e) = inferAssignment tk cid e
 inferExp (EAssMul (EVar cid) tk e) = inferAssignment tk cid e
 inferExp (EAssDiv (EVar cid) tk e) = inferAssignment tk cid e
 inferExp (EAssMod (EVar cid) tk e) = inferAssignment tk cid e
-inferExp (EAss _ tk _) = lhsMustBeVar tk 
-inferExp (EAssAdd _ tk _) = lhsMustBeVar tk 
-inferExp (EAssSub _ tk _) = lhsMustBeVar tk 
-inferExp (EAssMul _ tk _) = lhsMustBeVar tk 
-inferExp (EAssDiv _ tk _) = lhsMustBeVar tk 
-inferExp (EAssMod _ tk _) = lhsMustBeVar tk 
+inferExp (EAss _ tk _) = lhsMustBeVar tk
+inferExp (EAssAdd _ tk _) = lhsMustBeVar tk
+inferExp (EAssSub _ tk _) = lhsMustBeVar tk
+inferExp (EAssMul _ tk _) = lhsMustBeVar tk
+inferExp (EAssDiv _ tk _) = lhsMustBeVar tk
+inferExp (EAssMod _ tk _) = lhsMustBeVar tk
 inferExp (EAssBWAnd _ tk _) = notSupportedError tk
 inferExp (EAssBWXOR _ tk _) = notSupportedError tk
 inferExp (EAssBWOR _ tk _) = notSupportedError tk
@@ -120,7 +120,22 @@ inferExp (EMemberCall el cid ers) = do
       if tecf == argt
         then return rt
         else noFunctionFound cid tecf
-
+inferExp (EIndex cid es) = do
+  t ← inferExp es
+  unless (t == TInt) $ debugError "NOPE"
+  v ← lookupVar cid
+  case varType v of
+    TArray arrType → return arrType
+    typ → if isMat typ
+            then return $ mkVecType $ matSize typ
+            else debugError "MOAR NOPE"
+inferExp (EIndexDouble cid e1 e2) = do
+  t1 ← inferExp e1
+  t2 ← inferExp e2
+  v ← lookupVar cid
+  unless (t1 == t2 && t1 == TInt) $ debugError "NOPE"
+  unless (isMat (varType v)) $ debugError "ANNAT NOPE"
+  return TFloat
 inferExp e = debugError $ show e ++ " not inferrablelollolo"
 
 

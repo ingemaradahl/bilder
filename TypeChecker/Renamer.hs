@@ -216,6 +216,8 @@ renameStm s = mapStmM renameStm s
 
 renameExp ∷ Exp → TCM Exp
 renameExp (EVar cid) = setCIdentAssigned cid >> EVar <$> renameCIdent cid
+renameExp (EIndex cid e) = setCIdentAssigned cid >> EIndex <$> renameCIdent cid <*> renameExp e
+renameExp (EIndexDouble cid e1 e2) = setCIdentAssigned cid >> EIndexDouble <$> renameCIdent cid <*> renameExp e1 <*> renameExp e2
 renameExp (ECall cid es) = do
   args ← mapM inferExp es
   funsAlias ← lookupAliasMaybe (cIdentToString cid) >>=

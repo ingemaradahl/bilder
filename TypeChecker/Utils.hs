@@ -197,6 +197,13 @@ isVec TVec3 = True
 isVec TVec4 = True
 isVec _    = False
 
+isMat ∷ Type → Bool
+isMat TMat2 = True
+isMat TMat3 = True
+isMat TMat4 = True
+isMat _ = False
+
+
 isNum ∷ Type → Bool
 isNum TInt = True
 isNum TFloat = True
@@ -213,6 +220,16 @@ vecLength ∷ Type → Int
 vecLength TVec2 = 2
 vecLength TVec3 = 3
 vecLength TVec4 = 4
+
+matSize ∷ Type → Int
+matSize TMat2 = 2
+matSize TMat3 = 3
+matSize TMat4 = 4
+
+mkVecType ∷ Int → Type
+mkVecType 2 = TVec2
+mkVecType 3 = TVec3
+mkVecType 4 = TVec4
 -- }}}
 -- Type comparisons {{{
 compAssType ∷ Type → Type → Maybe Type
@@ -228,6 +245,8 @@ compNumType TFloat TFloat = Just TFloat
 compNumType TFloat TInt = Just TFloat
 compNumType TInt TFloat = Just TFloat
 compNumType tl tr | tl == tr = Just tr
+                  | isMat tl = mayhaps (isVec tr && matSize tl == vecLength tr) tl
+                  | isMat tr = mayhaps (isVec tl && matSize tr == vecLength tl) tr
                   | isVec tl = mayhaps (tl == tr || tr == TFloat) tl
                   | isVec tr = mayhaps (tl == tr || tl == TFloat) tr
                   | otherwise = Nothing

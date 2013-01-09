@@ -199,7 +199,8 @@ expDeps (ECall ident es) = (None, Var ident : Fun ident : concatMap (concatMap s
   es' = map expDeps es
 expDeps (ETypeCall _ es) = concatMap expDeps es
 expDeps (EVar ident) = [(None, [Var ident])]
-expDeps (EIndex ident e) = (None, Var ident : concatMap snd e') : e'
+expDeps (EIndex ei@(EIndex {}) e) = expDeps ei ++ expDeps e
+expDeps (EIndex (EVar ident) e) = (None, Var ident : concatMap snd e') : e'
  where
   e' = expDeps e
 expDeps (EFloat {}) = []
@@ -210,7 +211,11 @@ expDeps (EFalse) = []
 expAss ∷ Exp → Exp → DepList
 expAss (EVar ident) e =
   (Var ident, concatMap snd (expDeps e)) : onlyAssDeps (expDeps e)
-expAss (EIndex ident e) el =
+expAss (EIndex (EIndex (EVar ident) e1) e2) e =
+  (Var ident, concatMap snd e') : onlyAssDeps e'
+ where
+  e' = expDeps e1 ++ expDeps e2 ++ expDeps e
+expAss (EIndex (EVar ident) e) el =
   (Var ident, concatMap snd (el'++e')) : onlyAssDeps el' ++ e'
  where
   e' = expDeps e

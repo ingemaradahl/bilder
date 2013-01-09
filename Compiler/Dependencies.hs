@@ -102,6 +102,9 @@ expDeps (EVar cid) = [(None, [Var (cIdentToString cid)])]
 expDeps (EIndex cid e) = (None, Var (cIdentToString cid) : concatMap snd e') : e'
  where
   e' = expDeps e
+expDeps (EIndexDouble cid e1 e2) = (None, Var (cIdentToString cid) : concatMap snd e') : e'
+ where
+  e' = expDeps e1 ++ expDeps e2
 expDeps (EFloat {}) = []
 expDeps (EInt _) = []
 expDeps (ETrue) = []

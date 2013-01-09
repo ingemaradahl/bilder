@@ -105,6 +105,7 @@ foldExpM f p e@(ETypeCall _ es) = foldM (foldExpM f) p es >>= flip f e
 foldExpM f p e@(EVar {}) = f p e
 foldExpM f p e@(EVarType {}) = f p e
 foldExpM f p e@(EIndex _ ei) = foldExpM f p ei >>= flip f e
+foldExpM f p e@(EIndexDouble _ e1 e2) = foldM (foldExpM f) p [e1, e2] >>= flip f e
 foldExpM f p e@(EFloat {}) = f p e
 foldExpM f p e@(EInt {}) = f p e
 foldExpM f p e@ETrue = f p e
@@ -182,6 +183,7 @@ mapExpM f (EPartCall cid es ts) = EPartCall cid <$> mapM f es <*> pure ts
 mapExpM f (ECurryCall cid e t) = ECurryCall cid <$> f e <*> pure t
 mapExpM f (ETypeCall t es) = ETypeCall t <$> mapM f es
 mapExpM f (EIndex cid e) = EIndex cid <$> f e
+mapExpM f (EIndexDouble cid e1 e2) = EIndexDouble cid <$> f e1 <*> f e2
 mapExpM _ e@(EVar {}) = pure e
 mapExpM _ e@(EFloat {}) = pure e
 mapExpM _ e@(EInt {}) = pure e
@@ -336,6 +338,7 @@ expVars = foldExp expVar []
   expVar p (ECall cid es) = concatMap expVars es ++ cIdentToString cid : p
   expVar p (EVar cid) = cIdentToString cid : p
   expVar p (EIndex cid e) = expVars e ++ cIdentToString cid : p
+  expVar p (EIndexDouble cid e1 e2) = expVars e1 ++ expVars e2 ++ cIdentToString cid : p
   expVar p _ = p
 
 gather' ∷ Monoid a => (Exp → Writer a Exp) → [Stm] → a
@@ -349,6 +352,7 @@ usedVars' = nub . gather' collect
   collect e@(EVar cid) = tell [cIdentToString cid] >> return e
   collect e@(ECall cid es) = tell [cIdentToString cid] >> mapM_ collect es >> return e
   collect e@(EIndex cid es) = tell [cIdentToString cid] >> collect es >> return e
+  collect e@(EIndexDouble cid e1 e2) = tell [cIdentToString cid] >> collect e1 >> collect e2 >> return e
   collect e = return e
 
 -- }}}
