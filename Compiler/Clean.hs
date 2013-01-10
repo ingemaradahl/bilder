@@ -219,6 +219,8 @@ expDeps (ETrue) = []
 expDeps (EFalse) = []
 
 expAss ∷ Exp → Exp → DepList
+expAss (EMember (EVar ident) _) e =
+  (Var ident, concatMap snd (expDeps e)) : onlyAssDeps (expDeps e)
 expAss (EVar ident) e =
   (Var ident, concatMap snd (expDeps e)) : onlyAssDeps (expDeps e)
 expAss (EIndex ident e) el =
