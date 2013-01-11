@@ -20,7 +20,7 @@ data Environment = Env {
   scopes  ∷ [Scope.Scope],
 
   -- Renaming
-  renamed ∷ [FilePath],
+  renamed ∷ Map FilePath Source,
   aliases ∷ [Aliases], -- List levels correspond to scoping
   freeAliases ∷ [Int],
 
@@ -35,7 +35,7 @@ buildEnv ∷ Options → Environment
 buildEnv opts = Env {
   scopes = [Scope.emptyScope],
 
-  renamed = [],
+  renamed = empty,
   aliases = [],
   freeAliases = [1..],
 

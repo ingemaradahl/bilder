@@ -9,7 +9,6 @@ import Control.Monad.Reader
 
 import Data.Tree
 import Data.Map as Map hiding (fold)
-import Data.Monoid
 
 import TypeChecker.TCM
 import TypeChecker.TCM.Utils hiding (initScope)
@@ -41,9 +40,9 @@ trd3 (_,_,x) = x
 rename ∷ Blob → [Tree (Source, Blob, Aliases)] → TCM (Source, Blob, Aliases)
 rename b ss = do
   done ← gets renamed
-  if filename b `elem` done
-    then return (mempty :: Source, b, Map.empty)
-    else renameBlob b ss
+  case Map.lookup (filename b) done of
+    Just src → return (src, b, Map.empty)
+    Nothing  → renameBlob b ss
 
 strip ∷ (Source, Blob, Aliases) → Source
 strip = fst3
@@ -72,14 +71,14 @@ renameBlob blob children = do
 
   aliases' ← gets (head . aliases)
 
-  return (Source
-    (fromList (Prelude.map (\f → (alias f, f )) funs'))
-    (Map.map (\v → runReader (replaceVarTDefs v) tdefs) variables')
-    ,
+  --modify (\st → st { renamed = filename blob:renamed st})
+  let src = Source
+              (fromList (Prelude.map (\f → (alias f, f )) funs'))
+              (Map.map (\v → runReader (replaceVarTDefs v) tdefs) variables')
 
-    blob
+  modify (\st → st { renamed = Map.insert (filename blob) src $ renamed st })
 
-    , aliases')
+  return (src, blob, aliases')
 
 
 renameFunction ∷ Function → TCM Function
