@@ -5,7 +5,6 @@ module Compiler.Split where
 import Control.Monad.State
 import Control.Monad.Writer
 import Control.Applicative
-import Control.Arrow
 
 import Data.Maybe
 import qualified Data.Map as Map
@@ -130,21 +129,6 @@ calls = nub . gather collect
   collect e@(ECall cid es) = tell [cIdentToString cid] >> mapM_ (mapExpM collect) es >> return e
   collect e = mapExpM collect e
 
--- Get a list of all variables references
-usedVars ∷ [Stm] → [String]
-usedVars = nub . gather collect
- where
-  collect ∷ Exp → Writer [String] Exp
-  collect e@(EVar cid) = tell [cIdentToString cid] >> return e
-  collect e = return e
-
--- Strips arguments not needed
-stripArgs ∷ SlimFun → SlimFun
-stripArgs f = f { args = filter
-                          (\v → varName v `notElem` usedVars (statements f))
-                          (args f)
-                }
-
 stripFun ∷ Function → SlimFun
 stripFun f = SlimFun {
     functionName = Function.functionName f
@@ -235,7 +219,7 @@ buildShader ∷ Chunk → State St Shader
 buildShader (gs,ref,fun) = do
   -- find all functions that will form the new "main".
   inlinable ← addAssignments $ reverse $ dropWhile (\(f,_) → functionName f /= "main") (reverse gs)
-  let fs = Map.fromList $ (functionName fun, fun) : map ((functionName &&& stripArgs) . buildFun) gs
+  let fs = Map.fromList $ (functionName fun, fun) : map ((\f → (functionName f, f)) . buildFun) gs
       mainFun = (let Just v = Map.lookup "main" fs in v) { statements = concatMap snd (reverse inlinable) }
       -- fetch the rest of the functions that are not to be inlined.
       restFuns = map (\(f,_) → (functionName f, f)) (takeWhile (\(f,_) → functionName f /= "main") (reverse gs))

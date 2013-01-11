@@ -353,7 +353,7 @@ usedVars' = nub . gather' collect
   collect e@(ECall cid es) = tell [cIdentToString cid] >> mapM_ collect es >> return e
   collect e@(EIndex cid es) = tell [cIdentToString cid] >> collect es >> return e
   collect e@(EIndexDouble cid e1 e2) = tell [cIdentToString cid] >> collect e1 >> collect e2 >> return e
-  collect e = return e
+  collect e = mapExpM collect e
 
 -- }}}
 

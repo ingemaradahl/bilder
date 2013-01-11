@@ -10,6 +10,7 @@ import Builtins
 import TypeChecker.TCM
 import TypeChecker.TCM.Errors
 import TypeChecker.TCM.Utils
+import TypeChecker.Renamer.Utils
 
 import TypeChecker.Utils
 import TypeChecker.Types (varType)
@@ -71,7 +72,9 @@ inferExp (EBWShiftRight _ tk _) = notSupportedError tk
 inferExp (ECall cid es) = do
   args ← mapM inferExp es
   funs ← lookupFunction (cIdentToString cid)
-  case tryApplyType funs args `mplus` tryUncurryType funs args of
+  funsAlias ← lookupAliasMaybe (cIdentToString cid) >>=
+    (\x → case x of Just y → lookupFunction y; Nothing → return [] )
+  case tryApplyType funs args `mplus` tryUncurryType funs args `mplus` tryApplyType funsAlias args `mplus` tryUncurryType funsAlias args of
     Just fun → return fun
     Nothing  → noFunctionFound cid args
 inferExp (ETypeCall t es) = do
