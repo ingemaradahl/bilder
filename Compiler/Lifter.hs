@@ -2,7 +2,7 @@
 
 module Compiler.Lifter where
 
-import Data.Map (Map, toList, insert, lookup, empty, adjust, fromList, keys)
+import Data.Map (Map, toList, insert, lookup, empty, adjust, fromList, keys, union)
 import Data.Maybe (fromJust, isNothing, isJust, catMaybes)
 import Control.Monad.State
 import Control.Applicative ((<$>), (<*>), pure)
@@ -28,7 +28,9 @@ data Environment = Environment {
   callExpansions ∷ Map String [String],
   currentFile ∷ String,
   warnings ∷ [String],
-  paramRenameCount ∷ Int
+  paramRenameCount ∷ Int,
+  outerVarTypes ∷ Map String Type,
+  globalAssigns ∷ [(String, Type)]
 }
  deriving (Show)
 
@@ -40,7 +42,9 @@ buildEnv s = Environment {
     callExpansions = empty,
     currentFile = "",
     warnings = [],
-    paramRenameCount = 0
+    paramRenameCount = 0,
+    outerVarTypes = empty,
+    globalAssigns = []
   }
 
 nextRenameIndex ∷ LM Int
@@ -79,6 +83,21 @@ addVarType n t = do
   vt ← gets varTypes
   modify (\s → s { varTypes = insert n t vt })
 
+addGlobalAssign ∷ String → Type → LM ()
+addGlobalAssign n t = do
+  gas ← gets globalAssigns
+  modify (\s → s { globalAssigns = (n, t) : gas })
+
+setOuterVarTypes ∷ LM ()
+setOuterVarTypes = do
+  vs ← gets varTypes
+  modify (\s → s { outerVarTypes = vs })
+
+outerVarType ∷ String → LM (Maybe Type)
+outerVarType n = do
+  vt ← gets outerVarTypes
+  return $ Data.Map.lookup n vt
+
 -- | Returns the variables type (should always exist, hence no need for Maybe)
 varType ∷ String → LM Type
 varType n = do
@@ -113,13 +132,46 @@ lambdaLift = do
   -- lift inner functions.
   liftFuns
 
+  -- Add all globally lifted variables.
+  src ← gets source
+  gvs ← buildGlobalDecls
+  modify (\s → s { source = src { variables = gvs `union` variables src }})
+
+buildGlobalDecls ∷ LM (Map String T.Variable)
+buildGlobalDecls = do
+  gas ← gets globalAssigns
+  return $ fromList [ (n, T.Variable n ("madeup",(0,0)) t Nothing) | (n,t) ← gas ]
+
 -- Variable lifting {{{
 liftFunVars ∷ T.Function → LM T.Function
 liftFunVars f = do
   clearVarTypes
   sequence_ [ addVarType (paramToString p) ((qualsToType . paramToQuals) p) | p ← T.parameters f ]
   stms ← mapM liftInnerFunVars (T.statements f)
-  return f { T.statements = stms }
+  -- change all local assignments that have been globified.
+  stms' ← liftM concat $ mapM replaceStm stms
+  return f { T.statements = stms' }
+
+-- | Replaces declarations of variables that have been lifted to the global scope.
+replaceStm ∷ Stm → LM [Stm]
+replaceStm s = do
+  gas ← gets globalAssigns
+  return $ replaceGlobals gas [s]
+
+replaceGlobals ∷ [(String, Type)] → [Stm] → [Stm]
+replaceGlobals gas (SDecl (Dec tk (Vars cs)):ss) =
+  (SDecl $ Dec tk $ Vars cs') : replaceGlobals gas ss
+ where
+  cs' = filter (\c → cIdentToString c `notElem` map fst gas) cs
+replaceGlobals gas (SDecl (Dec tk (DecAss cs tkd e)):ss) =
+  if null cs'
+    then rest
+    else (SDecl $ Dec tk $ DecAss cs' tkd e) : rest
+ where
+  cs' = filter (\c → cIdentToString c `notElem` map fst gas) cs
+  news = [ SExp $ EAss (EVar c) (TkAss ((0,0),"=")) e | c ← cs, cIdentToString c `elem` map fst gas ]
+  rest = news ++ replaceGlobals gas ss
+replaceGlobals gas ss = expandStm (replaceGlobals gas) ss
 
 -- | Iterates a list of statements and lifts all inner functions variables.
 liftInnerFunVars ∷ Stm → LM Stm
@@ -144,12 +196,17 @@ liftInnerFunVars (SIfElse tkif e strue tkelse sfalse) =
 liftInnerFunVars (SFunDecl cid rt px ps stms) = do
   sequence_ [ addVarType (paramToString p) ((qualsToType . paramToQuals) p) | p ← ps ]
 
+  setOuterVarTypes
   outerScopeVars ← gets (keys . varTypes)
   stms' ← mapM liftInnerFunVars stms
 
+  -- Find all assignments to variables declared in outer scopes (not globals).
+  mapM_ (mapStmExpM (\e → expGlobals e >> return e)) stms'
+
   -- Calculate free variables in the function.
   vars ← sourceVariables
-  let globals = Data.Map.keys vars ++ ["fl_Resolution"]
+  gas ← gets globalAssigns
+  let globals = Data.Map.keys vars ++ ["fl_Resolution"] ++ map fst gas
   let frees = freeFunctionVars globals (cIdentToString cid, ps, stms')
 
   -- Filter out "real" function calls
@@ -170,6 +227,28 @@ liftInnerFunVars (SFunDecl cid rt px ps stms) = do
 
   return $ SFunDecl cid rt px ps' (map (mapStmExp (renameExpVars renames)) stms')
 liftInnerFunVars x = return x -- The rest: SBreak, SContinue, SDiscard
+
+-- | Find all assigned.
+expGlobals ∷ Exp → LM ()
+expGlobals (EAss e _ _) = expVar e
+expGlobals (EAssAdd e _ _) = expVar e
+expGlobals (EAssSub e _ _) = expVar e
+expGlobals (EAssMul e _ _) = expVar e
+expGlobals (EAssDiv e _ _) = expVar e
+expGlobals (EAssMod e _ _) = expVar e
+expGlobals (EAssBWAnd e _ _) = expVar e
+expGlobals (EAssBWXOR e _ _) = expVar e
+expGlobals (EAssBWOR e _ _) = expVar e
+expGlobals e = void $ mapExpM (\x → expGlobals x >> return x) e
+
+expVar ∷ Exp → LM ()
+expVar (EVar cid) = do
+  t ← outerVarType (cIdentToString cid)
+  when (isJust t) $ addGlobalAssign (cIdentToString cid) (fromJust t)
+expVar (EMember e _) = expVar e
+expVar (EIndex cid _) = do
+  t ← outerVarType (cIdentToString cid)
+  when (isJust t) $ addGlobalAssign (cIdentToString cid) (fromJust t)
 
 -- | Renames all variables in an expression according to the Map.
 renameExpVars ∷ Map String String → Exp → Exp
