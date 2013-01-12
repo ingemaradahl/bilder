@@ -125,7 +125,9 @@ extractCalls ecall@(ECall cid es) = do
   fs ← gets funs
   case Map.lookup (cIdentToString cid) fs of
     Nothing  → return ecall
-    Just fun → putDec (makeDec varCid (retType fun) (ECall cid es')) >> return var
+    Just fun → if retType fun /= TVoid
+      then putDec (makeDec varCid (retType fun) (ECall cid es')) >> return var
+      else return ecall
 extractCalls (EPartCall cid es ts) = do
   es' ← mapM extractCalls es
   var@(EVar varCid) ← newVar

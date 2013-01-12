@@ -7,6 +7,7 @@ import Compiler.Simple.AbsSimple
 import Compiler.Simple.Utils
 
 import Control.Monad.State
+import Control.Monad.Writer
 import Control.Applicative
 
 import Data.List
@@ -112,7 +113,7 @@ isNeeded p stm = do
 
   let stmdeps = stmDeps stm'
   deps ← get
-  if isReturn stm' || True `elem` [a `elem` deps | a ← affected stmdeps]
+  if isReturn stm' || hasECall stm' || True `elem` [a `elem` deps | a ← affected stmdeps]
     then do
       mapM_ (uncurry addDeps) stmdeps
       return $ stm':p
@@ -120,12 +121,22 @@ isNeeded p stm = do
  where
   affected ∷ DepList → [Dep]
   affected = map fst
-  isReturn ∷ Stm → Bool
-  isReturn = foldStm isret False
-   where
-    isret ∷ Bool → Stm → Bool
-    isret _ (SReturn {}) = True
-    isret pr _ = pr
+
+isReturn ∷ Stm → Bool
+isReturn = foldStm isret False
+ where
+  isret ∷ Bool → Stm → Bool
+  isret _ (SReturn {}) = True
+  isret pr _ = pr
+
+-- TODO: (more complex solution instead of hasECall) if the function called
+--    have assignments to global variables, do not remove it.
+hasECall ∷ Stm → Bool
+hasECall s = True `elem` execWriter (mapStmExpM hasecall s)
+ where
+  hasecall ∷ Exp → Writer [Bool] Exp
+  hasecall e@(ECall {}) = tell [True] >> return e
+  hasecall e = mapExpM hasecall e
 
 addDeps ∷ Dep → [Dep] → State Dependencies ()
 addDeps _ = mapM_ add
