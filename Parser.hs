@@ -22,8 +22,8 @@ type PM a = StateT PPEnv (CErrorT IO) a
 
 -- | Preprocessor stuff
 data PPEnv = PPEnv {
-	defines ∷ Map.Map String String,
-	ifStack ∷ [Bool],
+  defines ∷ Map.Map String ([String], String),
+  ifStack ∷ [Bool],
   children ∷ Map.Map String String,
   warnings ∷ [(Position, String)],
   filepaths ∷ [FilePath],
@@ -31,7 +31,6 @@ data PPEnv = PPEnv {
   currentLine ∷ Int,
   options ∷ Options
 }
- deriving (Show)
 
 buildEnv ∷ Options → PPEnv
 buildEnv os = PPEnv {
