@@ -18,8 +18,14 @@ import TypeChecker.Types (varType)
 import FrontEnd.AbsGrammar
 import FrontEnd.Instances
 
+import Compiler.Utils (mapExpM)
+
 import Text.Printf (printf)
 -- }}}
+
+setExpAssigned ∷ Exp → TCM ()
+setExpAssigned (EVar cid) = setAssigned (cIdentToString cid)
+setExpAssigned e = void $ mapExpM (\x → setExpAssigned x >> return x) e
 
 inferExp ∷ Exp → TCM Type
 inferExp (EFloat _) = return TFloat
@@ -39,7 +45,8 @@ inferExp (ECond ec tkq etrue tkc efalse) = do
   tefalse ← inferExp efalse
   unless (tetrue == tefalse) $ typeMismatch (tkpos tkc) tetrue tefalse
   return tetrue
-inferExp (EAss m@(EMember {}) tk e) = do
+inferExp (EAss m@(EMember ie _) tk e) = do
+  setExpAssigned ie
   memType ← inferExp m
   valueType ← inferExp e
   unless (memType == valueType) $ expTypeMismatch tk memType valueType
@@ -74,7 +81,8 @@ inferExp (ECall cid es) = do
   funs ← lookupFunction (cIdentToString cid)
   funsAlias ← lookupAliasMaybe (cIdentToString cid) >>=
     (\x → case x of Just y → lookupFunction y; Nothing → return [] )
-  case tryApplyType funs args `mplus` tryUncurryType funs args `mplus` tryApplyType funsAlias args `mplus` tryUncurryType funsAlias args of
+  case tryApplyType funs args `mplus` tryUncurryType funs args `mplus`
+      tryApplyType funsAlias args `mplus` tryUncurryType funsAlias args of
     Just fun → return fun
     Nothing  → noFunctionFound cid args
 inferExp (ETypeCall t es) = do
