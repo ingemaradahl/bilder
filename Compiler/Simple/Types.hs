@@ -12,4 +12,4 @@ data Shader = Shader {
   , output ∷ Variable
   , inputs ∷ Map.Map String Variable
 }
- deriving (Show)
+ deriving (Show, Eq)

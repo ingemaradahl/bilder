@@ -23,6 +23,8 @@ data Count = Count {
 }
  deriving (Show)
 
+type Functions = Map.Map String Function
+
 emptyState ∷ Shader → Count
 emptyState shd = Count
   [Map.empty]
@@ -248,11 +250,34 @@ inline shd ex ey = do
 mergeShader ∷ Shader → Shader → Shader
 mergeShader orig new = Shader {
       variables = variables orig `Map.union` variables new
-    , functions = functions orig `Map.union` functions new
+    , functions = functions orig `Map.union` (uniquify orig new `Map.union` functions new)
     , output = output orig
     , inputs = Map.filter (\v → variableName v /= variableName (output new)) $
                 inputs orig `Map.union` inputs new
   }
+ where
+  uniquify ∷ Shader → Shader → Functions
+  uniquify shOrig shNew =
+    if Map.null $ intersec shOrig shNew
+      then functions shNew
+      else uniquify shOrig (renameShader (Map.keys $ intersec shOrig shNew) shNew)
+  intersec ∷ Shader → Shader → Functions
+  intersec shOrig shNew = Map.filterWithKey
+    (\k v → let Just y  = (Map.lookup k (functions shOrig)) in statements v /= statements y)
+    $ functions shNew `Map.intersection` functions shOrig
+  renameShader ∷ [String] → Shader → Shader
+  renameShader ss shd = foldr (\s pr → pr { functions = renameCalls (functions pr) s ('r':s) }) shd ss
+  renameCalls ∷ Functions → String → String → Functions
+  renameCalls fs fun newName =
+    Map.fromList $ map (\(k,f) →
+      let n = if k == fun then newName else k in
+      (n,f {
+        statements = map (mapStmExp (renameExp fun newName)) (statements f),
+        functionName = n
+      })) $ Map.toList fs
+  renameExp ∷ String → String → Exp → Exp
+  renameExp fun replace (ECall str es) | str == fun = ECall replace (map (renameExp fun replace) es)
+  renameExp fun replace e = mapExp (renameExp fun replace) e
 
 renameMain ∷ Function → String → Function
 renameMain f s = f { functionName = 'm':s }
