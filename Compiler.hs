@@ -67,20 +67,27 @@ lambdaLift src = do
     })
   return $ L.source env
 
+repeating ∷ (Shader → Shader) →  [Shader] → [Shader]
+repeating f shd = if shd' == shd then shd else repeating f shd'
+ where
+  shd' = map f shd
+
 compile ∷ Source → CPM JSValue
 compile src =
   liftM (
         desugar
     >>> splitSource       -- Split to [Shader] with AbsGrammar
     >>> absToSimple       -- Convert to SimpleGrammar
-    >>> mergeShaders      -- Try to merge shaders based on sample count
-    >>> map clean         -- Removes unnecessary statements and functions
-    >>> map simpleInline  -- Performes simple inlining
-    >>> map clean
     >>> map avoidAlias    -- Reduces unneccecary aliases, such as Image a = b;
+    >>> mergeShaders      -- Try to merge shaders based on sample count
+    >>> repeating clean
+    >>> repeating simpleInline  -- Performes simple inlining
+    >>> repeating clean
+    >>> map avoidAlias    -- Reduces unneccecary aliases, such as Image a = b;
+    >>> repeating simpleInline  -- Performes simple inlining
     >>> map pixelMode     -- Set pixel mode of functions
     >>> map finalizeMain  -- Replace main-function with GLSL-variant
-    >>> map clean
+    >>> repeating clean
     >>> map avoidAlias    -- Reduces unneccecary aliases, such as Image a = b;
     >>> map renameBuiltin -- Re-renames built in functions
     >>> map addResUniform -- Adds resolution uniform fl_Resolution
