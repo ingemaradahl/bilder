@@ -231,7 +231,7 @@ checkDecl (Dec qs (DecFun cid ps _)) = do
 checkDecl (Dec qs post) = do
   t ← liftM uncurryType $ verifyQualsType qs >>= filterTDef
 
-  sequence_ [ addCIdentVariable cid t (declPostExp post) | cid ← declPostIdents post ]
+  sequence_ [ addCIdentVariable cid t (declPostExp post) >> denyExternals qs cid | cid ← declPostIdents post ]
 
   -- if it's external - it's already assigned
   when (isExternal qs) $ mapM_ setCIdentAssigned $ declPostIdents post

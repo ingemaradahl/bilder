@@ -243,6 +243,11 @@ notAssigned cid =
   compileError (cIdentToPos cid) $
     printf "Variable \"%s\" used before assignment." (cIdentToString cid)
 
+externalInMainOnly ∷ CIdent → TCM a
+externalInMainOnly cid =
+  typeError (cIdentToPos cid) $
+    printf "Externals may only declared in main function"
+
 -- | Throw a type error
 typeError ∷ Position → String → TCM a
 typeError = absError TypeError

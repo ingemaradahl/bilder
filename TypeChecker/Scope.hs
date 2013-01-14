@@ -118,6 +118,7 @@ builtInFuns = fromListWith (++) $ evalState (mapM buildFuns (
       ("mod", map (\t → (t, [("v",t), ("a", TFloat)])) vecs),
       ("min", map (\t → (t, [("v",t), ("a", t), ("b", TFloat)])) vecs),
       ("max", map (\t → (t, [("v",t), ("a", t), ("b", TFloat)])) vecs),
+      ("mix", map (\t → (t, [("v",t), ("a", t), ("b", TFloat)])) vecs),
       ("clamp", map (\t → (t, [("v",t), ("a", TFloat)])) vecs),
       ("step", map (\t → (t, [("v",TFloat), ("a", t)])) vecs),
       ("smoothstep", map (\t → (t, [("v",TFloat), ("b", TFloat), ("a", t)])) vecs)
