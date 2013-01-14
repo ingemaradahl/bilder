@@ -95,8 +95,8 @@ renameFunction fun = do
   popScope
 
   return fun {
-      functionName = alias fun
-    , paramVars = paramVars'
+      --functionName = alias fun
+      paramVars = paramVars'
     , parameters = parameters'
     , statements = statements'
   }
@@ -207,10 +207,11 @@ renameStm (SFunDecl cid t px ps ss) = do
   addFunction fun
 
   fun' ← renameFunction fun
+  let fun'' = fun' { functionName = alias fun' }
 
   setCIdentAssigned cid
 
-  return $ SFunDecl (toCIdent fun') t' px (parameters fun') (statements fun')
+  return $ SFunDecl (toCIdent fun'') t' px (parameters fun'') (statements fun'')
 renameStm s = mapStmM renameStm s
 
 renameExp ∷ Exp → TCM Exp

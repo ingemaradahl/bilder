@@ -10,7 +10,7 @@ import Control.Monad.Trans.State
 import Control.Applicative hiding (empty)
 
 import Data.Tree
-import Data.Map (Map, elems, insertWith, empty)
+import Data.Map (Map, elems, insertWith, empty, fromList, toList)
 import Data.Foldable (fold)
 
 import Text.Printf
@@ -44,7 +44,7 @@ typeCheck ∷ Options → Tree (FilePath, AbsTree) → CError ([Warning],Source)
 typeCheck opts tree = do
   (sourceTree, st) ← runStateT
     (traverse checkFile tree >>= (\t → check t >> traverse rename t)) (buildEnv opts)
-  return (warnings st, fold (fmap strip sourceTree))
+  return (warnings st, renameFunctions (fold (fmap strip sourceTree)))
  where
   check srcTree = unless (rootLabel srcTree `exports` main) noEntryPoint
   rootFile = (fst . rootLabel) tree
@@ -57,6 +57,11 @@ typeCheck opts tree = do
     printf ("No entrypoint \"main\" of " ++
       "type Float,Float found in %s")
       rootFile
+
+renameFunctions ∷ Source → Source
+renameFunctions src = src {
+    Types.functions = fromList (map (\(_,fun) → (alias fun, fun { functionName = alias fun })) $ toList (Types.functions src))
+  }
 
 checkFile ∷ (FilePath, AbsTree) → [Tree Blob] → TCM Blob
 checkFile (file, tree) children = do

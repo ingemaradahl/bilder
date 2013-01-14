@@ -11,6 +11,8 @@ import Data.Map (lookup)
 import Data.Maybe (isJust, fromJust)
 import GHC.Exts (sortWith)
 
+import Text.Printf
+
 import Utils
 import CompilerTypes
 import FrontEnd.AbsGrammar
@@ -139,8 +141,10 @@ uncurryType t = t
 -- Try to find a match for applying the set of arguments to a function in the
 -- given list.
 tryApplyType ∷ [Function] → [Type] → Maybe Type
-tryApplyType funs args = if null matches
-  then Nothing
+tryApplyType funs args = if null legal
+  then if null matches
+    then Nothing
+    else error $ printf "Illegal partial application with function \"%s\". It is only possible to create functions of type Image." (functionName $ fst $ head matches)
   else do
     -- Apply as many arguments as possible (shortest list left after application)
     let (fun, args') = head $ sortWith snd matches
@@ -150,13 +154,14 @@ tryApplyType funs args = if null matches
  where
   matches = map (second fromJust) $
               filter (isJust . snd) $ zip funs (map (`partialApp` args) funs)
+  legal = filter (\(_,as) → length as == 2 || null as) matches
 
 tryApply ∷ [Function] → [Type] → Maybe Function
 tryApply funs args = if null matches
   then Nothing
   else Just $ fst $ head $ sortWith snd matches
  where
-  matches = map (second fromJust) $
+  matches = filter (\(_,as) → length as == 2 || null as) $ map (second fromJust) $
               filter (isJust . snd) $ zip funs (map (`partialApp` args) funs)
 
 -- Try to find a match where uncurrying the vector in the list might help with
