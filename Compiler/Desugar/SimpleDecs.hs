@@ -21,7 +21,7 @@ simpleDec ss = expandStm simpleDec ss
 
 newDec ∷ [Qualifier] → DeclPost → [Stm]
 newDec qs (Vars cids) = map (makeDec qs) cids
-newDec qs (DecAss cids tk ex) = map (makeDecAss qs tk ex) cids
+newDec qs (DecAss cids tk ex) = map (makeDec qs) (init cids) ++ [makeDecAss qs tk ex (last cids)]
 
 makeDec ∷ [Qualifier] → CIdent → Stm
 makeDec qs cid = SDecl (Dec qs (Vars [cid]))
