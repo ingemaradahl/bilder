@@ -268,3 +268,11 @@ setCIdentAssigned cid = do
 
 setAssigned ∷ String → TCM ()
 setAssigned s = setCIdentAssigned (CIdent ((0,0),s))
+
+denyExternals ∷ [Qualifier] → CIdent → TCM ()
+denyExternals qs cid = do
+  fun ← gets currentFunction
+  let funName = case fun of
+                  (TC.Function {}) → ident fun
+                  _ → "undefined"
+  when (funName /= "main" && isExternal qs) $ externalInMainOnly cid
