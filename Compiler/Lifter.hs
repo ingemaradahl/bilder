@@ -254,6 +254,7 @@ expVar (EIndex cid _) = do
 renameExpVars ∷ Map String String → Exp → Exp
 renameExpVars rm (EVar cid) = EVar (renameCIdent rm cid)
 renameExpVars rm (ECall cid es) = ECall (renameCIdent rm cid) (map (renameExpVars rm) es)
+renameExpVars rm (ECurryCall cid e t) = ECurryCall (renameCIdent rm cid) (renameExpVars rm e) t
 renameExpVars rm (EIndex cid e) = EIndex (renameCIdent rm cid) (renameExpVars rm e)
 renameExpVars rm e = mapExp (renameExpVars rm) e
 

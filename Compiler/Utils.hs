@@ -337,6 +337,7 @@ expVars = foldExp expVar []
   expVar ∷ [String] → Exp → [String]
   expVar p (ECall cid es) = concatMap expVars es ++ cIdentToString cid : p
   expVar p (EVar cid) = cIdentToString cid : p
+  expVar p (ECurryCall cid e _) = expVars e ++ cIdentToString cid : p
   expVar p (EIndex cid e) = expVars e ++ cIdentToString cid : p
   expVar p (EIndexDouble cid e1 e2) = expVars e1 ++ expVars e2 ++ cIdentToString cid : p
   expVar p _ = p
@@ -351,9 +352,11 @@ usedVars' = nub . gather' collect
   collect ∷ Exp → Writer [String] Exp
   collect e@(EVar cid) = tell [cIdentToString cid] >> return e
   collect e@(ECall cid es) = tell [cIdentToString cid] >> mapM_ collect es >> return e
+  collect e@(ECurryCall cid ei _) = tell [cIdentToString cid] >> collect ei >> return e
   collect e@(EIndex cid es) = tell [cIdentToString cid] >> collect es >> return e
   collect e@(EIndexDouble cid e1 e2) = tell [cIdentToString cid] >> collect e1 >> collect e2 >> return e
   collect e = mapExpM collect e
+
 
 -- }}}
 
