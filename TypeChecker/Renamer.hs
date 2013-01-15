@@ -71,7 +71,6 @@ renameBlob blob children = do
 
   aliases' ← gets (head . aliases)
 
-  --modify (\st → st { renamed = filename blob:renamed st})
   let src = Source
               (fromList (Prelude.map (\f → (alias f, f )) funs'))
               (Map.map (\v → runReader (replaceVarTDefs v) tdefs) variables')
@@ -95,7 +94,6 @@ renameFunction fun = do
   popScope
 
   return fun {
-      --functionName = alias fun
       paramVars = paramVars'
     , parameters = parameters'
     , statements = statements'

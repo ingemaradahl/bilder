@@ -147,22 +147,28 @@ tryApplyType funs args = if null legal
     else error $ printf "Illegal partial application with function \"%s\". It is only possible to create functions of type Image." (functionName $ fst $ head matches)
   else do
     -- Apply as many arguments as possible (shortest list left after application)
-    let (fun, args') = head $ sortWith snd matches
+    let (fun, args') = head $ sortWith snd legal
     if null args'
       then Just (retType fun) -- Function swallowed all arguments
       else Just $ TFun (retType fun) args' -- Function partially applied
  where
   matches = map (second fromJust) $
               filter (isJust . snd) $ zip funs (map (`partialApp` args) funs)
-  legal = filter (\(_,as) → length as == 2 || null as) matches
+  legal = filter (\(_,as) → allFloat as && (length as == 2 || null as)) matches
 
 tryApply ∷ [Function] → [Type] → Maybe Function
-tryApply funs args = if null matches
-  then Nothing
-  else Just $ fst $ head $ sortWith snd matches
+tryApply funs args = if null legal
+  then if null matches
+    then Nothing
+    else error $ printf "Illegal partial application with function \"%s\". It is only possible to create functions of type Image." (functionName $ fst $ head matches)
+  else do
+    -- Apply as many arguments as possible (shortest list left after application)
+    let (fun, _) = head $ sortWith snd legal
+    Just fun
  where
-  matches = filter (\(_,as) → length as == 2 || null as) $ map (second fromJust) $
+  matches = map (second fromJust) $
               filter (isJust . snd) $ zip funs (map (`partialApp` args) funs)
+  legal = filter (\(_,as) → allFloat as && (length as == 2 || null as)) matches
 
 -- Try to find a match where uncurrying the vector in the list might help with
 -- finding a match in the list of functions.
@@ -256,6 +262,8 @@ compNumType tl tr | tl == tr = Just tr
                   | isVec tr = mayhaps (tl == tr || tl == TFloat) tr
                   | otherwise = Nothing
 
+allFloat ∷ [Type] → Bool
+allFloat ts = not $ any (/=TFloat) ts
 -- }}}
 
 exports ∷ Blob → Function → Bool
