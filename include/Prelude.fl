@@ -1,2 +1,4 @@
 typedef Color = Vec4;
+typedef RGB = Vec3;
+typedef Point = Vec2;
 typedef Image = Float -> Float -> Color;
