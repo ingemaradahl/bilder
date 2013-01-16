@@ -9,6 +9,7 @@ import Control.Monad.Reader
 
 import Data.Tree
 import Data.Map as Map hiding (fold)
+import Data.Maybe (isJust)
 
 import TypeChecker.TCM
 import TypeChecker.TCM.Utils hiding (initScope)
@@ -66,7 +67,7 @@ renameBlob blob children = do
   functions' ← mapM renameFunction annotFuns
 
   -- replace all TDefined with the actual type.
-  let tdefs = Prelude.map (Blob.typedefs . snd3) $ concatMap flatten children
+  let tdefs = Blob.typedefs blob : Prelude.map (Blob.typedefs . snd3) (concatMap flatten children)
       funs' = Prelude.map (\f → runReader (replaceFunTDefs f) tdefs) functions'
 
   aliases' ← gets (head . aliases)
@@ -142,7 +143,7 @@ replaceExp e = mapExpM replaceExp e
 replaceType ∷ Type → Reader [Map String Typedef] Type
 replaceType (TDefined (TypeIdent (_, i))) = do
   ms ← ask
-  case Prelude.map (Map.lookup i) ms of
+  case Prelude.filter isJust $ Prelude.map (Map.lookup i) ms of
     [] → error $ "could not find any typedef for " ++ show i
     (Just t:_) → return $ typedefType t
 replaceType (TArray t) = replaceType t

@@ -70,8 +70,8 @@ checkFile (file, tree) children = do
   initScope children
   pushScope
 
-  checkTopDecls tree
   addTypedefs tree
+  checkTopDecls tree
   addFunctions tree
 
   -- Return blob with new annotated functions
