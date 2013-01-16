@@ -95,7 +95,7 @@ foldExpM f p e@(EMemberCall ei _ es) = foldM (foldExpM f) p (ei:es) >>= flip f e
 foldExpM f p e@(ECall _ es) = foldM (foldExpM f) p es >>= flip f e
 foldExpM f p e@(ETypeCall _ es) = foldM (foldExpM f) p es >>= flip f e
 foldExpM f p e@(EVar {}) = f p e
-foldExpM f p e@(EIndex _ ei) = foldExpM f p ei >>= flip f e
+foldExpM f p e@(EIndex el er) = foldM (foldExpM f) p [el,er] >>= flip f e
 foldExpM f p e@(EFloat {}) = f p e
 foldExpM f p e@(EInt {}) = f p e
 foldExpM f p e@ETrue = f p e
@@ -187,7 +187,7 @@ mapExpM f (EMember e cid) = EMember <$> f e <*> pure cid
 mapExpM f (EMemberCall el cid es) = EMemberCall <$> f el <*> pure cid <*> mapM f es
 mapExpM f (ECall cid es) = ECall cid <$> mapM f es
 mapExpM f (ETypeCall t es) = ETypeCall t <$> mapM f es
-mapExpM f (EIndex cid e) = EIndex cid <$> f e
+mapExpM f (EIndex er el) = EIndex <$> f er <*> f el
 mapExpM _ e@(EVar {}) = pure e
 mapExpM _ e@(EFloat {}) = pure e
 mapExpM _ e@(EInt {}) = pure e
