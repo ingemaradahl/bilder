@@ -162,7 +162,7 @@ divByRes (ex:ey:_) = [EDiv ex fl_Resolution_x, EDiv ey fl_Resolution_y]
 -- Worlds ugliest hack below, don't read
 cleanBuiltin ∷ Exp → Exp
 cleanBuiltin (ECall s es) | matchesBuiltin s =
-  ECall (drop 5 s) $ map (mapExp cleanBuiltin) es
+  ECall (drop 5 s) $ map cleanBuiltin es
 cleanBuiltin e = mapExp cleanBuiltin e
 
 matchesBuiltin ∷ String → Bool
