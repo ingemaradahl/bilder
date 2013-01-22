@@ -37,7 +37,7 @@ setAlias variable target = modify (\st → st {
   images = Map.insert variable target (head (images st)):tail (images st)})
 
 increment ∷ String → State Count ()
-increment s = modify (\st → st { samples = Map.insertWith (+) s 1 (samples st)}) 
+increment s = modify (\st → st { samples = Map.insertWith (+) s 1 (samples st)})
 
 sampleCount ∷ Shader → Int
 sampleCount shd = evalState (countSamples mainFun) (emptyState shd)
@@ -57,6 +57,9 @@ countStm (SDeclAss v (EVar s)) | variableType v == TSampler =
 countStm (SDeclAss v _) | variableType v == TSampler =
   setAlias (variableName v) "unknown" >> -- Find out which sampler from exp?
   return 0
+countStm (SFor {}) = return 9001
+countStm (SDoWhile {}) = return 9001
+countStm (SWhile {}) = return 9001
 countStm (SExp (EAss (EVar var) (EVar samp))) = do
   aliases ← gets (head . images)
   case Map.lookup var aliases of
