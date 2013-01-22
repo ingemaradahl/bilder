@@ -9,7 +9,6 @@ import Control.Monad.Trans.State
 import Control.Monad.Error
 
 import Data.Tree
-import Data.List ((\\))
 
 import FrontEnd.AbsGrammar
 
@@ -105,16 +104,13 @@ findTree f fs =
 
 parseNetTree ∷ (String, AbsTree) → [(String, AbsTree)] → PM (Tree (FilePath, AbsTree))
 parseNetTree (f, t) rest = do
-  imported ← addFile f
-
-  let imports = map (`findTree` rest) (filterImports t \\ imported)
+  let imports = map (`findTree` rest) (filterImports t)
   liftM (Node (f, t)) (mapM (`parseNetWithPrelude` rest) imports)
 
 -- | Recursively parse the files to be imported
 parseTree ∷ FilePath → PM (Tree (FilePath, AbsTree))
 parseTree f = do
-  imported ← addFile f
   t ← readAndProcessFile f >>= parse
-  liftM (Node (f, t)) (mapM parseWithPrelude (map (dir </>) (filterImports t) \\ imported))
+  liftM (Node (f, t)) (mapM (parseWithPrelude . (dir </>)) (filterImports t))
  where
   dir = takeDirectory f
