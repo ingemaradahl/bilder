@@ -45,12 +45,12 @@ inferExp (ECond ec tkq etrue tkc efalse) = do
   tefalse ← inferExp efalse
   unless (tetrue == tefalse) $ typeMismatch (tkpos tkc) tetrue tefalse
   return tetrue
-inferExp (EAss m@(EMember ie _) tk e) = do
-  setExpAssigned ie
-  memType ← inferExp m
-  valueType ← inferExp e
-  unless (memType == valueType) $ expTypeMismatch tk memType valueType
-  return valueType
+inferExp (EAss m@(EMember {}) tk e) = inferNonVarAssignment tk m e
+inferExp (EAssAdd m@(EMember {}) tk e) = inferNonVarAssignment tk m e
+inferExp (EAssSub m@(EMember {}) tk e) = inferNonVarAssignment tk m e
+inferExp (EAssMul m@(EMember {}) tk e) = inferNonVarAssignment tk m e
+inferExp (EAssDiv m@(EMember {}) tk e) = inferNonVarAssignment tk m e
+inferExp (EAssMod m@(EMember {}) tk e) = inferNonVarAssignment tk m e
 inferExp (EAss (EVar cid) tk e) = inferAssignment tk cid e
 inferExp (EAssAdd (EVar cid) tk e) = inferAssignment tk cid e
 inferExp (EAssSub (EVar cid) tk e) = inferAssignment tk cid e
@@ -187,6 +187,15 @@ inferAssignment tk cid e = do
   case compAssType targetType valueType of
     Just _ → return targetType
     Nothing → expTypeMismatch tk targetType valueType
+
+inferNonVarAssignment ∷ Token a => a → Exp → Exp → TCM Type
+inferNonVarAssignment tk m@(EMember ie _) e = do
+  setExpAssigned ie
+  memType ← inferExp m
+  valueType ← inferExp e
+  case compAssType memType valueType of
+    Just _  → return valueType
+    Nothing → expTypeMismatch tk memType valueType
 
 inferBoolexp ∷ Token a => a → Exp → Exp → TCM Type
 inferBoolexp tk el er = do
