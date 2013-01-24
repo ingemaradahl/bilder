@@ -128,7 +128,7 @@ pixelMode s = s { functions = Map.map (\f → runReader (pixelModeF f) (f, s)) (
 
 pixelModeF ∷ Function → Reader (Function, Shader) Function
 pixelModeF f | pixelwise f = do
-  let stmHead = mkAss (leave 2 (parameters f))
+  let stmHead = if functionName f /= "main" then mkAss (leave 2 (parameters f)) else []
   stmTail ← mapM (mapStmExpM rewriteExits) (statements f)
   return $ f { statements = stmHead ++ stmTail }
              | otherwise = return f
