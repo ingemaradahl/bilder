@@ -63,6 +63,8 @@ renameBlob blob children = do
   annotFuns ← mapM annotateFunction $ concat $ elems (Blob.functions blob)
   mapM_ addFunction annotFuns
 
+  mapM_ (mapM_ (setAssigned . functionName)) (elems (Blob.functions blob))
+
   variables' ← renameVariables $ Blob.variables blob
   functions' ← mapM renameFunction annotFuns
 
