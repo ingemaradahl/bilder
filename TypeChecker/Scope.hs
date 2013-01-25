@@ -82,7 +82,8 @@ isAssigned n (s:ss)
 setAssigned ∷ String → [Scope] → [Scope]
 setAssigned _ [] = []
 setAssigned n ss
-  | True `elem` map (\s → n `elem` (keys . variables) s) ss = (head ss) { assigned = n : assigned (head ss) } : setAssigned n (tail ss)
+  | True `elem` map (\s → n `elem` (keys . variables) s ++ (keys . functions) s) ss = (head ss)
+    { assigned = n : assigned (head ss) } : setAssigned n (tail ss)
   | otherwise = ss
 
 builtInVars ∷ Map String Variable
