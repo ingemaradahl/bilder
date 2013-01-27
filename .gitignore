@@ -1,0 +1,9 @@
+*.sw[pon]
+*.hi
+*.o
+src/bin
+src/FrontEnd/*Grammar*
+src/FrontEnd/*GLSL*
+src/FrontEnd/ErrM.hs
+src/tags
+src/TAGS
