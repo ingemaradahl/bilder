@@ -74,9 +74,10 @@ extractFileName line = if null ms then Nothing else Just $ head ms
 -- | Preprocesses given a line of source code
 processLine ∷ (Int, String) → PM (Maybe String)
 processLine (n, line) = do
+  let line' = map (\c → if c == '\t' then ' ' else c) line
   modify (\s → s { currentLine = n })
-  if isDirective line
-    then case extractDeclarative line of
+  if isDirective line'
+    then case extractDeclarative line' of
       ("define", val)  → define val
       ("undef", name)  → undefine name
       ("ifdef", name)  → isDefined name >>= pushAction
@@ -84,12 +85,12 @@ processLine (n, line) = do
       ("else", _)      → popAction >>= (pushAction . not)
       ("endif", _)     → void popAction
       (decl, _) → void $ warning (printf "unknown declarative: %s." decl)
-      >> return (Just $ "//" ++ line ++ "\n")
+      >> return (Just $ "//" ++ line' ++ "\n")
     else do
       ifs ← gets ifStack
       if all (==True) ifs
-        then liftM (Just . (++ "\n")) (subMacros line)
-        else return $ Just ("//" ++ line ++ "\n")
+        then liftM (Just . (++ "\n")) (subMacros line')
+        else return $ Just ("//" ++ line' ++ "\n")
  where
     isDirective ∷ String → Bool
     isDirective = (=="#") . take 1 . strip
