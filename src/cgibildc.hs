@@ -37,11 +37,13 @@ import Control.Monad
 import Control.Monad.Writer
 import Control.Monad.Reader
 import System.IO
+import System.Exit
 import qualified Data.ByteString.Lazy.Char8 as BS
 import NetTypes
 
 import Data.Char
 import qualified Data.Map as Map
+import Data.Maybe (isNothing)
 
 import Text.JSON
 
@@ -145,11 +147,14 @@ handleException e = return $ BS.pack $
 main ∷ IO ()
 main = do
   env ← getCGIVars
-  hSetBinaryMode stdin True
-  inp ← BS.hGetContents stdin
-  outp ← Control.Exception.catch (runCGIEnvFPS env inp (runCGIT' handleRequest)) handleException
-  BS.hPut stdout outp
-  hFlush stdout
+  if isNothing $ Prelude.lookup "REMOTE_ADDR" env
+    then hPutStrLn stderr "cgicomp needs to be run in a CGI environment." >> exitFailure
+    else do
+      hSetBinaryMode stdin True
+      inp ← BS.hGetContents stdin
+      outp ← Control.Exception.catch (runCGIEnvFPS env inp (runCGIT' handleRequest)) handleException
+      BS.hPut stdout outp
+      hFlush stdout
 
 runCGIT' :: CGI CGIResult -> CGIRequest -> IO (Headers, CGIResult)
 runCGIT' (CGIT c) r = do

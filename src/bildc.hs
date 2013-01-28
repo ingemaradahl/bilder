@@ -52,7 +52,7 @@ parseArgs [] = Nothing
 parseArgs s  = Just $ Options $ head s
 
 printHelp ∷ IO ()
-printHelp = putStrLn "HELP"
+printHelp = putStrLn "usage: comp <filter>"
 
 printResult ∷ CError JSValue → IO ()
 printResult r = case r of
