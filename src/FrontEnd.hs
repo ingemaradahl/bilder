@@ -34,6 +34,7 @@ import FrontEnd.AbsGrammar
 
 import Compiler hiding (options, buildEnv)
 import CompilerError
+import CompilerTypes
 
 import Parser
 import Preprocessor
@@ -68,8 +69,8 @@ parseNetWithPrelude f rest = do
   return $ Node (rootLabel t) $ p:subForest t
 
 -- | Filter out the import statements from the syntax tree
-filterImports ∷ AbsTree → [FilePath]
-filterImports (AbsTree ts) = [ f | Import _ f ← ts ]
+filterImports ∷ AbsTree → [Location]
+filterImports (AbsTree ts) = [ (f,p) | Import (TkImport (p,_)) f ← ts ]
 
 -- | Parses tree and adds prelude at the top level
 parseWithPrelude ∷ FilePath → PM (Tree (FilePath, AbsTree))
@@ -116,21 +117,24 @@ parseNet fs = do
 
   parseNetWithPrelude main pfs
 
-findTree ∷ FilePath → [(String, AbsTree)] → (String, AbsTree)
-findTree f fs =
+findTree ∷ Location → [(String, AbsTree)] → PM (String, AbsTree)
+findTree (f,p) fs =
   case filter ((==f). fst) fs of
-    [] → error $ "no such file found: " ++ f
-    rs → head rs
+    [] → do
+      cf ← gets currentFile
+      throwError $ CompileError p cf ("no such file found: " ++ f)
+    rs → return $ head rs
 
 parseNetTree ∷ (String, AbsTree) → [(String, AbsTree)] → PM (Tree (FilePath, AbsTree))
 parseNetTree (f, t) rest = do
-  let imports = map (`findTree` rest) (filterImports t)
+  modify (\s → s { currentFile = f })
+  imports ← mapM (`findTree` rest) (filterImports t)
   liftM (Node (f, t)) (mapM (`parseNetWithPrelude` rest) imports)
 
 -- | Recursively parse the files to be imported
 parseTree ∷ FilePath → PM (Tree (FilePath, AbsTree))
 parseTree f = do
   t ← readAndProcessFile f >>= parse
-  liftM (Node (f, t)) (mapM (parseWithPrelude . (dir </>)) (filterImports t))
+  liftM (Node (f, t)) (mapM (parseWithPrelude . (dir </>) . fst) (filterImports t))
  where
   dir = takeDirectory f

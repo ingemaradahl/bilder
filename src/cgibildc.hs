@@ -148,7 +148,7 @@ main ∷ IO ()
 main = do
   env ← getCGIVars
   if isNothing $ Prelude.lookup "REMOTE_ADDR" env
-    then hPutStrLn stderr "cgicomp needs to be run in a CGI environment." >> exitFailure
+    then hPutStrLn stderr "cgibildc needs to be run in a CGI environment." >> exitFailure
     else do
       hSetBinaryMode stdin True
       inp ← BS.hGetContents stdin
