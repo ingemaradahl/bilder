@@ -27,7 +27,13 @@ These (except ghc) and some other stuff needed are
 available in the Cabal:
 
     cabal update
-    cabal install bnfc happy alex json hashable regex-posix regex-compat
+    cabal install bnfc happy alex json hashable regex-posix regex-compat cgi
+
+To compile, just run make:
+
+    make
+
+### Cabal
 
 If you don't have cabal-install installed, you can get it either from your
 package manager, or at
@@ -37,10 +43,6 @@ To install from the .tar.gz, run
     sh bootstrap.hs
     cabal update
     cabal install cabal-install
-
-To compile, just run make:
-
-    make
 
 ## Precompiled binaries
 Freshly baked binaries can be found for 32-bit and 64-bit linux architectures.
