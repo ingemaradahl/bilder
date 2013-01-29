@@ -63,8 +63,8 @@ parseNetHead os fs = runCErrorT $ evalStateT (parseNet fs) (buildEnv os)
 -- | Parses net tree and adds prelude at the top level
 parseNetWithPrelude ∷ (String, AbsTree) → [(String, AbsTree)] → PM (Tree (FilePath, AbsTree))
 parseNetWithPrelude f rest = do
-  -- TODO: Add PATH-like stuff for include/.
-  p ← parseTree "include/Prelude.bild"
+  pf ← gets (preludeFile . options)
+  p ← parseTree pf
   t ← parseNetTree f rest
   return $ Node (rootLabel t) $ p:subForest t
 
@@ -75,8 +75,8 @@ filterImports (AbsTree ts) = [ (f,p) | Import (TkImport (p,_)) f ← ts ]
 -- | Parses tree and adds prelude at the top level
 parseWithPrelude ∷ FilePath → PM (Tree (FilePath, AbsTree))
 parseWithPrelude f = do
-  -- TODO: Add PATH-like stuff for include/.
-  p ← parseTree "include/Prelude.bild"
+  pf ← gets (preludeFile . options)
+  p ← parseTree pf
   t ← parseTree f
   return $ Node (rootLabel t) $ p:subForest t
 

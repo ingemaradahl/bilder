@@ -3,7 +3,7 @@ SRC = src
 
 .PHONY: both all clean dependencies
 
-all: $(BIN)/cgibildc $(BIN)/cgibildc
+all: $(BIN)/bildc $(BIN)/cgibildc
 
 dependencies:
 	./check_cmds.sh

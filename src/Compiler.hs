@@ -58,7 +58,8 @@ import Text.JSON
 
 
 data Options = Options {
-  inputFile ∷ FilePath
+  inputFile ∷ FilePath,
+  preludeFile ∷ FilePath
 }
   deriving (Show)
 

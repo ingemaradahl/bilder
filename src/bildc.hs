@@ -31,6 +31,8 @@ import FrontEnd
 import Compiler hiding (compile)
 import TypeChecker
 
+import Control.Monad.State
+
 import qualified Data.Map as Map
 import Data.Maybe
 
@@ -47,9 +49,14 @@ printWarnings ∷ [Warning] → IO ()
 printWarnings ws = putStrLn $ unlines $ map (\((file, (l,c)), msg) →
   printf "Warning: %s:%s, column %s\n  %s" file (show l) (show c) msg) ws
 
-parseArgs ∷ [String] → Maybe Options
-parseArgs [] = Nothing
-parseArgs s  = Just $ Options $ head s
+parseArgs ∷ [String] → State Options Bool
+parseArgs [] = return False
+parseArgs ("-P":fp:rest) = do
+  modify (\s → s { preludeFile = fp })
+  parseArgs rest
+parseArgs (fp:_) = do
+  modify (\s → s { inputFile = fp })
+  return True
 
 printHelp ∷ IO ()
 printHelp = putStrLn "usage: bildc <filter>"
@@ -80,5 +87,9 @@ printShaders (JSArray os) = mapM_ printShaders os
 printShaders o = error $ "what: " ++ show o
 
 main ∷ IO ()
-main = fmap parseArgs getArgs >>= maybe printHelp compile
+main = do
+  args ← getArgs
+  case runState (parseArgs args) (Options "" "include/Prelude.bild") of
+    (False, _) → printHelp
+    (_, os) → compile os
 

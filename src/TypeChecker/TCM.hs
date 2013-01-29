@@ -35,7 +35,7 @@ type TCM a = StateT Environment CError a
 
 -- | Only used during interpretation runs
 instance (Show a) => Show (TCM a) where
-  show res = case runStateT res $ buildEnv Options { inputFile = "DEBUG" } of
+  show res = case runStateT res $ buildEnv Options { inputFile = "DEBUG", preludeFile = "include/Prelude.bild" } of
     Pass (v,s) → printf "%s\n%s" (show v) (show s)
     Fail e → show e
 

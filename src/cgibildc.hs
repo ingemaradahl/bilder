@@ -28,6 +28,10 @@ import Compiler hiding (compile)
 import Control.DeepSeq
 import Control.Exception
 
+import Control.Monad.State
+
+import System.Environment
+
 import TypeChecker
 
 import Network.CGI
@@ -94,16 +98,23 @@ pair ((n,d):ss) =
 parseFiles ∷ [(String, String)] → [NetFile]
 parseFiles ss = map (uncurry NetFile) $ Map.elems $ pair ss
 
+parseArgs ∷ [String] → State Options Bool
+parseArgs [] = return True
+parseArgs ("-P":fp:rest) = do
+  modify (\s → s { preludeFile = fp })
+  parseArgs rest
+parseArgs (_:rest) = parseArgs rest
+
 -- | Compiles a list of Files to a JSON string or an error.
 compileFiles ∷ [NetFile] → IO String
 compileFiles fs = do
+  args ← getArgs
+  let os = execState (parseArgs args) (Options "zeh cloud" "include/Prelude.bild")
   p ← parseNetHead os fs
   let warnBlobs = p >>= typeCheck os
   case warnBlobs of
     Pass (warns, blobs) → formResult warns (compileTree os blobs)
     Fail e → return $ encode $ Compiled [] (Just e) (makeObj [])
- where
-  os = Options "zeh cloud, awh yeah"
 
 instance JSON CompilerError where
   showJSON (SyntaxError (l,c) f s) = absJSON l c f "syntax" s

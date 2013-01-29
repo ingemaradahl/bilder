@@ -38,5 +38,4 @@ cgibildc: $(FL_FILES) $(GLSL_FILES) $(OBJS)
 .PHONY: clean
 clean:
 	-rm -f FrontEnd/AbsGLSL.* FrontEnd/PrintGLSL.* FrontEnd/DocGrammar.* FrontEnd/LexGrammar.* FrontEnd/ParGrammar.* FrontEnd/LayoutGrammar.* FrontEnd/SkelGrammar.* FrontEnd/PrintGrammar.* FrontEnd/TestGrammar.* FrontEnd/AbsGrammar.* FrontEnd/TestGrammar FrontEnd/ErrM.* FrontEnd/SharedString.* FrontEnd/Grammar.dtd FrontEnd/Instances.o FrontEnd/Instances.hi $(OBJS) $(HIS)
-	-rm -f fl_obj glsl_obj
 	-rm -f bildc cgibildc
